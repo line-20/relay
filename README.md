@@ -37,19 +37,28 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 
 ## What's in the box
 
-**Commands** (the workflow loop):
+**Drive the loop with these** — the four commands you actually type, plus one-time setup:
 
 | Command | What it does |
 |---|---|
-| `/relay-init` | Scaffold the board + handover/brief dirs in a repo (run once) |
+| `/relay-init` | Scaffold the board + handover/brief dirs in a repo (run **once**, at setup) |
 | `/brainstorm` | Turn a rough idea into a shaped brief on the board — interrogate it, weigh alternatives, never builds |
 | `/next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
 | `/continue` | Resume an in-flight thread from its handover |
-| `/review-pr` | Fan out domain specialists over a PR, merged into one report |
-| `/fix-pr-review` | Re-verify each review finding against the code, fix, tick off |
 | `/wrapup` | End-of-session loop: test → PR + review → fix → merge → handover |
-| `/handover` | Write a cold-start handover, update the board, commit both to main |
-| `/start-new` | End-of-session reset: tidy worktrees, archive old handovers/reviews |
+
+**Run by the loop** — `/wrapup` composes these for you. You *can* call them standalone, but in
+the normal flow you don't:
+
+| Command | Composed by | Standalone only when… |
+|---|---|---|
+| `/review-pr` | `/wrapup` Phase 3 | you want a review without shipping |
+| `/fix-pr-review` | `/wrapup` Phase 4 | you're working an existing review report |
+| `/handover` | `/wrapup` Phase 6 | you're handing off **mid-thread**, without shipping |
+
+> `/wrapup` also does the end-of-session housekeeping (archiving superseded handovers and old
+> reviews, pruning dead worktree entries) as part of its handover step — there's no separate
+> cleanup command to remember.
 
 **Review agents** (dispatched by `/review-pr`): backend, frontend, ui-ux, api-architect,
 dbms, test-engineer, security, privacy, i18n, solution-architect. All stack-agnostic — they

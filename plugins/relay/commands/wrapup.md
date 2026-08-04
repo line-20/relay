@@ -73,8 +73,10 @@ not — so a merged schema/dependency change can leave the next session hitting 
 3. **Best-effort and NON-fatal.** If the local environment isn't running, note it and
    continue to handover rather than stopping.
 
-## Phase 6 — Handover
+## Phase 6 — Handover (and end-of-session tidy)
 The PR is now merged, so proceed directly into the handover. Run `/handover` end to end:
 its Step 0 guard passes (PR is MERGED), it generates the cold-start handover, commits it to
-main, and prints the compact summary. Then tear down any throwaway test fixture. That closes
-the session.
+main, prints the compact summary, **and does the end-of-session housekeeping** — its Step 4.5
+archives superseded handovers + old PR reviews, and its Step 6 releases this thread's worktree
+and prunes dead worktree entries. There is no separate cleanup command; this is it. Then tear
+down any throwaway test fixture. That closes the session.

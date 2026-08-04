@@ -119,32 +119,26 @@ The end-of-session loop, in order, stopping at any gate that needs you:
 `auth/rate-limit` is done. The board shows the next `auth` item as 🔜. Tomorrow's `/next`
 will surface it.
 
-## The next morning: tidy up
+## Housekeeping happens on its own
 
-Over a week you've accumulated finished worktrees and a pile of old handovers.
-
-```
-/start-new
-```
-
-Relay lists every worktree with its branch, age, and whether it's safe to remove. It
-auto-removes only the provably-safe ones (merged + clean + unlocked), **reports** the risky
-ones and asks before touching them (a sibling session might be live in one), and archives
-handovers the board no longer references and PR reviews past the newest 20. Nothing is
-deleted — git keeps it all.
-
-Then it reminds you to `/clear`, because a command can't clear its own context.
+Notice there was no "clean up" step. That's deliberate: the `/wrapup` you just ran archived
+`auth/rate-limit`'s now-superseded handover, trimmed old PR reviews past the newest 20, and
+pruned dead worktree entries — all folded into its handover step, on `main`, nothing deleted
+(git keeps it all). The one thing it *won't* do is force-remove a **sibling** session's
+worktree; if a finished one is lying around it just names it and hands you the one-liner, so
+it can never clobber a session that's still live. There's no separate cleanup command to
+remember.
 
 ---
 
 ## The shape of it
 
 The ship path is three commands — brainstorm the idea, start it, wrap it up (`/wrapup` runs
-the review, the merge, **and the handover** for you at the end):
+the review, the merge, the handover, **and the tidy-up** for you at the end):
 
 ```
-/brainstorm ──► /next ──► build in worktree ──► /wrapup ──► merged + handed off ──► /start-new (weekly)
-   idea →                                        test → review → merge → handover
+/brainstorm ──► /next ──► build in worktree ──► /wrapup ──► merged, handed off & tidied
+   idea →                                        test → review → merge → handover → archive
    brief on board
 ```
 

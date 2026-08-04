@@ -105,7 +105,8 @@ nothing about your last one, and it doesn't need to. That's the point.
 - **Starting fresh?** `/next` — pick from the board.
 - **Picking up a thread?** `/continue` — resume from its handover.
 - **Done for now?** `/wrapup` (to ship) or `/handover` (to hand off mid-thread).
-- **Cleaning up?** `/start-new` — tidy stale worktrees and archive old notes.
+- **Cleaning up?** Nothing to run — `/wrapup` archives old notes and prunes dead worktrees as
+  part of its handover step.
 
 Next: **[the-board-model.md](the-board-model.md)** — the one mental model that makes all of
 this hang together.

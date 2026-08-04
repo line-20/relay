@@ -4,6 +4,10 @@ argument-hint: "[optional focus, e.g. 'health monitoring metering']"
 allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Read, Write
 ---
 
+> **Run by the loop.** `/wrapup` calls this for you (Phase 6) at the end of a shipped session.
+> Invoke it standalone only to hand off **mid-thread** — when you're stopping *without*
+> shipping and want a cold session (`/continue`) to resume later.
+
 Produce a self-contained prompt that a FRESH session — with no access to this
 conversation — can act on immediately to begin the next phase, WITHOUT needing to
 re-research the state of the project.
@@ -132,6 +136,27 @@ say so — both files are already correct locally, so nothing is lost and the us
 commit them. The handover stays untracked on the current feature branch until main
 propagates; that's expected.
 
+## Step 4.5 — Tidy the record (archive superseded notes)
+`/handover` and `/review-pr` mint a new file every session, so `relay/handover/` and
+`relay/pr-reviews/` grow without bound. Since you've just synced with `main` and are already
+committing there, sweep the **superseded** files into `archive/` in the same breath — nothing
+is deleted, git keeps full history, so this is always safe and reversible. **Skip this step if
+Step 4's push FAILED** (you're not synced with main; don't touch the record).
+
+The rule is "keep only what's still live":
+- **Handovers** — the board's *Open threads* table is the source of truth. Archive every
+  `relay/handover/next-*.md` on main whose basename is **not** linked from `relay/board.md`
+  (the one you just wrote IS linked, so it stays). Keep the ones the board still points at.
+- **PR reviews** — a review doc is consumed at merge time. Keep the **20 most recent**
+  `relay/pr-reviews/*.md` and archive the rest.
+
+Do it on `main` with the same temp-index pattern as Step 4 (no branch switch). Refresh from
+main, compute the moves, and commit them as one archival commit — `git read-tree FETCH_HEAD`,
+stage the renames into `relay/handover/archive/` and `relay/pr-reviews/archive/` in the temp
+index, `write-tree`, `commit-tree -p FETCH_HEAD`, push to `main`. If nothing qualifies, skip
+the commit. Report a one-line count (e.g. "archived 3 handovers, 5 reviews") or say "nothing
+to archive".
+
 ## Step 5 — Print a COMPACT terminal summary
 Do NOT paste the full handover into the terminal. Print only a short summary plus the
 open questions:
@@ -185,5 +210,15 @@ dirty/unmerged tree, prefer it — it's self-protecting):
 - **In flight** (unmerged — you handed over mid-thread) → keep the worktree/branch's work
   but drop any lock so the next `/continue` isn't blocked. Board `Owner = —` alone is NOT
   enough — a concurrent-session guard keys off the live process, not the board text.
+
+**Sibling worktrees — prune dead entries, REPORT the rest, never remove another session's.**
+Other sessions may own live worktrees with uncommitted work, and a forced removal has no undo,
+so this is report-only:
+- `git worktree prune` — drops administrative entries for worktree dirs already deleted by
+  hand. Safe; touches no live tree.
+- Then, if any *other* worktree is **merged into main AND has a clean tree** (a finished thread
+  whose session ended without releasing it), **name it and suggest the one-liner** to remove it
+  (`git worktree remove <path>`) — but do NOT run it. A dirty or unmerged sibling may be a live
+  session's work; leave it and say nothing beyond noting it exists.
 
 Then remind the user to `/clear` this session before the cold one runs `/continue`.

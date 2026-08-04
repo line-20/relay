@@ -3,6 +3,9 @@ description: Review a PR (or the current branch) with domain specialists (fronte
 argument-hint: "[pr-number]   # omit to review the current branch"
 ---
 
+> **Run by the loop.** `/wrapup` calls this for you (Phase 3). Invoke it standalone only when
+> you want a review *without* the rest of the ship loop — e.g. a review pass mid-thread.
+
 Review PR $ARGUMENTS. If no number was given, review the current branch instead (use that
 everywhere `$PR` appears below).
 

@@ -7,6 +7,22 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.3.0
+
+**Changed**
+- **Command tiers made explicit.** The README now separates the commands you *drive* the loop
+  with (`/relay-init`, `/brainstorm`, `/next`, `/continue`, `/wrapup`) from the ones the loop
+  *composes* (`/review-pr`, `/fix-pr-review`, `/handover`) — the latter carry an in-file note
+  that they're normally run by `/wrapup` and standalone only when you specifically need one.
+
+**Removed**
+- **`/start-new`** is gone. Its jobs were folded into `/handover` (which `/wrapup` runs): a new
+  Step 4.5 archives superseded handovers + old PR reviews into `archive/`, and Step 6 now also
+  prunes dead worktree entries. End-of-session housekeeping now happens automatically at the
+  end of every `/wrapup` — there's no separate cleanup command to remember. The one behaviour
+  change: a finished **sibling** worktree is now *reported* for you to remove, never
+  force-removed, so the loop can't clobber another live session's tree.
+
 ## 0.2.0
 
 **Added**

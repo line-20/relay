@@ -3,6 +3,9 @@ description: Read the latest PR review, re-verify each finding against the curre
 allowed-tools: Bash(ls:*), Bash(cat:*), Bash(gh pr diff:*), Bash(git:*), Bash(pnpm:*), Bash(npm:*), Read, Edit, Write, Glob, Grep
 ---
 
+> **Run by the loop.** `/wrapup` calls this for you (Phase 4). Invoke it standalone only when
+> you're working an existing review report outside a full wrapup.
+
 Work through the PR review report and fix what's real. Target: $ARGUMENTS (a report filename, or empty = use the most recent file in relay/pr-reviews/).
 
 ## Step 1 — Load

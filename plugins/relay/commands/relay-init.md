@@ -100,7 +100,8 @@ understands the convention:
 - **`relay/pr-reviews/`** — one merged review report per PR.
 
 Commands: `/brainstorm` (shape an idea) · `/next` (what to work on) · `/continue` (resume a thread) · `/review-pr` ·
-`/fix-pr-review` · `/wrapup` (test→review→merge→handover) · `/handover` · `/start-new` (reset).
+`/wrapup` (test→review→merge→handover→tidy). `/review-pr`, `/fix-pr-review`, `/handover` are
+run by `/wrapup` — call them standalone only when you need one on its own.
 ```
 
 ## Step 6 — Commit and report

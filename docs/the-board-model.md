@@ -82,9 +82,10 @@ touches it follows the same rule: **start from `main`'s copy, make one surgical 
 just that.** Never overwrite the whole board from stale local state — you'd wipe a parallel
 session's row. `/handover` refreshes from `FETCH_HEAD` before editing for exactly this reason.
 
-The same care extends to worktrees: `/start-new` auto-removes only worktrees that are
-provably safe (merged + clean + unlocked) and asks before anything that might hold a live
-session's uncommitted work. When in doubt, Relay reports and waits rather than deleting.
+The same care extends to worktrees: `/handover` releases its **own** thread's worktree when
+the loop closes, and prunes dead worktree entries — but it only ever *reports* a finished
+sibling worktree (merged + clean) for you to remove, never force-removes another session's
+tree. When in doubt, Relay reports and waits rather than deleting.
 
 ## How the commands map onto the model
 
@@ -97,8 +98,9 @@ session's uncommitted work. When in doubt, Relay reports and waits rather than d
 - `/handover` **writes** a handover and **updates** the item's row (status, owner → `—`,
   latest handover), both onto `main`.
 - `/wrapup` runs the ship loop and ends by calling `/handover`.
-- `/start-new` **prunes** finished worktrees and **archives** superseded handovers/reviews
-  the board no longer references.
+- `/handover`, as it commits, also **archives** superseded handovers/reviews the board no
+  longer references and **prunes** dead worktree entries — the end-of-session housekeeping,
+  folded into the step that already touches those records.
 
 That's the whole system. Everything else is detail.
 
