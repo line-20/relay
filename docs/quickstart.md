@@ -14,7 +14,7 @@ handed it off to a fresh session — the full Relay loop, once.
 ## 1. Install the plugin
 
 ```
-/plugin marketplace add line20/relay
+/plugin marketplace add line-20/relay
 /plugin install relay
 ```
 

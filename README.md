@@ -58,7 +58,7 @@ read your project's `CLAUDE.md` and code rather than assuming a framework.
 Relay is distributed as a Claude Code plugin. From inside Claude Code:
 
 ```
-/plugin marketplace add line20/relay
+/plugin marketplace add line-20/relay
 /plugin install relay
 ```
 
