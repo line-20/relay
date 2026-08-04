@@ -1,5 +1,5 @@
 ---
-description: Scaffold the Relay convention in this repo — the board, handover/roadmap/brief dirs, and relay/pr-reviews — so /continue, /next, /handover and /wrapup work on turn one
+description: Scaffold the Relay convention in this repo — the board, handover/roadmap/brief dirs, and relay/pr-reviews — so /continue, /whats-next, /handover and /wrapup work on turn one
 argument-hint: "(no arguments)"
 ---
 
@@ -17,8 +17,10 @@ set up and stop (unless the user explicitly asks to re-scaffold). Otherwise cont
 
 ## Step 2 — Create the directories
 ```bash
-mkdir -p relay/handover/archive relay/briefs relay/archive relay/board-audit relay/pr-reviews/archive
+mkdir -p relay/handover/archive relay/briefs relay/reference relay/archive relay/board-audit relay/pr-reviews/archive
 ```
+(`relay/reference/` holds reference frames from `/cross-check` — how other systems and standards
+solve a problem. It starts empty; `/cross-check` and `/brainstorm` fill it over time.)
 
 ## Step 3 — Write the board (the front door)
 Write `relay/board.md`. The board has two parts: **Tracks** (stable, long-lived lanes of
@@ -97,11 +99,13 @@ understands the convention:
 - **`roadmap.md`** — the narrative behind each board item.
 - **`briefs/`** — one brief per unit of pending work.
 - **`handover/`** — cold-start handovers; `/continue` resumes from the newest per thread.
-- **`relay/pr-reviews/`** — one merged review report per PR.
+- **`reference/`** — reference frames from `/cross-check` (how others solve a problem).
+- **`pr-reviews/`** — one merged review report per PR.
 
-Commands: `/brainstorm` (shape an idea) · `/next` (what to work on) · `/continue` (resume a thread) · `/review-pr` ·
-`/wrapup` (test→review→merge→handover→tidy). `/review-pr`, `/fix-pr-review`, `/handover` are
-run by `/wrapup` — call them standalone only when you need one on its own.
+Commands: `/brainstorm` (shape an idea) · `/whats-next` (what to work on) · `/continue` (resume a
+thread) · `/cross-check` (check against prior art) · `/wrapup` (test→review→merge→handover→tidy).
+`/review-pr`, `/fix-pr-review`, `/handover` are run by `/wrapup` — call them standalone only when
+you need one on its own. `/garbage-collect` reclaims orphaned worktrees when needed.
 ```
 
 ## Step 6 — Commit and report
@@ -111,4 +115,4 @@ git commit -m "chore: scaffold Relay workflow (board + handover + briefs)"
 ```
 Do NOT push automatically — let the user review first. Then report, in plain language:
 what was created, the tracks you seeded (and that they're a starting guess to edit), and
-that they can now run `/next` to pick the first thing to work on.
+that they can now run `/whats-next` to pick the first thing to work on.

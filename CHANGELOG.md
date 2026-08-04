@@ -7,6 +7,29 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.4.0
+
+**Added**
+- **`/cross-check`** — build a durable **reference frame** (`relay/reference/<topic>.md`) of how
+  other products, standards, and prior art handle a problem, and check your approach against it
+  for alignment, divergence, blind spots, and reinvention. Reusable and cumulative; uses web
+  search when the environment has it, otherwise the model's own knowledge (flagged as such).
+  `/brainstorm` now offers it at the end (Step 3.5) before a design is committed. `relay-init`
+  scaffolds `relay/reference/`.
+- **`/garbage-collect`** — reclaim orphaned worktrees left by sessions that skipped the happy
+  path (crashed, or `/clear`ed without a handover). Not needed in normal use — `/wrapup` cleans
+  up after itself; this is the off-happy-path escape hatch. Auto-removes only provably-finished
+  sibling worktrees, reports the risky ones, never force-removes another session's tree.
+
+**Changed**
+- **Uniform review reports.** `/review-pr` now writes to one fixed template every time — set
+  frontmatter (incl. a `counts` block), a standard Verdict line, findings in one identical
+  per-finding format (`**ID** · area · file:line — problem. **Fix:** … (specialist)`) ordered
+  🔴→🟡→🟢, and always-present section headings (empty ones say `_None._`). No specialist gets
+  its own format; the report reads the same regardless of which ones ran.
+- **`/next` renamed to `/whats-next`** — clearer about the question it answers, and less
+  collision-prone. (If you had a habit or alias on `/next`, update it.)
+
 ## 0.3.0
 
 **Changed**

@@ -1,14 +1,14 @@
 ---
-description: Turn a rough idea into a well-shaped brief — interrogate it, explore real alternatives, recommend one, and write it to the board as a startable item. Never builds; it shapes the work /next then picks up.
+description: Turn a rough idea into a well-shaped brief — interrogate it, explore real alternatives, recommend one, and write it to the board as a startable item. Never builds; it shapes the work /whats-next then picks up.
 argument-hint: "[a rough idea, e.g. 'let users export their data']"
 ---
 
 Take a fuzzy idea and shape it into something worth building — or decide it isn't. This is
-the **front of the loop**: it produces a brief and a board item that `/next` can later start.
+the **front of the loop**: it produces a brief and a board item that `/whats-next` can later start.
 It does **not** write code. Shaping the work and doing the work are deliberately separate.
 
 > **Relay convention.** Output lands in `relay/briefs/<slug>.md` and a new row on
-> `relay/board.md`, so the thing you brainstormed is immediately startable with `/next`.
+> `relay/board.md`, so the thing you brainstormed is immediately startable with `/whats-next`.
 
 ## Step 1 — Restate the idea, don't shape it yet
 `$ARGUMENTS` is the raw idea. If it's empty, ask what the user wants to think through and
@@ -49,6 +49,15 @@ A slick UX preference must not quietly force a schema decision (or vice versa); 
 Then **recommend one, with the reason** — the smallest approach that credibly solves the real
 problem from Step 2. Present it, and **STOP for a direction.** The user may pick a different
 option, merge two, or redirect.
+
+## Step 3.5 — Cross-check against prior art (offer)
+Once an approach is chosen, **offer to `/cross-check` it** before it hardens into a brief —
+this is the cheapest moment to catch a reinvented wheel, a missed standard, or a blind spot
+everyone else in the space has already solved. If the user accepts, run the `/cross-check` flow
+on the chosen approach (build/extend `relay/reference/<topic>.md`, then report Aligns /
+Diverges / Blind spots / Reinvention) and **fold its findings into the approach** before Step 5.
+If the user declines, or the idea is small/obvious enough that prior art won't teach you
+anything, skip it — don't force a landscape study onto a two-line change.
 
 ## Step 4 — Fit check (only if the project defines one)
 If the project's `CLAUDE.md` has a pre-build checklist for a new feature/module (packaging,
@@ -103,7 +112,7 @@ correct locally and the user can commit them.
 - the one-line problem and the approach you landed on,
 - the brief path and the board item (`track/slug` + status),
 - any open questions still needing a decision,
-- and that **`/next` picks it up** when the user's ready to build.
+- and that **`/whats-next` picks it up** when the user's ready to build.
 
 If the idea was killed in Step 2/3, report that instead — what it was, and why it's not worth
 building — and write nothing to the board.

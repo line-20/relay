@@ -38,7 +38,7 @@ Next day, fresh session, no memory of yesterday's brainstorm — but the brief i
 You've no idea what's most worth doing, so you ask:
 
 ```
-/next
+/whats-next
 ```
 
 Relay fetches the board from `main`, filters to what's actually startable (skipping anything
@@ -116,7 +116,7 @@ The end-of-session loop, in order, stopping at any gate that needs you:
    on the `auth` track), updates the board (`auth/rate-limit` → ✅, off Open threads), commits
    to `main`, prints the summary.
 
-`auth/rate-limit` is done. The board shows the next `auth` item as 🔜. Tomorrow's `/next`
+`auth/rate-limit` is done. The board shows the next `auth` item as 🔜. Tomorrow's `/whats-next`
 will surface it.
 
 ## Housekeeping happens on its own
@@ -137,7 +137,7 @@ The ship path is three commands — brainstorm the idea, start it, wrap it up (`
 the review, the merge, the handover, **and the tidy-up** for you at the end):
 
 ```
-/brainstorm ──► /next ──► build in worktree ──► /wrapup ──► merged, handed off & tidied
+/brainstorm ──► /whats-next ──► build in worktree ──► /wrapup ──► merged, handed off & tidied
    idea →                                        test → review → merge → handover → archive
    brief on board
 ```

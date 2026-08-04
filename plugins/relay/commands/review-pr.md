@@ -90,33 +90,66 @@ pre-filter to safely narrow (a one-line render change can still be an XSS vector
 skipped, still record why in the final report's Notes — e.g. "privacy-specialist skipped: diff
 touches no schema/form/log/third-party-call code" — so a skip is always auditable, never silent.
 
-## Step 3 — Merge into one report
-When all launched specialists return:
-1. `mkdir -p relay/pr-reviews`.
-2. Write `relay/pr-reviews/pr-<NUMBER>-<YYYY-MM-DD>.md` (branch name if no PR number):
-   ---
-   pr: <number or branch>
-   date: <YYYY-MM-DD>
-   areas: <e.g. apps/admin, packages/schemas>
-   verdict: <approve | request-changes>
-   blockers: <count>
-   ---
+## Step 3 — Merge into ONE report, in EXACTLY this structure
+The report must look the same every time, no matter which specialists ran or how many findings
+they raised — a reader (and `/fix-pr-review`) should be able to scan any Relay review report
+without relearning its shape. `mkdir -p relay/pr-reviews`, then write
+`relay/pr-reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md` using this template verbatim — same
+frontmatter fields, same sections, same order, every time:
 
-   # PR Review: <title>
+```markdown
+---
+pr: <number, or branch name if no PR>
+date: <YYYY-MM-DD>
+areas: <touched areas, comma-separated — e.g. apps/admin, packages/schemas>
+specialists: <the ones that RAN, comma-separated>
+verdict: <approve | request-changes>
+blockers: <total 🔴 count>
+counts: { blocker: <n>, should-fix: <n>, nit: <n> }
+---
 
-   ## Summary
-   <2–3 sentences you write, drawing on all specialists' findings.>
+# PR Review: <one-line title>
 
-   ## Findings
-   Combined checklist from every specialist that ran, 🔴 first, then 🟡, then 🟢 — keep each
-   finding's file path so it's clear which specialist it came from.
+## Verdict
+**<APPROVE | REQUEST-CHANGES>** — <🔴 n blockers · 🟡 n should-fix · 🟢 n nits>. <One sentence
+on why: the single most important thing to resolve, or "no blockers" if clean.>
 
-   ## Notes
-   Merged Notes from every specialist, including any security/privacy Notes about things
-   outside code-level review (e.g. a lawful-basis question, or a DPIA that should happen
-   separately), and any undocumented-but-inferred rule a specialist flags as worth writing down.
-3. Verdict is `request-changes` if ANY specialist reported a 🔴 finding, else `approve`.
-   `blockers` is the total 🔴 count across all of them.
+## Findings
+<Every finding as ONE checklist line, in this exact per-finding format, ordered 🔴 → 🟡 → 🟢
+and within each severity by area. If a section is empty, write "_None._" under its heading —
+never omit the heading.>
+
+### 🔴 Blockers
+- [ ] **B1** · `<area>` · `<path/to/file.ext:line>` — <one-sentence problem>. **Fix:** <concrete change>. _(<specialist>)_
+
+### 🟡 Should-fix
+- [ ] **S1** · `<area>` · `<path/to/file.ext:line>` — <one-sentence problem>. **Fix:** <concrete change>. _(<specialist>)_
+
+### 🟢 Nits
+- [ ] **N1** · `<area>` · `<path/to/file.ext:line>` — <one-sentence problem>. **Fix:** <concrete change>. _(<specialist>)_
+
+## Skipped specialists
+<One line per specialist that did NOT run, with the reason — e.g.
+"privacy-specialist — diff touches no schema/form/log/third-party-call code". "_None — all
+applicable specialists ran._" if none were skipped. This makes every gate auditable.>
+
+## Notes
+<Only things that are NOT a code-level finding: a lawful-basis or DPIA question security/privacy
+raised, an undocumented-but-inferred rule worth writing down, a follow-up out of this PR's scope.
+"_None._" if there are none. Do not restate findings here.>
+```
+
+**Rules that keep it uniform:**
+- **Every finding is one line** in the `**ID** · area · `file:line` — problem. **Fix:** … _(specialist)_`
+  shape — same whether it came from security or i18n. No specialist gets its own private format.
+- **IDs are stable within the report** (`B1, B2, S1, N1…`) so a review can be discussed by ID.
+- **Never omit a heading.** All four sections (Blockers, Should-fix, Nits, Skipped) always
+  appear; an empty one says `_None._`. A reader learns the shape once.
+- **`verdict` is `request-changes` if there is ANY 🔴, else `approve`.** `blockers` = the 🔴
+  count. `counts` totals all three severities. These three frontmatter facts must agree with the
+  Verdict line and the Findings.
+- The findings checklist is what `/fix-pr-review` consumes — keep the `- [ ]`, the severity
+  order, and the `file:line` so it can re-verify and tick each one.
 
 ## Step 4 — Return
-Tell the user the report path and the verdict line — nothing else.
+Tell the user the report path and the Verdict line — nothing else.

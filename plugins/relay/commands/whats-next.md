@@ -7,8 +7,8 @@ Answer one question in plain, simple English: **what's the next best thing to wo
 Then, once picked, start it in a worktree.
 
 This is NOT `/continue`. `/continue` **resumes an in-flight thread** from its handover.
-`/next` **surveys what's queued** and recommends where to start — an item that has no
-handover yet, just a brief. Keep them distinct: `/next` never resumes ⚙/🔍 work (that's
+`/whats-next` **surveys what's queued** and recommends where to start — an item that has no
+handover yet, just a brief. Keep them distinct: `/whats-next` never resumes ⚙/🔍 work (that's
 already owned by a live session).
 
 ## Three levels — pick by `$ARGUMENTS`
@@ -42,7 +42,7 @@ Do NOT sweep `relay/briefs/` blindly — the board already distils them.
 Keep only items that could be picked up **now**:
 - ✅ include **🔜 next**, **⏸ parked** (note what it's waiting on), and the strongest **💡 ideas**.
 - ❌ exclude **⚙ in-progress** and **🔍 in-review** — a live worktree already owns those
-  (that's `/continue` / `/fix-pr-review` territory, not `/next`).
+  (that's `/continue` / `/fix-pr-review` territory, not `/whats-next`).
 - ❌ exclude anything whose `Owner` column names a live branch/worktree.
 - If `$ARGUMENTS` is given, use it to bias the filter (a track name, a theme, or an exact slug
   to jump straight to Step 4).
@@ -154,7 +154,7 @@ Then ask which one — or offer that the user can name a different board item. *
 unless `$ARGUMENTS` already named an exact item slug.
 
 ## Step 4 — On pick: worktree first (ALWAYS — never the shared main checkout)
-Like `/continue`, `/next` **always works in a git worktree**. Do NOT ask worktree-or-main.
+Like `/continue`, `/whats-next` **always works in a git worktree**. Do NOT ask worktree-or-main.
 1. Derive a short branch/worktree name from the item slug (e.g. `pricing/increment-h` → `increment-h`).
 2. Create/enter it (a native worktree tool if your harness has one, else `git worktree add`). If one
    already exists for that branch, enter it. **Never** `git checkout`/`git switch` in the main

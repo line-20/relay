@@ -12,7 +12,7 @@ Produce a self-contained prompt that a FRESH session — with no access to this
 conversation — can act on immediately to begin the next phase, WITHOUT needing to
 re-research the state of the project.
 
-`$ARGUMENTS`, if present, is the focus/next target to plan around. If empty, infer the
+`$ARGUMENTS`, if present, is the focus or next target to plan around. If empty, infer the
 next item from the roadmap/board.
 
 > **Relay convention.** The durable records are `relay/board.md` and

@@ -18,11 +18,11 @@ handed it off to a fresh session — the full Relay loop, once.
 /plugin install relay
 ```
 
-Restart Claude Code if prompted. You should now see `/relay-init`, `/next`, `/continue`,
+Restart Claude Code if prompted. You should now see `/relay-init`, `/whats-next`, `/continue`,
 `/wrapup`, and the rest in your command list.
 
-> **Command names collide?** If your setup already has a `/continue` or `/next`, Claude Code
-> namespaces plugin commands — invoke them as `/relay:continue`, `/relay:next`, etc.
+> **Command names collide?** If your setup already has a `/continue` or `/whats-next`, Claude Code
+> namespaces plugin commands — invoke them as `/relay:continue`, `/relay:whats-next`, etc.
 
 ## 2. Scaffold the convention
 
@@ -38,6 +38,7 @@ relay/
   roadmap.md        ← the narrative behind each board item
   briefs/           ← one brief per unit of pending work
   handover/         ← cold-start handovers live here
+  reference/        ← reference frames from /cross-check (how others solve a problem)
   pr-reviews/       ← merged review reports
   README.md         ← a short note explaining the convention to teammates
 ```
@@ -58,7 +59,7 @@ board row and brief — that's the normal way.)
 ## 4. Start it
 
 ```
-/next
+/whats-next
 ```
 
 Relay reads the board, ranks what's startable, and shows you a short table with a ⭐
@@ -102,7 +103,8 @@ nothing about your last one, and it doesn't need to. That's the point.
 ## The daily rhythm, once you're going
 
 - **Got a rough idea?** `/brainstorm` — shape it into a brief on the board before you build.
-- **Starting fresh?** `/next` — pick from the board.
+- **Unsure if you're reinventing something?** `/cross-check` — see how others solve it first.
+- **Starting fresh?** `/whats-next` — pick from the board.
 - **Picking up a thread?** `/continue` — resume from its handover.
 - **Done for now?** `/wrapup` (to ship) or `/handover` (to hand off mid-thread).
 - **Cleaning up?** Nothing to run — `/wrapup` archives old notes and prunes dead worktrees as

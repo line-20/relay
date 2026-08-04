@@ -22,7 +22,7 @@ can pick up where another left off** — because the state that matters lives in
               │
    ┌──────────┼───────────────────────────────┐
    │          │                                │
- /next     /continue                        /wrapup
+ /whats-next     /continue                        /wrapup
  pick a    resume a thread                  test → review → merge
  thread    from its handover                → handover
    │          │                                │
@@ -43,7 +43,7 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 |---|---|
 | `/relay-init` | Scaffold the board + handover/brief dirs in a repo (run **once**, at setup) |
 | `/brainstorm` | Turn a rough idea into a shaped brief on the board — interrogate it, weigh alternatives, never builds |
-| `/next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
+| `/whats-next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
 | `/continue` | Resume an in-flight thread from its handover |
 | `/wrapup` | End-of-session loop: test → PR + review → fix → merge → handover |
 
@@ -59,6 +59,13 @@ the normal flow you don't:
 > `/wrapup` also does the end-of-session housekeeping (archiving superseded handovers and old
 > reviews, pruning dead worktree entries) as part of its handover step — there's no separate
 > cleanup command to remember.
+
+**Also handy:**
+
+| Command | What it does |
+|---|---|
+| `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/brainstorm`. |
+| `/garbage-collect` | Reclaim **orphaned** worktrees left by sessions that skipped the happy path (crashed, or `/clear`ed without a handover). You never need it in normal use — `/wrapup` cleans up after itself; reach for it only when orphans pile up. |
 
 **Review agents** (dispatched by `/review-pr`): backend, frontend, ui-ux, api-architect,
 dbms, test-engineer, security, privacy, i18n, solution-architect. All stack-agnostic — they
@@ -82,7 +89,7 @@ Then, once, in each repo you want to use it in:
 ```
 
 That scaffolds the board and the handover/brief directories, seeded with tracks that fit
-your repo. From there, `/next` picks the first thing to work on.
+your repo. From there, `/whats-next` picks the first thing to work on.
 
 > New to it? Read **[docs/quickstart.md](docs/quickstart.md)** (10 minutes to your first loop),
 > then **[docs/the-board-model.md](docs/the-board-model.md)** for the one mental model
@@ -107,7 +114,7 @@ your repo. From there, `/next` picks the first thing to work on.
 - **[docs/the-board-model.md](docs/the-board-model.md)** — the board, threads, tracks, and
   why "newest handover wins" is a trap. The core mental model.
 - **[docs/a-day-in-the-loop.md](docs/a-day-in-the-loop.md)** — one item walked end to end,
-  from `/next` to merged-and-handed-over, annotated.
+  from `/whats-next` to merged-and-handed-over, annotated.
 - **[docs/authoring-skills.md](docs/authoring-skills.md)** — add your own commands and agents.
 
 ## License
