@@ -14,8 +14,9 @@ data and are never touched by an update.
   board: it interrogates the idea one theme at a time, weighs two or three real alternatives
   (keeping the product/UX lens separate from the architecture/data-model lens), recommends
   one, and writes `relay/briefs/<slug>.md` + a board row. It never builds — `/next` picks the
-  item up when you're ready. The full loop is now
-  `/brainstorm → /next → /wrapup → /handover`.
+  item up when you're ready. The ship loop is now **`/brainstorm → /next → /wrapup`**
+  (`/wrapup` runs the review, merge, and handover at the end); `/handover` + `/continue`
+  remain the mid-thread pause/resume pair for when you stop without shipping.
 
 ## 0.1.0
 

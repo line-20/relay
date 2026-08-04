@@ -1,15 +1,41 @@
 # A day in the loop
 
-One item, walked from "what should I do?" to "merged and handed off," annotated. Follow it
-once and the commands stop feeling like separate tricks and start feeling like one motion.
+One item, walked from a rough idea to a shipped change, annotated. Follow it once and the
+commands stop feeling like separate tricks and start feeling like one motion.
 
 The example: adding a rate limit to a login endpoint. Track `auth`, slug `auth/rate-limit`.
 
 ---
 
+## The day before: shape the idea
+
+It starts as a one-liner — "we should throttle repeated login attempts." Before it's worth
+anyone's session, you shape it:
+
+```
+/brainstorm throttle repeated login attempts
+```
+
+Relay doesn't jump to a design. It interrogates the idea one theme at a time, stopping for
+your answers: *what's the real problem* (credential-stuffing, not user typos), *who hits it*
+(every login, so it's hot-path), *what's explicitly out* (no CAPTCHA, no account lockout this
+round), *what constrains it* (must work across multiple app instances). Then it puts up two or
+three approaches — in-memory counter, shared store, gateway-level — with trade-offs, and
+recommends the smallest one that actually solves it.
+
+You agree. It writes `relay/briefs/auth/rate-limit.md` — problem, chosen approach, the
+alternatives it beat, a first slice, and what's out of scope — and adds a `🔜` row to the
+board. **It stops there. No code.** The idea is now a startable item; shaping it and building
+it are two separate acts.
+
+> **Why separate them?** Because the questions worth asking about an idea are cheapest to ask
+> before any code exists. `/brainstorm` is where a wrong assumption costs a sentence, not a
+> rewrite.
+
 ## Morning: pick something
 
-You sit down with a fresh session and no idea what's most worth doing.
+Next day, fresh session, no memory of yesterday's brainstorm — but the brief is on the board.
+You've no idea what's most worth doing, so you ask:
 
 ```
 /next
@@ -113,13 +139,25 @@ Then it reminds you to `/clear`, because a command can't clear its own context.
 
 ## The shape of it
 
+The ship path is three commands — brainstorm the idea, start it, wrap it up (`/wrapup` runs
+the review, the merge, **and the handover** for you at the end):
+
 ```
-/next ──► build in worktree ──► /handover ──► /clear
-                                    │
-                        (cold session, later)
-                                    │
-                                    ▼
-/continue ──► build ──► /wrapup ──► merged + handed off ──► /start-new (weekly)
+/brainstorm ──► /next ──► build in worktree ──► /wrapup ──► merged + handed off ──► /start-new (weekly)
+   idea →                                        test → review → merge → handover
+   brief on board
+```
+
+`/handover` and `/continue` are the **mid-thread pair** — you only reach for them when you
+stop *without* shipping:
+
+```
+build ──► /handover ──► /clear     (pause: hand the thread off unfinished)
+              │
+   (cold session, later)
+              │
+              ▼
+        /continue ──► build ──► /wrapup   (resume, then ship)
 ```
 
 Every arrow that crosses a session boundary crosses through a file on `main`. That's the
