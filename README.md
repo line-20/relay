@@ -19,11 +19,13 @@ can pick up where another left off** — because the state that matters lives in
 │                                                                                          │
 ▼                                                                                          │
 relay/board.md  ──▶ /whats-next   ──▶   ┌ worktree A ┐   ──▶  /wrapup    ──▶    /handover  ┘
-shared · on main    or /continue        ├ worktree B ┤        test → review →   writes back
-what's in flight    pick / resume       └ worktree C ┘        merge → ship      to the board
+shared · on main    or /continue        │            │        test → review →   writes back
+what's in flight                        ├ worktree B ┤        merge → ship      to the board
+                                        │            │ 
+                                        └ worktree C ┘        
 
-          ↑  many sessions run this loop at once — each in its own worktree,
-             all sharing the one board.    /explore feeds new briefs in · handover closes it ↺
+      ↑  many sessions run this loop at once — each in its own worktree,
+         all sharing the one board.    /explore feeds new briefs in · handover closes it ↺
 ```
 
 Read it as a **ring**, not a pipeline: a session picks a thread off the board (`/whats-next`)
