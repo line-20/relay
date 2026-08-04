@@ -15,24 +15,22 @@ can pick up where another left off** — because the state that matters lives in
 ## The idea in one picture
 
 ```
-/explore  ←  shape a rough idea into a brief + board item (never builds)
-│
-▼
-relay/board.md  ←  the front door: what's in flight, right now
-│
-├────────────────────┬──────────────────────────┐
-▼                    ▼                          ▼
-/whats-next          /continue                  /wrapup
-pick a thread        resume from a handover     test → review → merge → handover
-│                    │                          │
-└────────────────────┴──────────────────────────┘
-                     │
-                     ▼
-                     work in an isolated git worktree
-                     │
-                     ▼
-                     /handover  ←  writes a cold-start note + updates the board, on main
+┌─────────────── the loop — every session cycles through it ────────────────┐
+│                                                                           │
+▼                                                                           │
+relay/board.md ──▶ /whats-next ──▶ ┌ worktree A ┐ ──▶ /wrapup ──▶ /handover ┘
+shared · on main     or /continue   ├ worktree B ┤     test→review→merge
+what's in flight     pick / resume   └ worktree C ┘     ships · writes back
+
+        ↑ many sessions run this loop at once — each isolated in its own worktree,
+          all sharing the one board.   /explore feeds new briefs in · handover closes it ↺
 ```
+
+Read it as a **ring**, not a pipeline: a session picks a thread off the board (`/whats-next`)
+or resumes one (`/continue`), works in its own isolated worktree, and `/wrapup` ships it and
+hands the thread back to the board — where the next session picks it up. And it's not one ring
+but **many at once**: several sessions run this same loop in parallel, each in its own worktree,
+the shared board the only thing between them.
 
 Every command reads and writes two durable files — `relay/board.md` and
 `relay/handover/next-*.md` — committed straight to `main`. That's the whole trick: the baton
