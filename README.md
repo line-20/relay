@@ -15,15 +15,15 @@ can pick up where another left off** — because the state that matters lives in
 ## The idea in one picture
 
 ```
-┌─────────────── the loop — every session cycles through it ────────────────┐
-│                                                                           │
-▼                                                                           │
-relay/board.md ──▶ /whats-next ──▶ ┌ worktree A ┐ ──▶ /wrapup ──▶ /handover ┘
-shared · on main     or /continue   ├ worktree B ┤     test→review→merge
-what's in flight     pick / resume   └ worktree C ┘     ships · writes back
+┌────────────────────── the loop · every session cycles through it ────────────────────────┐
+│                                                                                          │
+▼                                                                                          │
+relay/board.md  ──▶ /whats-next   ──▶   ┌ worktree A ┐   ──▶  /wrapup    ──▶    /handover  ┘
+shared · on main    or /continue        ├ worktree B ┤        test → review →   writes back
+what's in flight    pick / resume       └ worktree C ┘        merge → ship      to the board
 
-        ↑ many sessions run this loop at once — each isolated in its own worktree,
-          all sharing the one board.   /explore feeds new briefs in · handover closes it ↺
+          ↑  many sessions run this loop at once — each in its own worktree,
+             all sharing the one board.    /explore feeds new briefs in · handover closes it ↺
 ```
 
 Read it as a **ring**, not a pipeline: a session picks a thread off the board (`/whats-next`)
