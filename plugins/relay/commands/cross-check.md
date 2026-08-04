@@ -11,7 +11,7 @@ reusable: every run reads and extends it, so the knowledge accrues instead of be
 re-gathered each time.
 
 Use it **standalone** at the start of a domain ("what's the landscape for X?") or to pressure-
-test a design, and it's offered at the end of `/brainstorm` before a design is committed.
+test a design, and it's offered at the end of `/explore` before a design is committed.
 
 > **Relay convention.** Reference frames live at `relay/reference/<topic-slug>.md`, committed to
 > `main` like the board — durable, shared, and cross-referenced by later work.
@@ -86,7 +86,7 @@ omit any that's empty:
 - **Blind spots** — something most references do that your approach doesn't address at all.
 - **Reinvention** — a standard, library, or well-trodden pattern you'd be rebuilding by hand.
 
-Recommend concrete adjustments. If this is running inside `/brainstorm`, **STOP for direction**
+Recommend concrete adjustments. If this is running inside `/explore`, **STOP for direction**
 — the user may fold the findings into the approach before the brief is written.
 
 ## Step 6 — Commit the frame and report

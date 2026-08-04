@@ -15,20 +15,23 @@ can pick up where another left off** — because the state that matters lives in
 ## The idea in one picture
 
 ```
- /brainstorm  ← shape a rough idea into a brief + board item (never builds)
-      │
-      ▼
-        relay/board.md  ← the front door: what's in flight, right now
-              │
-   ┌──────────┼───────────────────────────────┐
-   │          │                                │
- /whats-next     /continue                        /wrapup
- pick a    resume a thread                  test → review → merge
- thread    from its handover                → handover
-   │          │                                │
-   └──► work in an isolated git worktree ◄──────┘
-              │
-        /handover  ← writes a cold-start note + updates the board, on main
+/explore  ←  shape a rough idea into a brief + board item (never builds)
+│
+▼
+relay/board.md  ←  the front door: what's in flight, right now
+│
+├────────────────────┬──────────────────────────┐
+▼                    ▼                          ▼
+/whats-next          /continue                  /wrapup
+pick a thread        resume from a handover     test → review → merge → handover
+│                    │                          │
+└────────────────────┴──────────────────────────┘
+                     │
+                     ▼
+                     work in an isolated git worktree
+                     │
+                     ▼
+                     /handover  ←  writes a cold-start note + updates the board, on main
 ```
 
 Every command reads and writes two durable files — `relay/board.md` and
@@ -42,7 +45,7 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 | Command | What it does |
 |---|---|
 | `/relay-init` | Scaffold the board + handover/brief dirs in a repo (run **once**, at setup) |
-| `/brainstorm` | Turn a rough idea into a shaped brief on the board — interrogate it, weigh alternatives, never builds |
+| `/explore` | Turn a rough idea into a shaped brief on the board — interrogate it, weigh alternatives, never builds |
 | `/whats-next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
 | `/continue` | Resume an in-flight thread from its handover |
 | `/wrapup` | End-of-session loop: test → PR + review → fix → merge → handover |
@@ -64,7 +67,8 @@ the normal flow you don't:
 
 | Command | What it does |
 |---|---|
-| `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/brainstorm`. |
+| `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/explore`. |
+| `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/whats-next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
 | `/garbage-collect` | Reclaim **orphaned** worktrees left by sessions that skipped the happy path (crashed, or `/clear`ed without a handover). You never need it in normal use — `/wrapup` cleans up after itself; reach for it only when orphans pile up. |
 
 **Review agents** (dispatched by `/review-pr`): backend, frontend, ui-ux, api-architect,
@@ -101,12 +105,42 @@ your repo. From there, `/whats-next` picks the first thing to work on.
   session — it's not losing the thread between them. Relay optimises the seams.
 - **State lives in the repo, not the chat.** If it matters, it's a file on `main`. Chat
   history is disposable by design.
-- **Parallel-safe by default.** Every command assumes a sibling session might be working
-  right now, and never clobbers its worktree or its board row.
+- **Parallel-safe, and parallel-*aware*, by default.** Every command assumes a sibling session
+  might be working right now, so it never clobbers another worktree or board row — *and* it can
+  see what the others are doing. Before you start, Relay checks whether your work depends on a
+  sibling thread's unlanded change and offers to watch that land and auto-resume. No other agent
+  workflow can do this, because none of them keep a cross-session registry. Relay's board is one.
 - **Verify, don't trust.** Review findings are claims to re-check against the code, not
   orders. The board is a guess to confirm against ground truth, not gospel.
+- **Design before code.** `/explore` interrogates a rough idea, separates the UX and data-model
+  questions, cross-checks it against how the rest of the world solves it, and self-reviews the
+  brief — *then* stops. The cheapest place to fix a wrong assumption is before any code exists.
 - **Stop at the right moments.** These commands are as much about where they *pause for you*
   as what they automate.
+
+## Token economics
+
+Long-running agent work usually dies by context bloat — a session drags an ever-growing chat
+history until it's spending most of its budget re-reading itself. Relay is built to avoid that,
+and the savings *are* the design, not an add-on:
+
+- **Cold handovers cap the context.** A session starts from a compact, self-contained handover
+  and `/clear`s between threads — so tokens go to the task, not to re-reading a transcript that
+  grows without bound. The handover front-loads the research the last session did, so the next
+  one doesn't pay to re-derive it.
+- **The board is a tiny curated index**, read with a cheap `git show` — a few hundred tokens to
+  know the whole project's state, versus re-exploring the repo every session.
+- **Review fans out, scoped and gated.** `/review-pr` runs specialists in *parallel* subagents,
+  each scoped to the area it reviews, and only launches the ones the diff actually touches — you
+  don't pay for a privacy or i18n pass on a CSS-only change.
+- **Dependency-awareness avoids throwaway work** — catching that you'd be building on unlanded
+  code *before* you build it saves the tokens (and the rework) of doing it twice.
+
+**Where it can improve — honestly:** the review fan-out is deliberately thorough, so on a tiny
+diff it can spend more than the change warranted (gating helps, but a lightweight "quick-review"
+mode for small diffs is a real future win); `/cross-check` with live web search can be
+token-heavy; and Relay has no explicit token *budget* yet — it leans on `/clear` discipline
+rather than measuring spend. These are the next places to sharpen, not solved problems.
 
 ## Documentation
 

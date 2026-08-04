@@ -89,10 +89,10 @@ tree. When in doubt, Relay reports and waits rather than deleting.
 
 ## How the commands map onto the model
 
-- `/brainstorm` **writes** a new item: it interrogates a rough idea, weighs alternatives, and
+- `/explore` **writes** a new item: it interrogates a rough idea, weighs alternatives, and
   adds a brief + a board row (🔜/💡) — the front of the loop that feeds everything below.
 - `/cross-check` **writes** a reference frame under `relay/reference/` (how others solve the
-  problem) and checks an approach against it — offered at the end of `/brainstorm`, or on its own.
+  problem) and checks an approach against it — offered at the end of `/explore`, or on its own.
 - `/whats-next` **reads** Open threads, filters to what's startable (🔜/⏸/💡, no live owner),
   ranks it, and starts your pick in a worktree.
 - `/continue` **reads** Open threads, finds your thread (by slug or current branch), and

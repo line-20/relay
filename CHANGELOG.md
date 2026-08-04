@@ -7,6 +7,29 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.5.0
+
+**Added**
+- **`/watch` + cross-worktree dependency awareness.** `/whats-next` and `/continue` now run a
+  **dependency pre-flight** before building: they scan the other live sessions (worktrees on
+  disk + the board's in-flight rows), and if your work depends on a sibling thread's change
+  that isn't on `main` yet — **PR or not; local and uncommitted work counts** — they surface it
+  and offer to hold. `/watch` then parks the thread (⏸ `blocked-on: …`), watches the dependency
+  land in the background (a PR merge, a board item reaching ✅, or a branch merging), and
+  **auto-resumes** the work once it's on `main`. Detection is conservative + file-overlap by
+  default (flags the clear cases, doesn't cry wolf).
+
+**Changed**
+- **`/brainstorm` renamed to `/explore`**, and upgraded: it now asks **one question at a time**,
+  **offers a visual** (diagram/mockup) when a question needs one, **splits** an idea that's
+  really several independent briefs, and **self-reviews** the finished brief for placeholders,
+  contradictions, ambiguity, and scope creep before handing off. (Update any alias on
+  `/brainstorm`.)
+- **Docs surface Relay's strong points better** — a new **Token economics** section (how cold
+  handovers, the tiny board index, and scoped/gated review keep context cheap, and where it can
+  still improve), sharper parallel-safety and design-before-code framing, and a **realigned**
+  "idea in one picture" diagram.
+
 ## 0.4.0
 
 **Added**

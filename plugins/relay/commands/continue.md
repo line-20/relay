@@ -83,6 +83,21 @@ Once the topic is OK'd:
   without reading code. Keep it brief; this is a direction check, not a design doc.
 - Then **STOP and wait for direction or approval.** Only start building once told go.
 
+## Step 3.6 — Dependency pre-flight (does this need a sibling thread's work first?)
+Before building, check whether resuming this thread depends on something **another live
+session** is doing that isn't on `main` yet — the parallel-work trap of building on an API,
+component, or schema a sibling is still writing.
+1. **Gather what siblings are doing:** `git worktree list` + the board's ⚙/🔍 rows and their
+   handovers. For each sibling, collect what it's changing — committed (`git -C <path> diff
+   --name-only origin/main...HEAD`) **and** uncommitted (`git -C <path> status --porcelain`).
+   A sibling need not have a PR — local or uncommitted work still signals an incoming change.
+2. **Flag a dependency — conservative, plus file-overlap:** *explicit* (this thread's
+   handover/brief names another item, PR, or branch as needed) or *file-overlap* (files you'll
+   touch overlap with what a sibling is introducing). Don't infer deep deps from incidental overlap.
+3. **If found, surface it and ask** — start anyway (note the assumption) or **hold**. On hold,
+   hand to **`/watch`** (park ⏸ with `blocked-on: …`, watch it land, auto-resume). If nothing
+   overlaps, say one line and continue.
+
 ## Step 4 — Do the work
 With topic and approach approved, carry out the handover's "Start here" steps, then
 continue toward the "Next objective" within its "Done when" scope. Stay inside the scope

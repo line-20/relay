@@ -13,7 +13,7 @@ It starts as a one-liner — "we should throttle repeated login attempts." Befor
 anyone's session, you shape it:
 
 ```
-/brainstorm throttle repeated login attempts
+/explore throttle repeated login attempts
 ```
 
 Relay doesn't jump to a design. It interrogates the idea one theme at a time, stopping for
@@ -29,7 +29,7 @@ board. **It stops there. No code.** The idea is now a startable item; shaping it
 it are two separate acts.
 
 > **Why separate them?** Because the questions worth asking about an idea are cheapest to ask
-> before any code exists. `/brainstorm` is where a wrong assumption costs a sentence, not a
+> before any code exists. `/explore` is where a wrong assumption costs a sentence, not a
 > rewrite.
 
 ## Morning: pick something
@@ -137,7 +137,7 @@ The ship path is three commands — brainstorm the idea, start it, wrap it up (`
 the review, the merge, the handover, **and the tidy-up** for you at the end):
 
 ```
-/brainstorm ──► /whats-next ──► build in worktree ──► /wrapup ──► merged, handed off & tidied
+/explore ──► /whats-next ──► build in worktree ──► /wrapup ──► merged, handed off & tidied
    idea →                                        test → review → merge → handover → archive
    brief on board
 ```

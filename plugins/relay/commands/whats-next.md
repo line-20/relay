@@ -161,6 +161,35 @@ Like `/continue`, `/whats-next` **always works in a git worktree**. Do NOT ask w
    checkout (clobbers other sessions).
 3. If you'll run the app, copy any untracked files it needs (e.g. `.env`) from the main checkout first.
 
+## Step 4.5 — Dependency pre-flight (does this need a sibling thread's work first?)
+Before building, check whether this item depends on something **another live session** is doing
+that hasn't landed on `main` yet — the classic parallel-work trap where you build on an API,
+component, or schema a sibling thread is still writing. Relay can see this because every session
+is on the board and on disk.
+
+1. **Gather what the siblings are doing.** From the main checkout: `git worktree list` (sibling
+   worktrees + branches) and the board's ⚙/🔍 Open-threads rows + their handovers. For each
+   sibling that isn't this thread, collect what it's changing — committed (`git -C <path> diff
+   --name-only origin/main...HEAD`) **and** uncommitted (`git -C <path> status --porcelain`) plus
+   its handover's "In flight". **A sibling need not have a PR** — local commits or even
+   uncommitted work still signal an incoming change.
+2. **Look for a dependency — conservative, plus file-overlap** (Relay's default: flag the clear
+   cases, don't cry wolf):
+   - **Explicit** — this item's brief/handover names another item, PR, or branch as needed
+     ("needs the unified Combobox from #434", "after `auth/rbac` lands").
+   - **File-overlap** — the files this item will touch (from its brief's Approach / the area it
+     lives in) overlap with what a sibling is changing — especially when the sibling is
+     *introducing* something (a new file, export, endpoint, or column) this item would build on.
+   - Stop there. Don't infer deep semantic dependencies from incidental overlap.
+3. **If you find one, surface it and ask — don't just plough ahead:**
+   > `pricing/migrate` looks like it needs the unified Combobox that `worktree-unified-combobox`
+   > is still finishing (local commits, no PR yet). That isn't on `main`. Start anyway, or hold
+   > until it lands?
+   If the user says **hold**, hand off to **`/watch`** (park this item ⏸ with `blocked-on: …`,
+   watch it land, auto-resume). If **start anyway**, note the assumption and proceed.
+4. **If nothing overlaps, say one line** ("no cross-worktree dependencies — clear to start") and
+   continue. Don't manufacture a dependency that isn't there.
+
 ## Step 5 — Start the first slice from the brief
 The item has no handover yet — work from its **brief / roadmap detail**.
 1. Read the item's detail doc.

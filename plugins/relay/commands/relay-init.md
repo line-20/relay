@@ -20,7 +20,7 @@ set up and stop (unless the user explicitly asks to re-scaffold). Otherwise cont
 mkdir -p relay/handover/archive relay/briefs relay/reference relay/archive relay/board-audit relay/pr-reviews/archive
 ```
 (`relay/reference/` holds reference frames from `/cross-check` — how other systems and standards
-solve a problem. It starts empty; `/cross-check` and `/brainstorm` fill it over time.)
+solve a problem. It starts empty; `/cross-check` and `/explore` fill it over time.)
 
 ## Step 3 — Write the board (the front door)
 Write `relay/board.md`. The board has two parts: **Tracks** (stable, long-lived lanes of
@@ -102,10 +102,11 @@ understands the convention:
 - **`reference/`** — reference frames from `/cross-check` (how others solve a problem).
 - **`pr-reviews/`** — one merged review report per PR.
 
-Commands: `/brainstorm` (shape an idea) · `/whats-next` (what to work on) · `/continue` (resume a
-thread) · `/cross-check` (check against prior art) · `/wrapup` (test→review→merge→handover→tidy).
-`/review-pr`, `/fix-pr-review`, `/handover` are run by `/wrapup` — call them standalone only when
-you need one on its own. `/garbage-collect` reclaims orphaned worktrees when needed.
+Commands: `/explore` (shape an idea) · `/whats-next` (what to work on) · `/continue` (resume a
+thread) · `/cross-check` (check against prior art) · `/watch` (park on a dependency, auto-resume
+when it lands) · `/wrapup` (test→review→merge→handover→tidy). `/review-pr`, `/fix-pr-review`,
+`/handover` are run by `/wrapup` — call them standalone only when you need one on its own.
+`/garbage-collect` reclaims orphaned worktrees when needed.
 ```
 
 ## Step 6 — Commit and report

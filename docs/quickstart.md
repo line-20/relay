@@ -102,7 +102,7 @@ nothing about your last one, and it doesn't need to. That's the point.
 
 ## The daily rhythm, once you're going
 
-- **Got a rough idea?** `/brainstorm` — shape it into a brief on the board before you build.
+- **Got a rough idea?** `/explore` — shape it into a brief on the board before you build.
 - **Unsure if you're reinventing something?** `/cross-check` — see how others solve it first.
 - **Starting fresh?** `/whats-next` — pick from the board.
 - **Picking up a thread?** `/continue` — resume from its handover.

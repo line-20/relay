@@ -8,7 +8,7 @@ the **front of the loop**: it produces a brief and a board item that `/whats-nex
 It does **not** write code. Shaping the work and doing the work are deliberately separate.
 
 > **Relay convention.** Output lands in `relay/briefs/<slug>.md` and a new row on
-> `relay/board.md`, so the thing you brainstormed is immediately startable with `/whats-next`.
+> `relay/board.md`, so the thing you explored is immediately startable with `/whats-next`.
 
 ## Step 1 — Restate the idea, don't shape it yet
 `$ARGUMENTS` is the raw idea. If it's empty, ask what the user wants to think through and
@@ -16,12 +16,13 @@ wait. Otherwise, **play it back in one or two plain sentences** — "here's what
 asking for" — and confirm you've got the intent right before interrogating it. Getting this
 wrong wastes the whole session, so check.
 
-## Step 2 — Interrogate before designing (one theme at a time, STOP for answers)
-A brief written from an unexamined idea is worthless. Ask the sharp questions — but **don't
-dump them all at once**. Raise one or two themes, **STOP and wait**, then move on. Skip a
-theme the user already answered; never assume an answer to move faster.
+## Step 2 — Interrogate before designing (ONE question at a time, STOP for the answer)
+A brief written from an unexamined idea is worthless. Ask the sharp questions — but **ask them
+one at a time.** Pose a single question, **STOP and wait for the answer**, then ask the next.
+A wall of five questions gets one skimmed reply; one focused question gets a real one. Skip
+anything the user already answered; never assume an answer to move faster.
 
-Cover, in roughly this order:
+Work through these, roughly in order (one message each):
 - **The real problem.** What job is this doing? What's painful *today* without it? (An idea is
   usually a proposed solution — find the problem underneath it.)
 - **Who it's for.** Which user/role hits this, how often. A rare edge case and a daily
@@ -32,9 +33,21 @@ Cover, in roughly this order:
 - **Constraints.** Deadline, data you already have or don't, anything in the codebase this
   must fit, anything it must not break.
 
+**Offer a visual just-in-time.** When a question is genuinely easier to answer against a
+picture — a flow, a state machine, a rough screen layout — offer a quick diagram or ASCII
+mockup *at that moment*, not upfront. Skip it when words are enough; don't decorate.
+
 If, partway through, the idea looks like it shouldn't be built (solves a non-problem, or a far
 cheaper thing would do), **say so plainly** and stop — killing a bad idea here is a win, not a
 failure.
+
+## Step 2.5 — Split it if it's really several things
+Before designing, check whether this is **one** unit of work or several independent ones hiding
+behind a single sentence ("let users export their data *and* add an audit log *and* a settings
+page"). If it decomposes into pieces that could ship separately, **say so and split it** — one
+brief and one board item per piece, each with its own slug, sequenced if they depend on each
+other. A brief that secretly contains three projects can't be sized, started, or reviewed. One
+brief = one shippable thing.
 
 ## Step 3 — Explore real alternatives, then recommend one
 Don't design the first thing that comes to mind. Put up **two or three genuinely different
@@ -106,6 +119,18 @@ board together onto `main` — if you're on `main` a normal `git add && git comm
 is fine; if you're on a feature branch, use the temp-index push `/handover` uses so you don't
 switch branches. If the push is rejected (main moved, or protected), say so — the files are
 correct locally and the user can commit them.
+
+## Step 5.5 — Self-review the brief before you rely on it
+Re-read what you just wrote as if you were the cold session that has to *build* from it, and
+fix it in place before reporting. Check specifically for:
+- **Placeholders** — any `<...>`, "TBD", or hand-wave left unfilled.
+- **Contradictions** — the Approach promising something the Out-of-scope excludes, or Slices
+  that don't add up to the stated problem.
+- **Ambiguity** — a step a builder could read two ways. Make it one way.
+- **Scope creep** — anything in Slices that isn't needed for the real problem from Step 2.
+  Cut it (YAGNI) or move it to a follow-up item.
+A brief that survives its own review is one a stranger can execute. This is the difference
+between a note and a spec.
 
 ## Step 6 — STOP and report
 **Do not start building.** Report, in plain language:
