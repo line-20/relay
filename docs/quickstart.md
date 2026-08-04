@@ -101,6 +101,7 @@ nothing about your last one, and it doesn't need to. That's the point.
 
 ## The daily rhythm, once you're going
 
+- **Got a rough idea?** `/brainstorm` — shape it into a brief on the board before you build.
 - **Starting fresh?** `/next` — pick from the board.
 - **Picking up a thread?** `/continue` — resume from its handover.
 - **Done for now?** `/wrapup` (to ship) or `/handover` (to hand off mid-thread).

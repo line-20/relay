@@ -99,7 +99,7 @@ understands the convention:
 - **`handover/`** — cold-start handovers; `/continue` resumes from the newest per thread.
 - **`relay/pr-reviews/`** — one merged review report per PR.
 
-Commands: `/next` (what to work on) · `/continue` (resume a thread) · `/review-pr` ·
+Commands: `/brainstorm` (shape an idea) · `/next` (what to work on) · `/continue` (resume a thread) · `/review-pr` ·
 `/fix-pr-review` · `/wrapup` (test→review→merge→handover) · `/handover` · `/start-new` (reset).
 ```
 

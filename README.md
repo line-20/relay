@@ -15,6 +15,9 @@ can pick up where another left off** — because the state that matters lives in
 ## The idea in one picture
 
 ```
+ /brainstorm  ← shape a rough idea into a brief + board item (never builds)
+      │
+      ▼
         relay/board.md  ← the front door: what's in flight, right now
               │
    ┌──────────┼───────────────────────────────┐
@@ -39,6 +42,7 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 | Command | What it does |
 |---|---|
 | `/relay-init` | Scaffold the board + handover/brief dirs in a repo (run once) |
+| `/brainstorm` | Turn a rough idea into a shaped brief on the board — interrogate it, weigh alternatives, never builds |
 | `/next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
 | `/continue` | Resume an in-flight thread from its handover |
 | `/review-pr` | Fan out domain specialists over a PR, merged into one report |

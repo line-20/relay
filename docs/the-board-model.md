@@ -88,6 +88,8 @@ session's uncommitted work. When in doubt, Relay reports and waits rather than d
 
 ## How the commands map onto the model
 
+- `/brainstorm` **writes** a new item: it interrogates a rough idea, weighs alternatives, and
+  adds a brief + a board row (🔜/💡) — the front of the loop that feeds everything below.
 - `/next` **reads** Open threads, filters to what's startable (🔜/⏸/💡, no live owner),
   ranks it, and starts your pick in a worktree.
 - `/continue` **reads** Open threads, finds your thread (by slug or current branch), and
