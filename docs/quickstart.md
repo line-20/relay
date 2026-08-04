@@ -1,7 +1,7 @@
 # Quickstart — from install to your first loop
 
-Ten minutes. By the end you'll have started a piece of work, reviewed it, merged it, and
-handed it off to a fresh session — the full Relay loop, once.
+Ten minutes. By the end you'll have shaped a piece of work, started it, reviewed it, merged it,
+and handed it off to a fresh session — the full Relay loop, once.
 
 ## 0. Prerequisites
 
@@ -18,8 +18,8 @@ handed it off to a fresh session — the full Relay loop, once.
 /plugin install relay
 ```
 
-Restart Claude Code if prompted. You should now see `/relay-init`, `/whats-next`, `/continue`,
-`/wrapup`, and the rest in your command list.
+Restart Claude Code if prompted. You should now see `/relay-init`, `/explore`, `/whats-next`,
+`/continue`, `/wrapup`, and the rest in your command list.
 
 > **Command names collide?** If your setup already has a `/continue` or `/whats-next`, Claude Code
 > namespaces plugin commands — invoke them as `/relay:continue`, `/relay:whats-next`, etc.
@@ -50,11 +50,23 @@ It commits these but does **not** push — review the seeded tracks, edit them t
 you actually think about the work, then push when you're happy. The tracks are a starting
 guess, not a verdict.
 
-## 3. Add something to work on
+## 3. Shape your first piece of work with `/explore`
 
-Open `relay/board.md` and add a row to **Open threads** for a real task, plus a one-paragraph
-brief in `relay/briefs/`. (Or just tell Claude what you want to build and ask it to add the
-board row and brief — that's the normal way.)
+Give a rough idea and let Relay turn it into a proper board item:
+
+```
+/explore let users export their account data
+```
+
+`/explore` interrogates the idea one question at a time — the real problem, who it's for,
+what's explicitly out of scope, the constraints — then puts up a couple of approaches, cross-
+checks the one you pick against prior art, and writes it up as a **brief** in `relay/briefs/`
+with a matching **row on the board**. It *never* writes code: shaping the work and doing it are
+deliberately separate. When it's done you have a startable item, not a half-built feature.
+
+> **Prefer to write it yourself?** You can always open `relay/board.md`, add a row to **Open
+> threads**, and drop a one-paragraph brief in `relay/briefs/` by hand. `/explore` is the
+> assisted path, not the only one.
 
 ## 4. Start it
 
