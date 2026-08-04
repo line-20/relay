@@ -1,0 +1,17 @@
+{
+  "name": "line20",
+  "owner": {
+    "name": "Line20"
+  },
+  "metadata": {
+    "description": "Line20's Claude Code plugins.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "relay",
+      "source": "./plugins/relay",
+      "description": "A continuity-first workflow for Claude Code: a shared board, cold-start handovers, worktree-isolated sessions, and a multi-specialist review fan-out. Built for running several sessions in parallel and picking work back up cold."
+    }
+  ]
+}
