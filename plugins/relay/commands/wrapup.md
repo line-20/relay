@@ -31,7 +31,7 @@ playbook in that command exactly:
    mode (findings only, no per-agent report, no per-agent verdict). Which ones apply is
    decided by `/review-pr` Step 2. security-specialist is **always** launched.
 3. **Merge** every specialist's findings into ONE report at
-   `pr-reviews/pr-<N>-<YYYY-MM-DD>.md` (🔴/🟡/🟢, blocker-first, each finding keeping its
+   `relay/pr-reviews/pr-<N>-<YYYY-MM-DD>.md` (🔴/🟡/🟢, blocker-first, each finding keeping its
    file path). Verdict is `request-changes` if ANY specialist raised a 🔴, else `approve`;
    `blockers` = the total 🔴 count.
 

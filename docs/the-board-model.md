@@ -20,7 +20,7 @@ writes.** That's the board.
 
 ## The three concepts
 
-### 1. The board (`docs/board.md`)
+### 1. The board (`relay/board.md`)
 
 The front door. It has two parts:
 
@@ -50,7 +50,7 @@ free. This is what keeps parallel sessions from colliding: `/next` and `/continu
 anything a live owner holds, and `/handover` sets `Owner = —` when it relinquishes a thread
 so a cold session can pick it up.
 
-### 3. The handover (`docs/handover/next-*.md`)
+### 3. The handover (`relay/handover/next-*.md`)
 
 When a session ends or hands off, it writes a **cold-start handover**: a self-contained
 prompt a fresh session can act on with zero chat history. Where we are, what just landed,

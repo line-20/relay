@@ -18,7 +18,7 @@ Get a diffstat before invoking any subagent:
 **Docs-only short-circuit**: if every changed file is a non-code file (`*.md`, `*.mdx`,
 `docs/**`, `LICENSE`, `CHANGELOG*`, and similar), stop here — don't launch any specialist.
 Say directly that the diff is docs-only and no specialist review was needed; don't write a
-`pr-reviews/` file for it. This is a content fact, not a size guess.
+`relay/pr-reviews/` file for it. This is a content fact, not a size guess.
 
 From the file list, note which side(s) are touched. **Discover the repo's own layout** (from
 `CLAUDE.md`, the workspace config, or the directory structure) rather than assuming fixed
@@ -89,8 +89,8 @@ touches no schema/form/log/third-party-call code" — so a skip is always audita
 
 ## Step 3 — Merge into one report
 When all launched specialists return:
-1. `mkdir -p pr-reviews`.
-2. Write `pr-reviews/pr-<NUMBER>-<YYYY-MM-DD>.md` (branch name if no PR number):
+1. `mkdir -p relay/pr-reviews`.
+2. Write `relay/pr-reviews/pr-<NUMBER>-<YYYY-MM-DD>.md` (branch name if no PR number):
    ---
    pr: <number or branch>
    date: <YYYY-MM-DD>

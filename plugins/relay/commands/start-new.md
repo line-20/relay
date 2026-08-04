@@ -74,39 +74,39 @@ List the RISKY worktrees and ask, one decision at a time, whether to remove any.
 If they say "all of them", still name each one back and confirm.
 
 ### 7. Archive stale handovers & PR reviews
-`/handover` and `/review-pr` mint a new file every session, so `docs/handover/` and
-`pr-reviews/` grow without bound. This sweeps the **superseded** ones into `archive/`
+`/handover` and `/review-pr` mint a new file every session, so `relay/handover/` and
+`relay/pr-reviews/` grow without bound. This sweeps the **superseded** ones into `archive/`
 subfolders — nothing is deleted, git keeps full history, so it's always safe and reversible.
 
 The rule is "keep only what's still live":
 - **Handovers** — the board's *Open threads* table is the source of truth for which
-  handovers are still in flight. Archive every loose `docs/handover/next-*.md` whose
-  basename is **not** linked from `docs/board.md`; keep the ones the board still points at.
+  handovers are still in flight. Archive every loose `relay/handover/next-*.md` whose
+  basename is **not** linked from `relay/board.md`; keep the ones the board still points at.
 - **PR reviews** — a review doc is a one-shot artifact consumed at merge time. Keep the
-  **20 most recent** loose `pr-reviews/*.md` and archive the rest.
+  **20 most recent** loose `relay/pr-reviews/*.md` and archive the rest.
 
 Use `git mv` so history follows the file (macOS bash is 3.2 — no `mapfile`; use a plain
 counter loop). Then verify no doc's links broke:
 
 ```sh
 # --- handovers: archive loose ones the board no longer references ---
-grep -oE 'handover/next-[0-9-]+\.md' docs/board.md | sed 's#handover/##' | sort -u > /tmp/href.txt
-for f in docs/handover/next-*.md; do
+grep -oE 'handover/next-[0-9-]+\.md' relay/board.md | sed 's#handover/##' | sort -u > /tmp/href.txt
+for f in relay/handover/next-*.md; do
   b=$(basename "$f")
-  grep -qx "$b" /tmp/href.txt || git mv "$f" "docs/handover/archive/$b"
+  grep -qx "$b" /tmp/href.txt || git mv "$f" "relay/handover/archive/$b"
 done
 
 # --- PR reviews: keep newest 20 loose, archive the rest ---
-mkdir -p pr-reviews/archive; i=0
-for f in $(ls -t pr-reviews/*.md); do
+mkdir -p relay/pr-reviews/archive; i=0
+for f in $(ls -t relay/pr-reviews/*.md); do
   i=$((i+1)); [ "$i" -le 20 ] && continue
-  git mv "$f" "pr-reviews/archive/$(basename "$f")"
+  git mv "$f" "relay/pr-reviews/archive/$(basename "$f")"
 done
 
 # --- verify: no tracked doc links to a handover that just moved to archive/ ---
-for f in $(git ls-files 'docs/*.md' | grep -v '^docs/handover/'); do
+for f in $(git ls-files 'relay/*.md' | grep -v '^relay/handover/'); do
   for link in $(grep -oE 'handover/next-[0-9-]+\.md' "$f" 2>/dev/null | sort -u); do
-    [ -f "docs/$link" ] || echo "FIX stale link in $f -> docs/$link"
+    [ -f "relay/$link" ] || echo "FIX stale link in $f -> relay/$link"
   done
 done
 ```
@@ -115,7 +115,7 @@ If the verify step prints a `FIX` line, repoint that link to `handover/archive/�
 finishing. Report a one-line count of what was archived. If nothing qualified, say so.
 
 Commit the sweep on `main` with the worktree cleanup (these are main-owned records):
-`git add -A docs/handover pr-reviews docs/*.md && git commit`.
+`git add -A relay/ && git commit`.
 
 ### 8. Remind about context
 A command runs *inside* the current conversation and **cannot clear its own context**.

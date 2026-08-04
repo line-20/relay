@@ -3,10 +3,10 @@ description: Read the latest PR review, re-verify each finding against the curre
 allowed-tools: Bash(ls:*), Bash(cat:*), Bash(gh pr diff:*), Bash(git:*), Bash(pnpm:*), Bash(npm:*), Read, Edit, Write, Glob, Grep
 ---
 
-Work through the PR review report and fix what's real. Target: $ARGUMENTS (a report filename, or empty = use the most recent file in pr-reviews/).
+Work through the PR review report and fix what's real. Target: $ARGUMENTS (a report filename, or empty = use the most recent file in relay/pr-reviews/).
 
 ## Step 1 — Load
-1. If no file given, run `ls -t pr-reviews/*.md | head -1` and use that.
+1. If no file given, run `ls -t relay/pr-reviews/*.md | head -1` and use that.
 2. Read the report. Parse the frontmatter (pr, workspaces, blockers) and the unchecked `- [ ]` findings.
 3. Get current state: `gh pr diff` (or the diff for the PR number in frontmatter) plus the actual files referenced.
 

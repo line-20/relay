@@ -77,7 +77,7 @@ whatever stack this project actually uses:
 
 ## Step 3 — Return
 - **Standalone review**: write a fix-ready report (ask the invoking session
-  where, if it didn't say — default `pr-reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md`)
+  where, if it didn't say — default `relay/pr-reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md`)
   with a Summary, a Findings checklist (🔴 first, then 🟡, then 🟢, each with
   a `file:line` and a concrete **Fix:**), and a Notes section for
   non-actionable questions. Return the report path and a one-line verdict

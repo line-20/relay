@@ -41,7 +41,7 @@ lose the thread, hand it off:
 /handover
 ```
 
-Relay writes `docs/handover/next-2026-08-04-1330.md`: what you were doing, what's committed,
+Relay writes `relay/handover/next-2026-08-04-1330.md`: what you were doing, what's committed,
 what's half-done, the next objective, and the exact first step to resume. It updates the
 `auth/rate-limit` row on the board — status `⚙`, owner `—` (relinquished), latest handover
 linked — and commits both to `main`. It prints a four-line summary and any open questions.
@@ -80,7 +80,7 @@ The end-of-session loop, in order, stopping at any gate that needs you:
 2. **PR** — opens a draft PR for the branch.
 3. **Review** — the diff touches backend + a security-sensitive path, so it fans out
    **backend-developer**, **security-specialist** (always on), and **test-engineer** in
-   parallel, merged into one report at `pr-reviews/pr-142-2026-08-04.md`. One 🔴: the limit
+   parallel, merged into one report at `relay/pr-reviews/pr-142-2026-08-04.md`. One 🔴: the limit
    is per-process, not shared across instances.
 4. **Fix** — Relay re-verifies that finding against the code (real), fixes it, keeps the
    typecheck green, ticks the box.

@@ -1,5 +1,5 @@
 ---
-description: Scaffold the Relay convention in this repo — the board, handover/roadmap/brief dirs, and pr-reviews — so /continue, /next, /handover and /wrapup work on turn one
+description: Scaffold the Relay convention in this repo — the board, handover/roadmap/brief dirs, and relay/pr-reviews — so /continue, /next, /handover and /wrapup work on turn one
 argument-hint: "(no arguments)"
 ---
 
@@ -9,19 +9,19 @@ board or handover.
 
 ## Step 1 — Check what already exists
 ```bash
-ls docs/board.md docs/roadmap.md 2>/dev/null
-ls -d docs/handover docs/briefs docs/archive pr-reviews 2>/dev/null
+ls relay/board.md relay/roadmap.md 2>/dev/null
+ls -d relay/handover relay/briefs relay/archive relay/pr-reviews 2>/dev/null
 ```
-If `docs/board.md` already exists, **do not overwrite it** — report that Relay is already
+If `relay/board.md` already exists, **do not overwrite it** — report that Relay is already
 set up and stop (unless the user explicitly asks to re-scaffold). Otherwise continue.
 
 ## Step 2 — Create the directories
 ```bash
-mkdir -p docs/handover/archive docs/briefs docs/archive docs/board-audit pr-reviews/archive
+mkdir -p relay/handover/archive relay/briefs relay/archive relay/board-audit relay/pr-reviews/archive
 ```
 
 ## Step 3 — Write the board (the front door)
-Write `docs/board.md`. The board has two parts: **Tracks** (stable, long-lived lanes of
+Write `relay/board.md`. The board has two parts: **Tracks** (stable, long-lived lanes of
 work) and **Open threads** (the authoritative table of what's in flight *right now*).
 Seed it with the tracks that fit this repo — inspect the repo first (its `CLAUDE.md`,
 top-level packages/apps, README) and name 2–4 real tracks rather than inventing generic
@@ -32,7 +32,7 @@ ones. Use this shape:
 
 The front door. **Open threads** is the source of truth for what's in flight — never
 "newest handover wins". Each item has a stable `track/slug`. Detail lives in
-`docs/roadmap.md` and per-item briefs under `docs/briefs/`.
+`relay/roadmap.md` and per-item briefs under `relay/briefs/`.
 
 Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · 🔍 in-review · ⏸ parked · ✅ done
 
@@ -40,10 +40,10 @@ Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · �
 
 | Item | Status | Owner | Latest handover | Detail |
 |---|---|---|---|---|
-| `<track>/<slug>` | 🔜 | — | — | `docs/briefs/<slug>.md` |
+| `<track>/<slug>` | 🔜 | — | — | `relay/briefs/<slug>.md` |
 
 > `Owner` = the live branch/worktree actively on it, or `—` when it's free for `/continue`
-> to pick up. `Latest handover` links the `docs/handover/next-*.md` a cold session resumes from.
+> to pick up. `Latest handover` links the `relay/handover/next-*.md` a cold session resumes from.
 
 ## Tracks
 
@@ -54,13 +54,13 @@ Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · �
 ```
 
 ## Step 4 — Write the roadmap and a first brief stub
-Write `docs/roadmap.md` — the narrative behind each board item (the board stays terse; the
+Write `relay/roadmap.md` — the narrative behind each board item (the board stays terse; the
 roadmap carries the "why" and the sequencing):
 
 ```markdown
 # Roadmap
 
-The detailed narrative behind each board item. The board (`docs/board.md`) is the terse
+The detailed narrative behind each board item. The board (`relay/board.md`) is the terse
 index; this is where the reasoning, sequencing, and open decisions live.
 
 ## <track-name>
@@ -68,7 +68,7 @@ index; this is where the reasoning, sequencing, and open decisions live.
 <what it is, why it matters, the rough sequence of slices>
 ```
 
-Write one placeholder brief so the pattern is visible, `docs/briefs/<slug>.md`:
+Write one placeholder brief so the pattern is visible, `relay/briefs/<slug>.md`:
 
 ```markdown
 # <slug>
@@ -87,7 +87,7 @@ Write one placeholder brief so the pattern is visible, `docs/briefs/<slug>.md`:
 ```
 
 ## Step 5 — Add a README pointer to the docs dir
-Create `docs/README.md` (or append to it) a short note so a newcomer to the repo
+Create `relay/README.md` (or append to it) a short note so a newcomer to the repo
 understands the convention:
 
 ```markdown
@@ -97,7 +97,7 @@ understands the convention:
 - **`roadmap.md`** — the narrative behind each board item.
 - **`briefs/`** — one brief per unit of pending work.
 - **`handover/`** — cold-start handovers; `/continue` resumes from the newest per thread.
-- **`pr-reviews/`** — one merged review report per PR.
+- **`relay/pr-reviews/`** — one merged review report per PR.
 
 Commands: `/next` (what to work on) · `/continue` (resume a thread) · `/review-pr` ·
 `/fix-pr-review` · `/wrapup` (test→review→merge→handover) · `/handover` · `/start-new` (reset).
@@ -105,7 +105,7 @@ Commands: `/next` (what to work on) · `/continue` (resume a thread) · `/review
 
 ## Step 6 — Commit and report
 ```bash
-git add docs/board.md docs/roadmap.md docs/briefs docs/README.md
+git add relay/board.md relay/roadmap.md relay/briefs relay/README.md
 git commit -m "chore: scaffold Relay workflow (board + handover + briefs)"
 ```
 Do NOT push automatically — let the user review first. Then report, in plain language:

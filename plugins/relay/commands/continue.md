@@ -5,8 +5,8 @@ argument-hint: "[optional item slug or handover path; defaults to the thread mat
 
 Continue the next phase of work from a handover file and carry it out.
 
-> **Relay convention.** This command reads durable state from `docs/board.md`
-> (the front-door index) and `docs/handover/next-*.md` (cold-start handovers),
+> **Relay convention.** This command reads durable state from `relay/board.md`
+> (the front-door index) and `relay/handover/next-*.md` (cold-start handovers),
 > both committed to `main`. If your repo doesn't have them yet, run
 > `/relay-init` once to scaffold them.
 
@@ -17,7 +17,7 @@ Board + handovers are committed to main, so a fresh worktree picks them up even 
 main is merged in locally.
 
 1. `git fetch origin main` to refresh the shared board + handovers.
-2. Read the board: `git show FETCH_HEAD:docs/board.md` — the **Open threads** table is
+2. Read the board: `git show FETCH_HEAD:relay/board.md` — the **Open threads** table is
    the authoritative index of what's in flight.
 3. **Pick the thread:**
    - If `$ARGUMENTS` names an **item slug** (`track/slug`) or a handover timestamp/path,
@@ -27,11 +27,11 @@ main is merged in locally.
    - Else, if exactly one thread is `⚙ in-progress`, use it. If several are, or none is,
      **list the Open-threads rows and ask which** rather than guessing.
 4. **Open its handover:** read the row's `Latest handover` path via
-   `git show FETCH_HEAD:docs/handover/<...>` (no checkout needed). If the row has no
+   `git show FETCH_HEAD:relay/handover/<...>` (no checkout needed). If the row has no
    handover (`—`), work from its detail/brief doc instead.
 5. Fallback (no board, or empty): newest handover on main —
-   `git ls-tree -r --name-only FETCH_HEAD docs/handover/ | grep -E 'next-.*\.md$' | sort | tail -1`
-   — or newest local `ls -t docs/handover/next-*.md 2>/dev/null | head -1`. If neither
+   `git ls-tree -r --name-only FETCH_HEAD relay/handover/ | grep -E 'next-.*\.md$' | sort | tail -1`
+   — or newest local `ls -t relay/handover/next-*.md 2>/dev/null | head -1`. If neither
    exists, STOP — nothing to continue.
 6. Remember the item slug, source, and filename you used; report them in Step 4.
 
@@ -101,4 +101,4 @@ an empty worktree diff is a false green — it exercised the unchanged baseline,
 State which **board item** (`track/slug`) and which handover you continued (origin/main
 or local, plus the filename). When you reach the done-criteria (or get blocked),
 summarise what you changed (files + commits), what's left, and anything the user should
-know. `/handover` will fold the outcome back into `docs/board.md` at the end of the session.
+know. `/handover` will fold the outcome back into `relay/board.md` at the end of the session.

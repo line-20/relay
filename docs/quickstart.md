@@ -33,14 +33,17 @@ Restart Claude Code if prompted. You should now see `/relay-init`, `/next`, `/co
 This inspects your repo and creates:
 
 ```
-docs/
+relay/
   board.md          ← the front door (seeded with tracks that fit your repo)
   roadmap.md        ← the narrative behind each board item
   briefs/           ← one brief per unit of pending work
   handover/         ← cold-start handovers live here
+  pr-reviews/       ← merged review reports
   README.md         ← a short note explaining the convention to teammates
-pr-reviews/         ← merged review reports
 ```
+
+Everything the workflow owns lives under one `relay/` folder — it stays out of your repo's
+own `docs/`, and a teammate can see the whole convention at a glance.
 
 It commits these but does **not** push — review the seeded tracks, edit them to match how
 you actually think about the work, then push when you're happy. The tracks are a starting
@@ -48,8 +51,8 @@ guess, not a verdict.
 
 ## 3. Add something to work on
 
-Open `docs/board.md` and add a row to **Open threads** for a real task, plus a one-paragraph
-brief in `docs/briefs/`. (Or just tell Claude what you want to build and ask it to add the
+Open `relay/board.md` and add a row to **Open threads** for a real task, plus a one-paragraph
+brief in `relay/briefs/`. (Or just tell Claude what you want to build and ask it to add the
 board row and brief — that's the normal way.)
 
 ## 4. Start it
@@ -76,10 +79,10 @@ This runs the whole end-of-session loop in order, stopping at any gate that need
 1. **Test** — runs your suite; stops if anything's red.
 2. **PR** — opens a draft PR for the branch.
 3. **Review** — fans out the applicable specialists (security always runs), merged into one
-   report in `pr-reviews/`.
+   report in `relay/pr-reviews/`.
 4. **Fix** — re-verifies each finding and fixes the real ones.
 5. **Merge** — only on a clean green path (no blockers, checks passing, no conflicts).
-6. **Handover** — writes a cold-start note to `docs/handover/`, updates the board, commits
+6. **Handover** — writes a cold-start note to `relay/handover/`, updates the board, commits
    both to `main`, and prints a compact summary.
 
 ## 6. See the magic

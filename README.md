@@ -15,7 +15,7 @@ can pick up where another left off** — because the state that matters lives in
 ## The idea in one picture
 
 ```
-        docs/board.md  ← the front door: what's in flight, right now
+        relay/board.md  ← the front door: what's in flight, right now
               │
    ┌──────────┼───────────────────────────────┐
    │          │                                │
@@ -28,8 +28,8 @@ can pick up where another left off** — because the state that matters lives in
         /handover  ← writes a cold-start note + updates the board, on main
 ```
 
-Every command reads and writes two durable files — `docs/board.md` and
-`docs/handover/next-*.md` — committed straight to `main`. That's the whole trick: the baton
+Every command reads and writes two durable files — `relay/board.md` and
+`relay/handover/next-*.md` — committed straight to `main`. That's the whole trick: the baton
 is in the repo, so it survives `/clear`, survives days, survives a completely fresh session.
 
 ## What's in the box
