@@ -1,27 +1,51 @@
 ---
-description: Scaffold the Relay convention in this repo — pick the root, then the board, handover/roadmap/brief dirs, and pr-reviews — so /continue, /whats-next, /handover and /wrapup work on turn one
-argument-hint: "[--root <dir>  (where durable state lives; default 'relay')]"
+description: Scaffold the Relay convention in this repo — pick the root and budget tier, then the board, handover/roadmap/brief dirs, and pr-reviews — so /continue, /whats-next, /handover and /wrapup work on turn one
+argument-hint: "[--root <dir>  (where durable state lives; default 'relay')] [--tier free|pro|max]"
 ---
 
 Set up the durable files Relay's commands read and write, so a fresh repo can run the loop
 immediately. This is **idempotent** — safe to run again; it never overwrites an existing
 board or handover.
 
-## Step 0 — Choose the root and record it
-Relay keeps all its durable state under one **root** folder. Decide it before scaffolding:
+## Step 0 — Choose the root and the budget tier, and record them
+Relay keeps all its durable state under one **root** folder, and shapes how hard it fans out to a
+per-repo **budget tier**. Decide both before scaffolding:
+
+**Root:**
 1. **Default `relay`.** Use it unless `$ARGUMENTS` passes `--root <dir>`, or the repo already keeps
    this kind of state somewhere (a `docs/board.md`, an existing handover convention) — in that case
    propose that dir as the root so nothing has to move.
 2. Set `ROOT` to the chosen dir (`<root>` below = this value).
-3. **Write `relay.config.json` at the repo root when `ROOT` isn't `relay`** so every command finds
-   it (the default needs no file — absent config ⇒ `relay`):
-   ```bash
-   [ "$ROOT" != "relay" ] && printf '{\n  "root": "%s"\n}\n' "$ROOT" > relay.config.json
-   ```
+
+**Budget tier** (asked once, here — it drives how many review agents `/review-pr` fans out and how
+wide `/whats-next` researches; later increments read it in `/refine` and `/test`):
+3. If `$ARGUMENTS` passes `--tier free|pro|max`, take that. Otherwise **ask once**, plainly — it
+   tracks the driver's Claude plan, not the project:
+   - **`free`** — lean fan-out: a safety core (security · tests · migrations) plus a couple of
+     specialists; verify/audit sweeps stay narrow. For a free Claude Code setup.
+   - **`pro`** — moderate fan-out. The sensible middle if unsure.
+   - **`max`** — full fan-out, every applicable specialist, widest sweeps. For a max plan.
+   Set `TIER` to the answer. **If the user has no preference, leave `TIER` empty** — Relay then
+   behaves exactly as it does today (full fan-out, no cap); the tier can be set later by re-running
+   this command or editing `relay.config.json`. Never block setup on this.
+
+**Write the config** — only when it carries something (a non-default root, or a tier); the plain
+default (root `relay`, no tier) needs no file, so existing repos stay file-free. **Merge
+surgically** — preserve any keys already there (e.g. a `guardrails` block from `/guardrails`):
+```bash
+if [ "$ROOT" != "relay" ] || [ -n "$TIER" ]; then
+  base='{}'; [ -f relay.config.json ] && base="$(cat relay.config.json)"
+  printf '%s' "$base" | jq --arg root "$ROOT" --arg tier "$TIER" '
+      (if $root != "relay" then .root = $root else . end)
+    | (if $tier != ""      then .tier = $tier else . end)
+  ' > relay.config.json.tmp && mv relay.config.json.tmp relay.config.json
+fi
+```
+
 4. **Already have a board under `<root>`?** Then you're *adopting*, not scaffolding — write only
-   `relay.config.json` (step 3), skip the scaffold below, and report that the existing structure is
-   now wired to the `relay:*` commands. This is the zero-migration path for a repo with a bespoke
-   predecessor.
+   `relay.config.json` (the block above), skip the scaffold below, and report that the existing
+   structure is now wired to the `relay:*` commands. This is the zero-migration path for a repo with
+   a bespoke predecessor.
 
 ## Step 1 — Check what already exists
 ```bash
@@ -134,5 +158,6 @@ git add <root>/board.md <root>/roadmap.md <root>/briefs <root>/README.md
 git commit -m "chore: scaffold Relay workflow (board + handover + briefs)"
 ```
 Do NOT push automatically — let the user review first. Then report, in plain language:
-what was created, the tracks you seeded (and that they're a starting guess to edit), and
-that they can now run `/whats-next` to pick the first thing to work on.
+what was created, the **budget tier** recorded (or that none was set, so Relay runs at full
+fan-out), the tracks you seeded (and that they're a starting guess to edit), and that they can now
+run `/whats-next` to pick the first thing to work on.

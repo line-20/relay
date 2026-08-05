@@ -81,6 +81,15 @@ not — so a merged schema/dependency change can leave the next session hitting 
 3. **Best-effort and NON-fatal.** If the local environment isn't running, note it and
    continue to handover rather than stopping.
 
+## Phase 5.7 — Persist what the lap taught (offer, non-fatal)
+The merge is in; before handing over, this is the moment to compound. **If the lap taught something
+durable** — a review finding that should become a guardrail rule, a design pattern worth stewarding,
+a non-obvious decision, **or a user-visible change worth a release note** — **offer `/persist`** to
+harvest it into the knowledge layer (guardrails `extends` overlay + design system + AI memory) and
+draft a human-readable **release note**. Offer, don't force: for a routine change that taught nothing
+and shipped nothing user-visible, say so and skip. Non-fatal — never block the handover on it. (At 1.0
+this becomes a first-class phase of `ship`; today it's an offered step.)
+
 ## Phase 6 — Handover (and end-of-session tidy)
 The PR is now merged, so proceed directly into the handover. Run `/handover` end to end:
 its Step 0 guard passes (PR is MERGED), it generates the cold-start handover, commits it to

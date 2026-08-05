@@ -11,13 +11,18 @@ This is NOT `/continue`. `/continue` **resumes an in-flight thread** from its ha
 handover yet, just a brief. Keep them distinct: `/whats-next` never resumes ⚙/🔍 work (that's
 already owned by a live session).
 
-## Step 0 — Resolve the Relay root
+## Step 0 — Resolve the Relay root and budget tier
 Durable state lives under a per-repo root — default `relay/`, overridable via a `relay.config.json`
 at the repo root (`{ "root": "docs" }`). Resolve it once; read every `<root>/…` path below relative
 to it. Absent config (or no `root` key) ⇒ `<root>` = `relay`, so existing repos are unchanged.
 ```bash
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
+TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"
 ```
+`TIER` caps how wide the verify/audit levels fan out research agents (Steps 2.9A / 2.9B). **`unset`
+⇒ no cap** — the levels run at their full width, exactly as before; budget shaping is opt-in via
+`/relay-init`. It never changes the *default* level (Quick stays the default at every tier) — only
+how wide a level goes once chosen.
 **Soft check:** if the resolved `<root>/board.md` is nowhere to be found (not on `origin/main`, not
 local), STOP and say so plainly — e.g. *"root `docs` configured but `docs/board.md` missing — run
 `/relay-init`?"* — rather than failing deep in a later step.
@@ -62,8 +67,10 @@ Keep only items that could be picked up **now**:
 Skip unless L2. Replaces Step 3.5 — research the plausible contenders, not just spot-check five,
 so the ranking rests on what's actually true rather than the board's one-liner.
 
-1. Take the startable set from Step 2 and keep the **~8–10 most promising** contenders (drop the
-   obvious non-starters). Note any you deferred — never silently drop the tail.
+1. Take the startable set from Step 2 and keep the most promising contenders — **how many depends
+   on `TIER`**: `free` → ~4, `pro` → ~8, `max`/`unset` → ~10 (drop the obvious non-starters). Note
+   any you deferred to fit the tier cap — never silently drop the tail; say "researched the top N,
+   deferred the rest (tier=<t>)" so the narrowing is visible.
 2. **Fan out one research agent per contender, in parallel**, in a single message so they run
    concurrently. Give each the item slug and this brief:
    > Research board item `<slug>` for a "what to work on next" decision. Read (a) its board row
@@ -83,8 +90,11 @@ so the ranking rests on what's actually true rather than the board's one-liner.
 Skip unless L3. This is a **board audit**; the ranked shortlist is a byproduct. Expect a long run
 and real token cost — completeness beats speed.
 
-1. **Candidate set = every startable item** from Step 2 — do NOT cap. If it's very large, note the
-   count and process in batches; never silently drop items (a silent cap defeats an audit).
+1. **Candidate set = every startable item** from Step 2 — do NOT cap (an audit is exhaustive by
+   definition; the tier caps the *verify* width, never the audit's coverage). If it's very large,
+   note the count and process in batches; never silently drop items (a silent cap defeats an audit).
+   **On `TIER=free`, an exhaustive audit is token-heavy** — say so up front and offer to scope it to
+   one track, or to run L2 (verify) instead, before fanning out. Proceed in full only on the go-ahead.
 2. **Fan out one research agent per item** (or run it as a workflow if your harness has one, so
    it's resumable and progress-visible). Each reconciles the item across all sources:
    > Audit board item `<slug>`. Read: (a) its board row(s) in `<root>/board.md`; (b) its full

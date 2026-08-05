@@ -142,7 +142,9 @@ between a note and a spec.
 - the one-line problem and the approach you landed on,
 - the brief path and the board item (`track/slug` + status),
 - any open questions still needing a decision,
-- and that **`/whats-next` picks it up** when the user's ready to build.
+- and the next move: **`/refine <slug>`** to ground it in the project (code, guardrails, threat
+  model, budget-sized slices) before building, or **`/whats-next`** to start it straight away if it's
+  small enough not to need grooming.
 
 If the idea was killed in Step 2/3, report that instead — what it was, and why it's not worth
 building — and write nothing to the board.

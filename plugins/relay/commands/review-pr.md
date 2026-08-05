@@ -17,6 +17,10 @@ everywhere `$PR` appears below).
 > `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
 > `ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"` — the merged
 > report below is written under `<root>/pr-reviews/`.
+>
+> **Resolve the budget tier too:** `TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"`.
+> It caps how many specialists fan out (Step 1.5). **`unset` ⇒ no cap** — every applicable
+> specialist runs, exactly as before; budget shaping is opt-in via `/relay-init`.
 
 ## Step 1 — Classify the diff
 Get a diffstat before invoking any subagent:
@@ -47,9 +51,32 @@ content judgments, not size judgments — the question is never "is this diff sm
   user-facing string (label, button, heading, placeholder, toast, empty-state, validation
   message). False only if it changes no user-facing text anywhere.
 
+## Step 1.5 — Apply the budget tier to the fan-out
+Step 1 gives the **content-selected set** — the specialists whose gate fired for this diff. The
+tier decides how many of them actually launch. Never trade away safety for budget:
+
+- **Safety core — always runs when its gate fired, never capped:** `security-specialist`
+  (unconditional), `test-engineer` (it's the one that runs the typecheck + suite — losing it loses
+  verification), and `dbms-specialist` (migration/data-loss safety). These are outside the cap.
+- **Cappable set — everything else selected:** `frontend-developer`, `backend-developer`,
+  `ui-ux-designer`, `api-architect`, `privacy-specialist`, `i18n-reviewer`, `solution-architect`.
+  Fill the budget from this set up to the cap, **prioritised by risk to the primary changed area**
+  (the domain developer for the side with the most changed files first, then `privacy-specialist`
+  if gated on, then the rest by relevance).
+
+| `TIER` | Fan-out |
+|---|---|
+| `free` | safety core + up to **2** cappable |
+| `pro` | safety core + up to **4** cappable |
+| `max` / `unset` | **no cap** — every content-selected specialist runs (today's behaviour) |
+
+Any cappable specialist that its gate selected but the budget deferred is **not silently dropped**
+— it goes in Step 3's *Skipped specialists* with the reason `deferred — tier=<t> budget cap (re-run
+/review-pr standalone for full coverage)`. A budget defer is always auditable, same as a content skip.
+
 ## Step 2 — Launch reviewers in parallel
-In a single message, launch whichever of these apply — all in "contributor mode" (findings
-only, no file write, no verdict; you merge them in Step 3):
+In a single message, launch whichever of these apply **after the Step 1.5 cap** — all in
+"contributor mode" (findings only, no file write, no verdict; you merge them in Step 3):
 
 1. **frontend-developer**, target $PR, scoped to the frontend areas — only if frontend files
    are touched. Covers correctness, hooks/component design, data-fetching, rendering.
@@ -91,9 +118,11 @@ only, no file write, no verdict; you merge them in Step 3):
 **security-specialist stays unconditional** — its surface is too broad for a content
 pre-filter to safely narrow (a one-line render change can still be an XSS vector).
 
-**Transparency on skips**: whenever a gated specialist (privacy, i18n, solution-architect) is
-skipped, still record why in the final report's Notes — e.g. "privacy-specialist skipped: diff
-touches no schema/form/log/third-party-call code" — so a skip is always auditable, never silent.
+**Transparency on skips**: whenever a specialist doesn't run — either a content gate didn't fire
+(privacy, i18n, solution-architect) **or** the tier budget deferred it (Step 1.5) — record why in
+the final report's *Skipped specialists* section, e.g. "privacy-specialist skipped: diff touches no
+schema/form/log/third-party-call code" or "ui-ux-designer deferred — tier=free budget cap". A skip
+is always auditable, never silent.
 
 ## Step 3 — Merge into ONE report, in EXACTLY this structure
 The report must look the same every time, no matter which specialists ran or how many findings
@@ -134,9 +163,11 @@ never omit the heading.>
 - [ ] **N1** · `<area>` · `<path/to/file.ext:line>` — <one-sentence problem>. **Fix:** <concrete change>. _(<specialist>)_
 
 ## Skipped specialists
-<One line per specialist that did NOT run, with the reason — e.g.
-"privacy-specialist — diff touches no schema/form/log/third-party-call code". "_None — all
-applicable specialists ran._" if none were skipped. This makes every gate auditable.>
+<One line per specialist that did NOT run, with the reason — a content gate that didn't fire
+("privacy-specialist — diff touches no schema/form/log/third-party-call code") or a tier budget
+defer ("ui-ux-designer — deferred, tier=free budget cap; re-run /review-pr standalone for full
+coverage"). "_None — all applicable specialists ran._" if none were skipped. This makes every gate
+and every budget defer auditable.>
 
 ## Notes
 <Only things that are NOT a code-level finding: a lawful-basis or DPIA question security/privacy

@@ -112,8 +112,10 @@ touch. Every step is a concrete action + its expected result, as a `- [ ]` check
 
 **If driving:**
 1. **Need a reachable target.** Use the preview URL (Step 3) once its deploy check is green, or a
-   local run if that's the mode. If nothing's reachable yet (deploy still building, app not up),
-   say so and **skip the drive** rather than blocking — the plan still stands.
+   local run if that's the mode. If the preview is still building or you want it gated (incl.
+   security) before trusting it, run **`/deploy <n>`** first — it waits for, health-checks, and
+   security-gates the preview, then hands back a verified URL. If nothing's reachable yet and you
+   don't want to wait, say so and **skip the drive** rather than blocking — the plan still stands.
 2. **Use the Claude-in-Chrome browser tools** (load them via ToolSearch if they're deferred; open
    a fresh tab, don't hijack the user's). Record with `gif_creator` — grab a few frames before
    and after each action so the clip is watchable.

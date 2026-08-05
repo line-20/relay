@@ -7,6 +7,103 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.12.0
+
+**Added**
+- **`/deploy` — orchestrate and verify a PR preview, then hand it to `/test-drive`.** Fifth increment
+  of the Secure-SDLC arc, and phase (h). It turns "a preview might be building somewhere" into "here
+  is a verified, security-gated URL to click through" — and it's deliberately **thin: it never
+  deploys anything itself.** It only drives the **project's own pipeline**: discover how the repo
+  previews a PR (a documented URL pattern, a `gh pr checks` deploy check, a CI job), ensure the build
+  ran (nudging only through the project's own trigger), wait for it (bounded, non-thrashing), then:
+  - **health-check** the resolved preview URL actually responds — a green check can still front a
+    broken app;
+  - **security-gate** it — require the project's own security checks (SAST/dep/secret scan) green for
+    the SHA and confirm the target is an ephemeral **preview** env, never prod. A failing security
+    check stops the flow; no security checks configured is reported as a gap (a `/persist` candidate).
+
+  No preview mechanism ⇒ it says so and stops (testing falls back to a local run) — it never invents
+  infrastructure. That "use the pipeline, never replace it" boundary is what lets one command span
+  Vercel previews, review-env containers, and beyond without special-casing a vendor. `/test-drive`
+  now points at `/deploy` to gate a preview before driving it.
+
+See [docs/ssdlc-roadmap.md](docs/ssdlc-roadmap.md) — this is increment #5 of the additive 0.x arc.
+
+## 0.11.0
+
+**Added**
+- **`/persist` — harvest what a lap taught back into the living knowledge.** Fourth increment of the
+  Secure-SDLC arc, and phase (j): the step that makes the spiral *compound* instead of leaking each
+  session. After a lap (a merged PR / a slug), `/persist` reads the diff, its review report, the
+  brief's threat model, and the handovers, and extracts only the **durable, non-obvious** lessons —
+  applying memory's "was it non-obvious, and will it recur?" test so the knowledge layer stays sharp,
+  not bloated. It routes each lesson to a surface:
+  - **Guardrails** — a recurring review finding or security bar becomes a rule in the dimension's
+    **`extends` overlay** (the project's house rules). It **never mutates a shipped baseline** —
+    establishing a dimension stays `/guardrails`' job; `/persist` only grows the overlay, wiring a new
+    house-rules file into the config's `extends` array surgically when one doesn't exist yet.
+  - **Design system** — a new pattern/token/component joins the design-system doc, generalising the
+    stewarding `ui-ux-designer` already does for one guide.
+  - **AI memory** — a non-obvious decision + its why, one fact each.
+  - **Release notes** — a human-readable, user-benefit summary of what the lap shipped, in the
+    project's copy voice (British English), grouped by release. This is the *outward* deliverable and
+    is **not** filtered by the non-obvious test: every user-visible change earns a note (gated on
+    "would a user notice?"), while a purely internal lap gets none. Distinct from a dev CHANGELOG —
+    it's the human companion, not a copy. Lives at `<root>/knowledge/release-notes.md`, relocatable
+    via `paths["release-notes"]`.
+
+  Architecture/ADR/ops/manual targets are **captured as deferred** (later persist slices), never
+  silently dropped. `/persist` offers before it writes (the knowledge layer is shared, main-owned
+  project truth) and **never writes code**. "Nothing to persist" is a valid, sprawl-respecting outcome.
+- **`/wrapup` now offers `/persist`** after the merge, before handover (Phase 5.7) — a non-fatal
+  offer, skipped for a routine change. (At 1.0 this becomes a first-class phase of `ship`.)
+
+See [docs/ssdlc-roadmap.md](docs/ssdlc-roadmap.md) — this is increment #4 of the additive 0.x arc.
+
+## 0.10.0
+
+**Added**
+- **`/refine` — groom a shaped idea against THIS project.** Third increment of the Secure-SDLC arc,
+  and phase (c) of the spiral: the bridge between `/explore` (which shapes an idea *in the abstract*)
+  and `/whats-next` (which builds it). `/refine` takes an existing brief and grounds it in the
+  project — reading the actual **code** (what to reuse, what not to break), the **guardrails** from
+  `/guardrails` (turning each active dimension's bar into an explicit slice requirement), and the
+  project's **memory/knowledge** (so settled decisions aren't re-litigated). It then does two
+  distinctive things:
+  - **A threat model, content-gated** — whenever the change has a security/privacy surface, it walks
+    assets → trust boundaries → threats → mitigations against the `security`/`privacy` guardrail bar,
+    and folds each mitigation into a slice as a requirement. Security is designed in, not bolted on.
+    A change with no threat surface says so and skips.
+  - **Budget-aware slicing** — it re-cuts the slices to the `tier` from increment #2: `free` → small,
+    sequential, one-at-a-time; `pro` → moderate, parallel where independent; `max` → may decompose
+    into an epic of parallel threads. Each slice carries its acceptance criteria (guardrail
+    requirements + threat mitigations).
+
+  It **never writes code** and **never writes guardrails** (that's `/guardrails`/`/persist`) — it
+  grooms the brief in place and STOPs for approval before writing. Fully back-compatible: no
+  guardrails ⇒ it skips that layer; `unset` tier ⇒ it slices by natural seams.
+
+See [docs/ssdlc-roadmap.md](docs/ssdlc-roadmap.md) — this is increment #3 of the additive 0.x arc.
+
+## 0.9.0
+
+**Added**
+- **Budget tier — one signal that scales fan-out to the driver's Claude plan.** Second increment of
+  the Secure-SDLC arc. `/relay-init` now asks once for a **`tier`** — `free` / `pro` / `max` — and
+  writes it to `relay.config.json`. Two commands read it today:
+  - **`/review-pr`** caps how many specialists fan out. A **safety core** — `security-specialist`
+    (always), `test-engineer` (runs the suite), `dbms-specialist` (migration safety) — is *never*
+    capped; the remaining content-selected specialists fill the budget by risk (`free` → +2, `pro` →
+    +4, `max` → no cap). Anything the budget defers is logged in the report's *Skipped specialists*
+    with a "re-run standalone for full coverage" note — never a silent drop.
+  - **`/whats-next`** scales the verify/audit research fan-out (`free` → ~4 contenders, `pro` → ~8,
+    `max` → ~10); an L3 audit stays exhaustive but warns and offers to scope on `free`.
+- **Fully back-compatible.** Absent `tier` ⇒ **no cap anywhere** — every command behaves exactly as
+  in 0.8.0. Budget shaping is opt-in: a repo that never sets a tier sees no difference. Later
+  increments (`/refine`, `/test`) will read the same signal for slice size and test depth.
+
+See [docs/ssdlc-roadmap.md](docs/ssdlc-roadmap.md) — this is increment #2 of the additive 0.x arc.
+
 ## 0.8.0
 
 **Added**

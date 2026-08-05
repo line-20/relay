@@ -1,8 +1,12 @@
 # Roadmap — Relay → a Secure SDLC workbench (the 1.0 arc)
 
 **Status:** 🚧 in progress. North-star doc for the next major release (the 1.0 arc). Decisions at
-the end are settled; the increment arc is locked. **Increment #1 (`/guardrails` + guardrail-aware
-review specialists) shipped in 0.8.0** — the rest is sequenced below.
+the end are settled; the increment arc is locked. **Shipped so far: increment #1 (`/guardrails` +
+guardrail-aware review specialists) in 0.8.0; #2 (budget/tier in config, `/review-pr` + `/whats-next`
+budget-aware) in 0.9.0; #3 (`/refine` — context + guardrails + threat model + budget slicing) in
+0.10.0; #4 (`/persist` — knowledge harvest into the extends overlay + design system + memory) in
+0.11.0; #5 (`/deploy` — orchestrate/verify + security-gate a PR preview) in 0.12.0** — the rest is
+sequenced below.
 
 ## Vision
 Turn Relay from a continuity-first *loop* into a continuity-first **Secure SDLC workbench** — one
@@ -50,16 +54,16 @@ pipeline**:
 
 | # | Phase | Command | State |
 |---|---|---|---|
-| a | Initialize | `/relay-init` (+ configurable root ✓) | **exists** — extend to seed guardrails + budget/tier |
+| a | Initialize | `/relay-init` (+ configurable root ✓, budget tier ✓) | **exists** — still to seed guardrails |
 | b | Explore | `/explore` | **refine** — make it *purely* context-free; accept "from assets" / "from a prior iteration" as inputs |
-| c | Refine | `/refine` *(new; working name)* | **NEW pillar** — context + guardrails + memory; budget-aware slicing; threat model |
+| c | Refine | `/refine` ✅ | **shipped 0.10.0** — context + guardrails + memory; budget-aware slicing; threat model |
 | d | Build | `/whats-next`, `/continue` (topic-worktrees ✓) | **exists** — add *epic* grouping |
-| e | Review | `/review-pr` (the coordinator + fan-out ✓) | **exists** — formalize the "review coordinator" role; make agent count budget-aware |
+| e | Review | `/review-pr` (the coordinator + fan-out ✓, budget-aware ✓) | **exists** — still to formalize the "review coordinator" role |
 | f | Fix | `/fix-pr-review` (↔ e loop ✓) | **exists** |
 | g | Test | `/test-drive` (scenarios, AI-driven, preview-aware ✓) | **exists** (just shipped) |
-| h | Deploy preview | `/deploy-preview` *(new; or fold into g)* | **thin** — orchestrate/verify a PR preview, don't own deployment |
+| h | Deploy preview | `/deploy` ✅ | **shipped 0.12.0** — orchestrate/verify + security-gate a PR preview, don't own deployment |
 | i | Reflect | *(no command — a loop edge)* | **NEW behaviour** — re-enter `/explore` or `/refine` with the result as input |
-| j | Persist | `/persist` *(new; working name)* | **NEW pillar** — harvest into living docs + memory |
+| j | Persist | `/persist` ✅ | **shipped 0.11.0** — harvest into guardrails overlay + design system + memory + human-readable release notes (arch/ADR/ops/manual deferred) |
 
 Backbone that isn't a phase but everything leans on: **`/groundwork`** (the guardrails/tech-context
 doc — already shaped in [[tech-context]]). It's (c)'s input and (j)'s output — the two ends of one
@@ -147,17 +151,26 @@ lap of design is proven additively before anything breaks. Only the schema/flow 
 quarantined into the final major cut.
 
 **Additive (0.x — no break, prove each on castles):**
-1. **`/guardrails` + the knowledge layer** ⏳ *(increment #1 — OPEN)* — the layered guardrails model
-   (baseline/adapt/extend, opt-in dimensions) and the `<root>/knowledge/` home, incl. the per-path
-   config that lets a deliverable live outside `relay/`. Backbone for (c) and (j). *(brief:
-   [[guardrails]])*
-2. **Budget/tier in config** — extend `relay.config.json`; make `/review` + `/next` budget-aware.
-   Unblocks budget-aware everything.
-3. **`/refine` (phase c)** — the big pillar. Context + budget slicing + threat model, against the
-   resolved guardrails from #1.
-4. **`/persist` (phase j)** — the other big pillar. Knowledge harvest into the #1 layer (writes the
-   `extends` overlay only), sprawl-guarded.
-5. **`/deploy` (phase h)** — orchestrate/verify a PR preview (stay out of owning deploys).
+1. **`/guardrails` + the knowledge layer** ✅ *(increment #1 — shipped 0.8.0)* — the layered
+   guardrails model (baseline/adapt/extend, opt-in dimensions) and the `<root>/knowledge/` home, incl.
+   the per-path config that lets a deliverable live outside `relay/`. Backbone for (c) and (j).
+   *(brief: [[guardrails]])*
+2. **Budget/tier in config** ✅ *(increment #2 — shipped 0.9.0)* — a `tier` (`free`/`pro`/`max`) in
+   `relay.config.json`, asked once at `/relay-init`; `/review-pr` caps its specialist fan-out (safety
+   core never capped, defers logged) and `/whats-next` scales its verify/audit research width. Absent
+   tier ⇒ no cap (fully back-compatible). Unblocks budget-aware everything.
+3. **`/refine` (phase c)** ✅ *(increment #3 — shipped 0.10.0)* — the big pillar. Context + budget
+   slicing + threat model, against the resolved guardrails from #1 and the tier from #2. Grooms an
+   `/explore` brief in place; never writes code or guardrails.
+4. **`/persist` (phase j)** ✅ *(increment #4 — shipped 0.11.0)* — the other big pillar. Knowledge
+   harvest into the #1 layer (writes the `extends` overlay only, never a baseline), sprawl-guarded via
+   memory's non-obvious test. Ships guardrails + design-system + memory + human-readable release-notes
+   targets; arch/ADR/ops/manual deferred to later slices. Release notes are the *outward* deliverable
+   (gated on user-visibility, not non-obviousness). `/wrapup` now offers it after merge (1.0 makes it
+   a phase of `ship`).
+5. **`/deploy` (phase h)** ✅ *(increment #5 — shipped 0.12.0)* — orchestrate/verify + security-gate
+   a PR preview via the project's own pipeline (stay out of owning deploys); hands a verified URL to
+   `/test-drive`. No preview mechanism ⇒ it stops, never invents one.
 6. **Security shift-left** — threat model in (c), security scenarios in (g), gate in (h); mostly
    falls out of 1/3/4 once they exist.
 
@@ -326,10 +339,13 @@ non-cheap gaps; both are addressed by R2/R3. Everything else is a dimension away
   change — avoid weight until it's earned.
 - **Deploy (h)** **orchestrates and verifies** a preview the project's own CI produces — it never
   becomes a deployment tool (stays stack-agnostic).
-- **Persist (j) targets:** ship **guardrails + design-system** first (both already have a steward),
-  add architecture / ops / manual / ADRs in later slices.
+- **Persist (j) targets:** ship **guardrails + design-system + memory + human-readable release
+  notes** first (release notes gated on user-visibility, not the non-obvious lesson test); add
+  architecture / ops / manual / ADRs in later slices.
 - **Threat model** is a **section inside guardrails**, not a separate doc — one fewer sprawl surface.
 - **Version line.** The breaking cut is **1.0** (first stable major from 0.x). castles runs ahead on
   a **pre-release channel**; the world gets the additive 0.x increments until 1.0 assembles the break.
 
-_Roadmap complete — next action: prove increment #1 (`/guardrails` → `/review`) on castlesERP._
+_Roadmap complete. Increments #1–#5 shipped (0.8.0 → 0.12.0); the additive arc has only **#6 security
+shift-left** left (and it mostly falls out of #1/#3/#4/#5) before the breaking 1.0 cut (#7–#11). Next
+action: prove #1–#5 on castlesERP, then close out #6._
