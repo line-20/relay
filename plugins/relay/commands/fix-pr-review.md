@@ -10,7 +10,7 @@ Work through the PR review report and fix what's real. Target: $ARGUMENTS (a rep
 
 ## Step 1 — Load
 1. If no file given, run `ls -t relay/pr-reviews/*.md | head -1` and use that.
-2. Read the report. Parse the frontmatter (pr, workspaces, blockers) and the unchecked `- [ ]` findings.
+2. Read the report. Parse the frontmatter (pr, areas, blockers) and the unchecked `- [ ]` findings.
 3. Get current state: `gh pr diff` (or the diff for the PR number in frontmatter) plus the actual files referenced.
 
 ## Step 2 — Re-verify BEFORE fixing

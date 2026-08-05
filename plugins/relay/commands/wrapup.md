@@ -77,6 +77,7 @@ not — so a merged schema/dependency change can leave the next session hitting 
 The PR is now merged, so proceed directly into the handover. Run `/handover` end to end:
 its Step 0 guard passes (PR is MERGED), it generates the cold-start handover, commits it to
 main, prints the compact summary, **and does the end-of-session housekeeping** — its Step 4.5
-archives superseded handovers + old PR reviews, and its Step 6 releases this thread's worktree
-and prunes dead worktree entries. There is no separate cleanup command; this is it. Then tear
-down any throwaway test fixture. That closes the session.
+archives superseded handovers + old PR reviews, and its Step 6 exits this thread's topic worktree
+(keeping it on disk for the topic's next slice) and prunes dead worktree entries. There is no
+separate cleanup command; this is it. Then tear down any throwaway test fixture. That closes the
+session.

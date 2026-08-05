@@ -23,7 +23,7 @@ round), *what constrains it* (must work across multiple app instances). Then it 
 three approaches — in-memory counter, shared store, gateway-level — with trade-offs, and
 recommends the smallest one that actually solves it.
 
-You agree. It writes `relay/briefs/auth/rate-limit.md` — problem, chosen approach, the
+You agree. It writes `relay/briefs/rate-limit.md` — problem, chosen approach, the
 alternatives it beat, a first slice, and what's out of scope — and adds a `🔜` row to the
 board. **It stops there. No code.** The idea is now a startable item; shaping it and building
 it are two separate acts.
@@ -34,7 +34,7 @@ it are two separate acts.
 
 ## Morning: pick something
 
-Next day, fresh session, no memory of yesterday's brainstorm — but the brief is on the board.
+Next day, fresh session, no memory of yesterday's `/explore` — but the brief is on the board.
 You've no idea what's most worth doing, so you ask:
 
 ```
@@ -51,12 +51,15 @@ a live session already owns), ranks it, and shows you:
 >
 > ⭐ = my pick.
 
-You pick 1. Relay creates a git worktree for `auth/rate-limit` — an isolated directory on a
-new branch — reads the brief, scopes the first slice, and starts building. **You never touched
-`main`, and no other session's work is anywhere near yours.**
+You pick 1. Relay puts you in the `auth` **topic worktree** — an isolated directory, created now
+and reused for every later `auth` slice — on a new `rate-limit` branch, reads the brief, scopes
+the first slice, and starts building. **You never touched `main`, and no other session's work is
+anywhere near yours.**
 
 > **Why a worktree, not just a branch?** So five sessions can each have a working tree
-> checked out at once without fighting over one directory. Relay always works in one.
+> checked out at once without fighting over one directory. Relay always works in one — and keys
+> it to the **topic**, not the slice, so tomorrow's `auth` work reuses this same directory (same
+> editor tab), re-baselined onto fresh `main`, instead of spawning a new tree per slice.
 
 ## Midday: something comes up
 
@@ -94,6 +97,21 @@ cheapest to catch.
 
 You confirm, it finishes the slice, commits.
 
+## Late afternoon: kick the tyres (optional)
+
+Not ready to merge on trust? Before `/wrapup`, hand the change to a test pass:
+
+```
+/test-drive
+```
+
+Relay opens a draft PR and writes a **structured test plan** into it — preconditions, the happy
+path, and the cases an LLM skips by default: invalid input, wrong-role, tenant-isolation. Add
+`drive` and it clicks through the happy path in the browser against the preview and posts pass/fail
+with a GIF. It **never merges** — it stops at a tested-but-unmerged PR; `/wrapup` still owns the
+merge. (On a project with per-PR preview deploys this is where it shines; without one it falls back
+to local-run steps.)
+
 ## Evening: ship it
 
 ```
@@ -117,23 +135,25 @@ The end-of-session loop, in order, stopping at any gate that needs you:
    to `main`, prints the summary.
 
 `auth/rate-limit` is done. The board shows the next `auth` item as 🔜. Tomorrow's `/whats-next`
-will surface it.
+will surface it — and start it in the same `auth` worktree, re-baselined onto fresh `main`.
 
 ## Housekeeping happens on its own
 
 Notice there was no "clean up" step. That's deliberate: the `/wrapup` you just ran archived
 `auth/rate-limit`'s now-superseded handover, trimmed old PR reviews past the newest 20, and
 pruned dead worktree entries — all folded into its handover step, on `main`, nothing deleted
-(git keeps it all). The one thing it *won't* do is force-remove a **sibling** session's
-worktree; if a finished one is lying around it just names it and hands you the one-liner, so
-it can never clobber a session that's still live. There's no separate cleanup command to
-remember.
+(git keeps it all). It **kept** the `auth` worktree — the topic still has queued work, so
+tomorrow's slice reuses it (a tree is only removed once its topic has nothing left on the board).
+The one thing it *won't* do is force-remove a **sibling** session's worktree; it names one for
+removal only when it's merged, clean, **and** its topic is no longer live — never a resting topic
+tree, never by force — so it can never clobber a session that's still live. There's no separate
+cleanup command to remember.
 
 ---
 
 ## The shape of it
 
-The ship path is three commands — brainstorm the idea, start it, wrap it up (`/wrapup` runs
+The ship path is three commands — explore the idea, start it, wrap it up (`/wrapup` runs
 the review, the merge, the handover, **and the tidy-up** for you at the end):
 
 ```

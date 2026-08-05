@@ -98,15 +98,17 @@ understands the convention:
 - **`board.md`** — the front door. `Open threads` is what's in flight now.
 - **`roadmap.md`** — the narrative behind each board item.
 - **`briefs/`** — one brief per unit of pending work.
-- **`handover/`** — cold-start handovers; `/continue` resumes from the newest per thread.
+- **`handover/`** — cold-start handovers; `/continue` resumes from the handover the board links
+  for a thread (not "newest wins").
 - **`reference/`** — reference frames from `/cross-check` (how others solve a problem).
 - **`pr-reviews/`** — one merged review report per PR.
 
 Commands: `/explore` (shape an idea) · `/whats-next` (what to work on) · `/continue` (resume a
-thread) · `/cross-check` (check against prior art) · `/watch` (park on a dependency, auto-resume
-when it lands) · `/wrapup` (test→review→merge→handover→tidy). `/review-pr`, `/fix-pr-review`,
-`/handover` are run by `/wrapup` — call them standalone only when you need one on its own.
-`/garbage-collect` reclaims orphaned worktrees when needed.
+thread) · `/cross-check` (check against prior art) · `/test-drive` (draft PR + structured test
+plan; can drive it in the browser) · `/watch` (park on a dependency, auto-resume when it lands) ·
+`/wrapup` (test→review→merge→handover→tidy). `/review-pr`, `/fix-pr-review`, `/handover` are run
+by `/wrapup` — call them standalone only when you need one on its own. `/garbage-collect` reclaims
+orphaned worktrees when needed.
 ```
 
 ## Step 6 — Commit and report

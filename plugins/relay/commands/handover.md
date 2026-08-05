@@ -1,7 +1,7 @@
 ---
 description: Generate a cold-start handover for the next phase, commit it to main, and print a compact terminal summary
 argument-hint: "[optional focus, e.g. 'health monitoring metering']"
-allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Read, Write
+allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Read, Write, Edit, ExitWorktree
 ---
 
 > **Run by the loop.** `/wrapup` calls this for you (Phase 6) at the end of a shipped session.
@@ -213,8 +213,11 @@ tree". Default to **keeping** it:
   `ExitWorktree({ action: "keep" })` (NOT `"remove"`) — it returns you to the main checkout but
   leaves the tree on disk. Removing it only recreates the per-slice churn this design removed.
   **Only remove the tree if the topic itself is done** — no open or queued board item shares it,
-  so nothing will reuse it — and even then use `ExitWorktree({ action: "remove" })`, which
-  refuses a dirty/unmerged tree rather than clobbering it.
+  so nothing will reuse it. To remove: if THIS session *created* the tree via `EnterWorktree`,
+  `ExitWorktree({ action: "remove" })` works (it refuses a dirty/unmerged tree). But a tree you
+  **entered via `path`** (the reuse case) can only be *kept* by `ExitWorktree` — so there,
+  `ExitWorktree({ action: "keep" })` then `git worktree remove <path>` from the **main checkout**
+  (a bare `remove` refuses a dirty tree; don't `--force`).
 - **In flight** (unmerged — you handed over mid-thread) → keep the worktree/branch's work
   but drop any lock so the next `/continue` isn't blocked. Board `Owner = —` alone is NOT
   enough — a concurrent-session guard keys off the live process, not the board text.

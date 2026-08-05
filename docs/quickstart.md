@@ -40,8 +40,11 @@ relay/
   handover/         ← cold-start handovers live here
   reference/        ← reference frames from /cross-check (how others solve a problem)
   pr-reviews/       ← merged review reports
+  archive/          ← shipped briefs move here when the board is compacted
+  board-audit/      ← dated reconciliation reports from /whats-next audit
   README.md         ← a short note explaining the convention to teammates
 ```
+(`handover/` and `pr-reviews/` also get an `archive/` subdir used by housekeeping.)
 
 Everything the workflow owns lives under one `relay/` folder — it stays out of your repo's
 own `docs/`, and a teammate can see the whole convention at a glance.
@@ -59,9 +62,10 @@ Give a rough idea and let Relay turn it into a proper board item:
 ```
 
 `/explore` interrogates the idea one question at a time — the real problem, who it's for,
-what's explicitly out of scope, the constraints — then puts up a couple of approaches, cross-
-checks the one you pick against prior art, and writes it up as a **brief** in `relay/briefs/`
-with a matching **row on the board**. It *never* writes code: shaping the work and doing it are
+what's explicitly out of scope, the constraints — then puts up a couple of approaches and writes
+the one you pick up as a **brief** in `relay/briefs/` with a matching **row on the board**. (It
+*offers* to cross-check your pick against prior art first — skippable, and skipped for small
+ideas.) It *never* writes code: shaping the work and doing it are
 deliberately separate. When it's done you have a startable item, not a half-built feature.
 
 > **Prefer to write it yourself?** You can always open `relay/board.md`, add a row to **Open
@@ -75,9 +79,10 @@ deliberately separate. When it's done you have a startable item, not a half-buil
 ```
 
 Relay reads the board, ranks what's startable, and shows you a short table with a ⭐
-recommendation. Pick one. It creates an **isolated git worktree** for that item and starts
-the first slice — you're now working on a branch, in its own directory, without touching
-`main` or any other session's work.
+recommendation. Pick one. It puts you in that item's **topic worktree** — created if this is the
+topic's first slice, otherwise reused and re-baselined off `main` — and cuts a fresh branch for
+the slice. You're now working in an isolated directory, without touching `main` or any other
+session's work.
 
 ## 5. Wrap it up
 
@@ -118,9 +123,13 @@ nothing about your last one, and it doesn't need to. That's the point.
 - **Unsure if you're reinventing something?** `/cross-check` — see how others solve it first.
 - **Starting fresh?** `/whats-next` — pick from the board.
 - **Picking up a thread?** `/continue` — resume from its handover.
+- **Want to try it before merging?** `/test-drive` — a draft PR with a structured test plan
+  (happy path + the edge/error/tenant-isolation cases); add `drive` to run the happy path in the
+  browser. Never merges.
+- **Blocked on a sibling session's unlanded work?** `/watch` — park it, auto-resume when it lands.
 - **Done for now?** `/wrapup` (to ship) or `/handover` (to hand off mid-thread).
-- **Cleaning up?** Nothing to run — `/wrapup` archives old notes and prunes dead worktrees as
-  part of its handover step.
+- **Cleaning up?** Nothing to run — `/wrapup` archives old notes and prunes dead worktree entries
+  as part of its handover step, and keeps your topic worktrees for their next slice.
 
 Next: **[the-board-model.md](the-board-model.md)** — the one mental model that makes all of
 this hang together.

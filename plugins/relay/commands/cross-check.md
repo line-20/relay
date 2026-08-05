@@ -52,8 +52,9 @@ Prefer specifics over generalities: "Stripe idempotency-keys writes on a client-
 beats "some APIs handle retries".
 
 ## Step 4 — Write / update the reference frame
-Write `relay/reference/<topic-slug>.md` using this structure (merge into an existing frame
-rather than overwriting — keep prior entries, add and correct):
+Write `relay/reference/<topic-slug>.md` (`mkdir -p relay/reference` first — it may not exist in a
+fresh clone) using this structure (merge into an existing frame rather than overwriting — keep
+prior entries, add and correct):
 
 ```markdown
 # Reference frame: <topic>

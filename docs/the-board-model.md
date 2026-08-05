@@ -82,10 +82,12 @@ touches it follows the same rule: **start from `main`'s copy, make one surgical 
 just that.** Never overwrite the whole board from stale local state — you'd wipe a parallel
 session's row. `/handover` refreshes from `FETCH_HEAD` before editing for exactly this reason.
 
-The same care extends to worktrees: `/handover` releases its **own** thread's worktree when
-the loop closes, and prunes dead worktree entries — but it only ever *reports* a finished
-sibling worktree (merged + clean) for you to remove, never force-removes another session's
-tree. When in doubt, Relay reports and waits rather than deleting.
+The same care extends to worktrees, which are keyed to the **topic**, not the slice: when the
+loop closes `/handover` **keeps** its own topic tree for the next slice (removing it only once the
+topic itself is done), and prunes dead worktree entries — but it only ever *reports* a sibling
+worktree for removal when it's merged, clean, **and** its topic is no longer live on the board
+(never a resting topic tree), and never force-removes another session's tree. When in doubt, Relay
+reports and waits rather than deleting.
 
 ## How the commands map onto the model
 
@@ -94,9 +96,15 @@ tree. When in doubt, Relay reports and waits rather than deleting.
 - `/cross-check` **writes** a reference frame under `relay/reference/` (how others solve the
   problem) and checks an approach against it — offered at the end of `/explore`, or on its own.
 - `/whats-next` **reads** Open threads, filters to what's startable (🔜/⏸/💡, no live owner),
-  ranks it, and starts your pick in a worktree.
+  ranks it, and starts your pick in the topic's worktree (created once, reused each slice).
 - `/continue` **reads** Open threads, finds your thread (by slug or current branch), and
   resumes from its linked handover.
+- `/watch` **parks** an item (⏸, `blocked-on: …`) when it depends on a sibling's unlanded work,
+  watches the dependency reach `main` in the background, and flips the row back to ⚙ (reclaiming
+  `Owner`) when it lands — the only command that drives the ⏸ state programmatically.
+- `/test-drive` touches the **PR, not the board**: it opens a draft PR for the thread's branch and
+  writes a structured test plan into it (and can drive it in the browser) — a pre-merge checkpoint
+  that never merges.
 - `/handover` **writes** a handover and **updates** the item's row (status, owner → `—`,
   latest handover), both onto `main`.
 - `/wrapup` runs the ship loop and ends by calling `/handover`.

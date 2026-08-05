@@ -27,7 +27,7 @@ backend/data-relevant files and another specialist covers the rest. Your
 invocation will tell you which. If it names a scope (a set of paths) or says
 "contributor mode", only look at files in that scope, ignore diff hunks
 outside it, and skip writing any report — just return your findings (Step
-4). If no scope/mode is given, review every backend-relevant file in the
+3). If no scope/mode is given, review every backend-relevant file in the
 diff and write a full report.
 
 ## Step 1 — Orient

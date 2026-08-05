@@ -34,6 +34,11 @@ hands the thread back to the board — where the next session picks it up. And i
 but **many at once**: several sessions run this same loop in parallel, each in its own worktree,
 the shared board the only thing between them.
 
+Worktrees are keyed to the **topic**, not the slice: one persistent tree per topic, reused
+across slices with the branch rotating inside it. `/wrapup` keeps it, and the next `/whats-next`
+or `/continue` on that topic re-baselines it off `main` and cuts the next branch — same topic,
+same directory, same editor tab, instead of a fresh tree per slice.
+
 Every command reads and writes two durable files — `relay/board.md` and
 `relay/handover/next-*.md` — committed straight to `main`. That's the whole trick: the baton
 is in the repo, so it survives `/clear`, survives days, survives a completely fresh session.
@@ -61,12 +66,14 @@ the normal flow you don't:
 
 > `/wrapup` also does the end-of-session housekeeping (archiving superseded handovers and old
 > reviews, pruning dead worktree entries) as part of its handover step — there's no separate
-> cleanup command to remember.
+> cleanup command to remember. It **keeps** the topic's worktree for the next slice (removed only
+> when the topic itself is done).
 
 **Also handy:**
 
 | Command | What it does |
 |---|---|
+| `/test-drive` | After a chunk of work, open (or reuse) a PR and write a **consistent, structured test plan** into it — preconditions, happy path, and the edge/error/tenant-isolation cases an LLM skips by default. Can then **drive the happy path in the browser** against the preview and report pass/fail with a GIF. Stops at a **draft** PR (never merges); `plan-only` prints the checklist without a PR. |
 | `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/explore`. |
 | `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/whats-next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
 | `/garbage-collect` | Reclaim **orphaned** worktrees left by sessions that skipped the happy path (crashed, or `/clear`ed without a handover). You never need it in normal use — `/wrapup` cleans up after itself; reach for it only when orphans pile up. |

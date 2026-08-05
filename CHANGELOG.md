@@ -7,6 +7,31 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.6.0
+
+**Added**
+- **`/test-drive`.** After a chunk of work, open (or reuse) a draft PR and write a
+  **consistent, structured test plan** into it — preconditions, happy path, and the
+  edge/error/tenant-isolation cases an LLM skips by default — always the same shape, so testing a
+  Relay PR is muscle memory. Grounds every step in the real diff and the project's `CLAUDE.md`
+  invariants. Where the project publishes a **preview deploy** per PR, the plan targets that URL;
+  otherwise it falls back to local-run steps. It can then **drive the happy path in the browser**
+  against the preview (`drive`, or it asks once), running the fail-closed non-happy checks, capturing
+  a GIF, and posting pass/fail back to the PR — with guardrails (no destructive actions unless
+  authorised, isolation probes stay read-only). `plan-only` prints the checklist without touching a
+  PR. It never merges — that's still `/wrapup`.
+
+**Changed**
+- **Worktrees are now keyed to the topic, not the slice.** One stable git worktree per topic/brief;
+  the slice-branch rotates inside it. This ends the per-slice worktree pile-up and keeps a topic in
+  one editor tab across `wrapup → clear → continue`. `/whats-next` reuses + re-baselines an existing
+  topic tree (`reset --hard origin/main`) when clean, else creates one; `/continue` forks on whether
+  the handover's slice already merged — resume the in-flight branch as-is, or (shipped) re-baseline
+  and cut the next slice-branch; `/handover` now **keeps** the topic tree on loop-close (removes only
+  when the topic itself is done); `/garbage-collect` treats a clean, merged tree whose topic is still
+  live as a keepable resting tree, not an orphan. Exact `EnterWorktree`/`ExitWorktree` calls are
+  spelled out in each command.
+
 ## 0.5.0
 
 **Added**

@@ -50,14 +50,23 @@ thread means getting into its *topic* tree and checking out its branch there.
    Tell them apart, then pick the **target branch**:
    ```
    git fetch origin main
-   git merge-base --is-ancestor <handover-branch> origin/main    # exit 0 = that branch is already merged
+   # SHIPPED if the branch is gone (deleted on merge) OR already folded into main:
+   git rev-parse --verify --quiet <handover-branch> || git rev-parse --verify --quiet origin/<handover-branch> \
+     || echo "branch absent → shipped"
+   git merge-base --is-ancestor <handover-branch> origin/main 2>/dev/null && echo "merged → shipped"
    ```
-   - **Not merged → in-flight.** Target branch = the handover's `<branch>`; you resume it as-is.
-   - **Merged → shipped.** The old branch is done (its PR merged, remote branch deleted). You are
+   - **Branch missing, or an ancestor of `origin/main` → shipped.** The old branch is done (`/wrapup`
+     merged its PR and `--delete-branch` removed it — so on the shipped path the ref is usually
+     *gone*, which is why a bare `merge-base` would error rather than answer; the absence IS the
+     signal). Confirm with `gh pr view <handover-branch> --json state` (MERGED) if unsure. You are
      **starting the next slice**: target branch = a fresh slice-branch named from the handover's
      **Next-objective item slug** (flat last segment, status-quo style — `pricing/slice-c` →
-     `slice-c`), which you cut off fresh `origin/main`. This is the `/whats-next` re-baseline path,
-     reached via `/continue` because the thread is ⚙ in-progress with a handover.
+     `slice-c`), cut off fresh `origin/main`. This is the `/whats-next` re-baseline path, reached via
+     `/continue` because the thread is ⚙ in-progress with a handover.
+   - **Branch exists and is not yet merged → in-flight.** Target branch = the handover's `<branch>`;
+     you resume it as-is.
+   - **No handover at all** (Step 1.4's brief-only thread) → treat as **shipped-shape**: no branch to
+     resume, so cut a fresh slice-branch named from the item slug off `origin/main`.
 3. If this session is **already inside the topic worktree with the target branch checked out**
    (`git branch --show-current` matches and the cwd is under the worktree dir), you're done.
 4. Otherwise **get into the topic worktree**, then check out the target branch per the case above:
@@ -78,16 +87,18 @@ thread means getting into its *topic* tree and checking out its branch there.
      # shipped — re-baseline the tree to fresh main, then cut the next slice-branch:
      git reset --hard origin/main && git switch -C <target> origin/main
      ```
+     (On the **create** path the tool leaves a branch named `<topic>`; `switch -C <target>` above
+     rotates you onto the slice-branch, so the `<topic>` branch is just an unused ref — harmless.)
    - Never `git checkout`/`git switch` in the main checkout — that risks clobbering another
      session's tree.
-4. **Capture the worktree root and hold it for the whole session.** Run
+5. **Capture the worktree root and hold it for the whole session.** Run
    `git rev-parse --show-toplevel` — the result is the worktree dir, NOT the main checkout.
    **Every** Edit/Write/Read `file_path` for the rest of this thread MUST begin with that
    worktree root. The file tools require *absolute* paths, so "use relative paths" does NOT
    protect you here — muscle-memory main-checkout paths (and every handover's `file:line`
    citation) all point at the WRONG tree. When you open a file a handover cites, rewrite
    the path onto the worktree root before Reading it.
-5. Fresh worktrees lack untracked files (e.g. `.env`) — if you'll run the app, copy any
+6. Fresh worktrees lack untracked files (e.g. `.env`) — if you'll run the app, copy any
    the app needs from the main checkout first.
 
 ## Step 2 — Verify we're in the right place (the one gate)
@@ -143,7 +154,7 @@ reasonable call and note it rather than stalling.
 
 **Path gate — after your FIRST batch of edits, before running any check:** confirm the
 edits actually landed in the worktree, not the main checkout. Run
-`git -C <worktree-root> status --porcelain` (the root from Step 1.5.4) — the files you just
+`git -C <worktree-root> status --porcelain` (the root from Step 1.5.5) — the files you just
 changed MUST appear. **If it's empty, you edited the main checkout by absolute-path
 mistake — STOP.** Move those files onto the worktree root and revert the main checkout;
 leave any *other* session's in-flight files in main untouched. A green typecheck/test over

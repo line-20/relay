@@ -83,8 +83,8 @@ and real token cost — completeness beats speed.
    > PRs). Return STRUCTURED: `{slug, realStatus, boardStatus, startable, blockedOn, staleness:
    > [{source, boardSays, truthIs, evidence}], size, leverage, recommendedNextSlice, evidence:[]}`.
    > Cite every claim (sha / file:line / PR# / handover path). Do not assert without a source.
-3. **Write the archival report** to `relay/board-audit/<timestamp>.md` (get `<timestamp>` from a
-   `date +%Y-%m-%d-%H%M` Bash call). Structure: a summary (item count, how many rows drifted), a
+3. **Write the archival report** to `relay/board-audit/<timestamp>.md` (`mkdir -p relay/board-audit`
+   first — it may not exist in a fresh clone; get `<timestamp>` from a `date +%Y-%m-%d-%H%M` Bash call). Structure: a summary (item count, how many rows drifted), a
    per-item table (slug · board status · real status · drift? · size · startable), a **Drift ledger**
    (every board/brief row that disagrees with reality, with the exact fix), and the **ranked
    shortlist**. Commit it to main (it's a durable record the board can't hold).
@@ -168,10 +168,15 @@ stop piling up.
    naming is unchanged).
 2. **If a worktree already exists for that topic, REUSE it** — do not create a second one. Find
    its path in `git worktree list` (the dir ending in `/<topic>`).
-   - Check its tree is clean: `git -C <path> status --porcelain`. **If dirty, STOP and surface
-     it** — a sibling session may have in-flight work there; never `reset --hard` over it (ask
-     whether to use it anyway or wait).
-   - If clean, enter it and re-baseline off fresh main, then rotate to the new slice-branch:
+   - Check it holds no unsaved work — **both** kinds, because the re-baseline below discards both:
+     ```
+     git -C <path> status --porcelain                 # uncommitted changes
+     git -C <path> log --oneline origin/main..HEAD     # committed-but-unmerged commits
+     ```
+     **If either is non-empty, STOP and surface it** — a sibling session's in-flight work, or an
+     abandoned slice whose commits never merged. `reset --hard` would orphan the commits with no
+     warning. Ask whether to use it anyway or wait; never discard silently.
+   - If both are empty, enter it and re-baseline off fresh main, then rotate to the new slice-branch:
      ```
      EnterWorktree({ path: "<that path>" })          # switching in is allowed even mid-worktree
      git fetch origin main && git reset --hard origin/main
@@ -182,7 +187,7 @@ stop piling up.
    the same name, so **rename that branch to the slice** afterward:
    ```
    EnterWorktree({ name: "<topic>" })                # creates .claude/worktrees/<topic>, branch <topic> off origin/main
-   git branch -m <slice-branch>                       # rotate the topic-named branch to the flat slice name
+   git branch -M <slice-branch>                       # rotate the topic-named branch to the flat slice name (-M: no error if it already exists)
    ```
    Slice branches stay flat (`increment-h`, unchanged) so they never collide with the single-segment
    topic branch. **Never** `git checkout`/`git switch` in the main checkout (clobbers other sessions).
