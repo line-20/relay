@@ -157,6 +157,8 @@ rather than measuring spend. These are the next places to sharpen, not solved pr
 - **[docs/a-day-in-the-loop.md](docs/a-day-in-the-loop.md)** — one item walked end to end,
   from `/whats-next` to merged-and-handed-over, annotated.
 - **[docs/authoring-skills.md](docs/authoring-skills.md)** — add your own commands and agents.
+- **[docs/ssdlc-roadmap.md](docs/ssdlc-roadmap.md)** — where Relay is heading: the Secure-SDLC
+  spiral, the layered guardrails model, and the increment arc to 1.0.
 
 ## License
 

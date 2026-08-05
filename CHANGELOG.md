@@ -27,7 +27,7 @@ data and are never touched by an update.
 
 Shipped default API baseline is **`vendor-neutral-rest`**; Zalando / Microsoft / Google-AIP are
 selectable adaptations (bundled rulesets land in a later slice — until then, point a baseline at a
-ruleset path you supply). See `relay/roadmap/ssdlc.md` (local) for the full arc.
+ruleset path you supply). See [docs/ssdlc-roadmap.md](docs/ssdlc-roadmap.md) for the full arc.
 
 ## 0.7.0
 
