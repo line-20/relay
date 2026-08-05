@@ -7,6 +7,28 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.8.0
+
+**Added**
+- **`/guardrails` — establish what "good" means for a project, as layered guardrails.** First
+  increment of the Secure-SDLC arc. Guardrails are **per-dimension** (`api`, `ui`, `security`,
+  `privacy`, `testing`, …), **opt-in** (a dimension applies only if the project has it — a simple
+  site runs fewer than a full ERP), and each resolves in three layers: **`extends` (the project's
+  house rules — local file or URL, win on conflict) > a named `baseline` > Relay's default**. So the
+  same command is opinionated (every active dimension ships a real default), adaptable
+  (`api.baseline: zalando` swaps the ruleset), and extensible (overlay your own). `/guardrails` runs
+  a discover-then-ask interview, writes a `guardrails` block to `relay.config.json` and prose docs
+  under `<root>/knowledge/`, and STOPs for approval before writing.
+- **Review specialists resolve guardrails.** `api-architect`, `ui-ux-designer`,
+  `security-specialist`, and `privacy-specialist` now judge against the *resolved* guardrails for
+  their dimension (`extends` > baseline > default) instead of ad-hoc defaulting — with a fully
+  back-compatible fallback: no config / no dimension / no doc ⇒ their existing default behaviour,
+  unchanged. A repo that never runs `/guardrails` sees no difference.
+
+Shipped default API baseline is **`vendor-neutral-rest`**; Zalando / Microsoft / Google-AIP are
+selectable adaptations (bundled rulesets land in a later slice — until then, point a baseline at a
+ruleset path you supply). See `relay/roadmap/ssdlc.md` (local) for the full arc.
+
 ## 0.7.0
 
 **Added**

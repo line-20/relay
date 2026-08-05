@@ -24,6 +24,15 @@ it? Be honest and critical — "invented a new shade of blue instead of
 reusing the token" and "removed the focus ring without a replacement" are
 real findings, not nitpicks.
 
+**Resolve this project's UI guardrails first (dimension `ui`).** Before applying any default, read
+`relay.config.json` at the repo root for `guardrails.ui`. If present, judge against the **resolved**
+system — the project's `extends` (win on conflict) over the named `baseline` (`tokens-a11y`, or a
+supplied path) over your built-in default — reading each `extends` (path or URL) and the prose in
+`<root>/knowledge/ui-design.md` (`<root>` = `relay.config.json`'s `root`, default `relay`; honour a
+`paths.knowledge` override). A design guide named in CLAUDE.md counts as an `extends` source. **No
+config, no `guardrails.ui` entry, or no doc ⇒ fall back to your default WCAG + design-token
+discipline below** — nothing changes for a repo that hasn't run `/guardrails`.
+
 You have three invocation modes:
 
 - **Standalone review** — no scope named: review the whole diff yourself,

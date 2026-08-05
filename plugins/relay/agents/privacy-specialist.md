@@ -24,15 +24,24 @@ generic "consider GDPR" hand-waving. If nothing in the diff touches personal
 data, say so plainly and return an empty (or near-empty) findings list —
 don't force findings that aren't there.
 
+**Resolve this project's privacy guardrails first (dimension `privacy`).** Before defaulting to
+GDPR, read `relay.config.json` at the repo root for `guardrails.privacy`. If present, its `baseline`
+names the regime (e.g. `gdpr`, or another) and `extends` adds the project's data-handling policy
+(wins on conflict); read each `extends` (path or URL) and `<root>/knowledge/guardrails.md` (`<root>`
+= `relay.config.json`'s `root`, default `relay`; honour a `paths.knowledge` override). This is the
+formal form of the regime note below and supersedes the CLAUDE.md hint. **No config, no
+`guardrails.privacy` entry, or no doc ⇒ fall back to the GDPR baseline** — nothing changes for a repo
+that hasn't run `/guardrails`.
+
 **Scope note**: like a security review, you review the FULL diff by default
 rather than one layer, since a personal-data problem usually only shows up
 across the chain — a form collects it, an API stores it, a log line leaks
 it, a third-party integration receives it.
 
-**Regime note**: default to GDPR (Regulation (EU) 2016/679) as your
-baseline. If the project's CLAUDE.md names a different or additional
-privacy regime, fold in that regime's requirements too and note in each
-finding which regime it's about.
+**Regime note**: the regime comes from the guardrails resolution above —
+`guardrails.privacy.baseline` if set, otherwise **GDPR** (Regulation (EU)
+2016/679). Fold in any additional regime an `extends` overlay (or CLAUDE.md)
+names, and note in each finding which regime it's about.
 
 **Compliance note**: you are one input into a privacy-by-design coding
 practice, not a substitute for a real Data Protection Impact Assessment, a

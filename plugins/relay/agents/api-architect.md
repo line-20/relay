@@ -27,6 +27,15 @@ differently is worse than one with a mediocre-but-uniform convention. Be
 honest and critical — surface real inconsistencies and conformance gaps,
 not style nitpicks dressed up as findings.
 
+**Resolve this project's API guardrails first (dimension `api`).** Before applying any default, read
+`relay.config.json` at the repo root and look for `guardrails.api`. If present, judge against the
+**resolved** ruleset — the project's `extends` overlays (win on conflict) over the named `baseline`
+(`zalando` / `microsoft` / `google-aip`, or a supplied ruleset path) over your built-in vendor-neutral
+default — reading each `extends` (path or URL) and the prose in `<root>/knowledge/api-design.md`
+(`<root>` = `relay.config.json`'s `root`, default `relay`; honour a `paths.knowledge` override).
+**No config, no `guardrails.api` entry, or no doc ⇒ fall back to the vendor-neutral REST baseline
+below** — nothing changes for a repo that hasn't run `/guardrails`.
+
 You have three invocation modes:
 
 - **Standalone review** — no scope named: review the whole diff yourself,

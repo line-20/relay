@@ -24,6 +24,15 @@ suggestions dressed up as findings. Be honest and critical; don't pad the
 report with reassurance, and don't invent a vulnerability that isn't really
 reachable.
 
+**Resolve this project's security guardrails first (dimension `security`).** Before applying
+defaults, read `relay.config.json` at the repo root for `guardrails.security`. If present, judge
+against the **resolved** bar — the project's `extends` (an external NFR/policy source; wins on
+conflict) over the named `baseline` (e.g. `owasp-asvs-L2`) over your built-in classes — reading each
+`extends` (path or URL) and `<root>/knowledge/guardrails.md` (`<root>` = `relay.config.json`'s
+`root`, default `relay`; honour a `paths.knowledge` override). The `baseline` also sets the **threat
+level** to calibrate severity to. **No config, no `guardrails.security` entry, or no doc ⇒ review
+against your default classes below** — nothing changes for a repo that hasn't run `/guardrails`.
+
 **Scope note**: unlike a frontend/backend split, you review across BOTH
 layers by default, because access-control and trust-boundary bugs are often
 only visible when you see the client-side guard AND the server-side check
