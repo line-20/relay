@@ -7,6 +7,10 @@ Set up the durable files Relay's commands read and write, so a fresh repo can ru
 immediately. This is **idempotent** — safe to run again; it never overwrites an existing
 board or handover.
 
+> **Output discipline.** Scaffolding is routine — run it quietly. Don't narrate between writes, don't
+> echo file contents back to the terminal, and **don't seed speculative content**. End with **one
+> compact report** (Step 6), not a play-by-play.
+
 ## Step 0 — Choose the root and the budget tier, and record them
 Relay keeps all its durable state under one **root** folder, and shapes how hard it fans out to a
 per-repo **budget tier**. Decide both before scaffolding:
@@ -62,12 +66,30 @@ mkdir -p <root>/handover/archive <root>/briefs <root>/reference <root>/archive <
 (`<root>/reference/` holds reference frames from `/cross-check` — how other systems and standards
 solve a problem. It starts empty; `/cross-check` and `/explore` fill it over time.)
 
+## Step 2.5 — Greenfield or populated? (never invent work from a folder name)
+Whether to seed real tracks depends on whether there's actually a project here yet:
+```bash
+POPULATED="$(git ls-files 2>/dev/null | grep -vE '^(relay/|README|LICENSE|\.)' | head -1)"
+```
+- **Populated** (`POPULATED` non-empty, or there's obvious source/config on disk) — there's a real
+  codebase to describe, so inspect it (`CLAUDE.md`, packages/apps, README) and seed **2–4 real
+  tracks** (Step 3) with a roadmap narrative and one brief stub (Step 4).
+- **Greenfield** (empty repo, or nothing but the folder name and maybe a README) — **seed nothing
+  speculative.** A folder called `todo-app` is not a spec; guessing tracks from the name just makes
+  work the user has to delete. Scaffold the **structure only**: an **empty board**, a **roadmap
+  header stub**, and **no brief**. The first real item arrives via `/explore` (Step 6 says so).
+
 ## Step 3 — Write the board (the front door)
 Write `<root>/board.md`. The board has two parts: **Tracks** (stable, long-lived lanes of
 work) and **Open threads** (the authoritative table of what's in flight *right now*).
-Seed it with the tracks that fit this repo — inspect the repo first (its `CLAUDE.md`,
-top-level packages/apps, README) and name 2–4 real tracks rather than inventing generic
-ones. Use this shape:
+
+- **Populated** — seed the tracks that fit this repo (2–4 **real** ones from the Step 2.5 inspection,
+  never generic filler), each with a queued item where one is obvious.
+- **Greenfield** — write the board with the shape below but an **empty Open threads table** (the
+  header row only) and a Tracks section holding a single line: `_No tracks yet — run `/explore` to
+  shape the first item._` **Invent nothing.**
+
+Use this shape:
 
 ```markdown
 # Board
@@ -95,9 +117,10 @@ Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · �
 - ✅ Done: <slug>, <slug>
 ```
 
-## Step 4 — Write the roadmap and a first brief stub
+## Step 4 — Write the roadmap (and, only if populated, a first brief stub)
 Write `<root>/roadmap.md` — the narrative behind each board item (the board stays terse; the
-roadmap carries the "why" and the sequencing):
+roadmap carries the "why" and the sequencing). **Greenfield → write the header only** (no invented
+sections); the narrative grows as `/explore` adds items.
 
 ```markdown
 # Roadmap
@@ -105,12 +128,13 @@ roadmap carries the "why" and the sequencing):
 The detailed narrative behind each board item. The board (`<root>/board.md`) is the terse
 index; this is where the reasoning, sequencing, and open decisions live.
 
-## <track-name>
+## <track-name>          ← populated only; omit on greenfield
 ### <track>/<slug>
 <what it is, why it matters, the rough sequence of slices>
 ```
 
-Write one placeholder brief so the pattern is visible, `<root>/briefs/<slug>.md`:
+**Populated only** — write one real brief stub so the pattern is visible, `<root>/briefs/<slug>.md`.
+**Greenfield → skip this entirely** (there's no work to brief yet — `/explore` writes the first brief):
 
 ```markdown
 # <slug>
@@ -151,13 +175,19 @@ by `/wrapup` — call them standalone only when you need one on its own. `/garba
 orphaned worktrees when needed.
 ```
 
-## Step 6 — Commit and report
+## Step 6 — Commit and report (compact)
 ```bash
-git add <root>/board.md <root>/roadmap.md <root>/briefs <root>/README.md
-[ -f relay.config.json ] && git add relay.config.json    # only exists when root ≠ relay
-git commit -m "chore: scaffold Relay workflow (board + handover + briefs)"
+git add <root> && [ -f relay.config.json ] && git add relay.config.json
+git commit -m "chore: scaffold Relay workflow"
 ```
-Do NOT push automatically — let the user review first. Then report, in plain language:
-what was created, the **budget tier** recorded (or that none was set, so Relay runs at full
-fan-out), the tracks you seeded (and that they're a starting guess to edit), and that they can now
-run `/whats-next` to pick the first thing to work on.
+Do NOT push automatically — let the user review first. Then give **one compact report** (a few lines,
+no file-content recaps):
+- **What was created** — the `<root>/` structure, in one line; and the **tier** recorded (or "none —
+  full fan-out").
+- **The next move** — the important part, and it differs by what you found in Step 2.5:
+  - **Greenfield** → the board is intentionally **empty**. Next: **`/explore <your first idea>`** to
+    shape the first feature into a brief. Do NOT tell them to run `/whats-next` yet — there's nothing
+    on the board to pick.
+  - **Populated** → **`/whats-next`** to pick from the seeded tracks (edit them first — they're a guess).
+- **The loop, one line** so they see the shape: `explore → refine → whats-next/continue → test-drive →
+  deploy → review-pr → wrapup → persist` (each optional; invoke what the work needs).

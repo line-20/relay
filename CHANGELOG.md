@@ -7,6 +7,19 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.12.1
+
+**Fixed**
+- **`/relay-init` no longer invents work from a folder name.** On a truly empty repo it was seeding
+  speculative tracks, a roadmap narrative, and a placeholder brief guessed from the directory name
+  (a `todo-app/` folder became a fabricated `foundation`/`tasks`/`ui` board) — content the user then
+  had to delete, and which left them unsure what was real. Init now **detects greenfield vs
+  populated**: a populated repo is inspected and seeded with real tracks as before; a **greenfield**
+  repo gets the **structure only** — an empty board, a roadmap header stub, no brief — and the report
+  points at **`/explore <idea>`** as the first move (not `/whats-next`, which would survey an empty
+  board). The report is also **more compact** (output discipline: no per-step narration, no
+  file-content recaps) and now prints the one-line lifecycle so the next move is obvious.
+
 ## 0.12.0
 
 **Added**
