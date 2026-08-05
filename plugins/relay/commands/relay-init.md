@@ -69,7 +69,9 @@ solve a problem. It starts empty; `/cross-check` and `/explore` fill it over tim
 ## Step 2.5 — Greenfield or populated? (never invent work from a folder name)
 Whether to seed real tracks depends on whether there's actually a project here yet:
 ```bash
-POPULATED="$(git ls-files 2>/dev/null | grep -vE '^(relay/|README|LICENSE|\.)' | head -1)"
+# tracked AND untracked (so a scaffolded-but-uncommitted project still reads as populated)
+POPULATED="$( { git ls-files; git ls-files --others --exclude-standard; } 2>/dev/null \
+  | grep -vE '^(relay/|README|LICENSE|\.)' | head -1)"
 ```
 - **Populated** (`POPULATED` non-empty, or there's obvious source/config on disk) — there's a real
   codebase to describe, so inspect it (`CLAUDE.md`, packages/apps, README) and seed **2–4 real

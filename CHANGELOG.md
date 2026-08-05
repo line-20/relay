@@ -7,6 +7,14 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.12.2
+
+**Fixed**
+- **`/relay-init` greenfield detection now counts untracked files too.** It read only *tracked*
+  files, so a freshly-scaffolded-but-uncommitted project (untracked files only) wrongly looked
+  greenfield. Now checks tracked + untracked (`git ls-files --others --exclude-standard`), so an
+  uncommitted real project is correctly treated as populated.
+
 ## 0.12.1
 
 **Fixed**
