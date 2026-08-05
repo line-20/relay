@@ -7,6 +7,13 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.12.4
+
+**Changed**
+- **`/relay-init` opens with an ASCII `Relay` wordmark banner** (tagline + version) instead of a plain
+  version line — a proper CLI-app header. Same version-certification purpose as 0.12.3: the version is
+  baked into the banner, so a stale cached command prints an old banner (or none at all).
+
 ## 0.12.3
 
 **Added**

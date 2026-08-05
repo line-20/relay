@@ -11,12 +11,24 @@ board or handover.
 > echo file contents back to the terminal, and **don't seed speculative content**. End with **one
 > compact report** (Step 6), not a play-by-play.
 
-> **Announce the version first.** Begin your reply with this exact line, before anything else:
-> `⏺ Relay v0.12.3 · /relay-init`
-> The version is **hardcoded here on purpose** — it certifies which command file actually ran, so if
-> it prints an older number than the installed plugin, the session is running a **cached** command and
-> needs a reload. (`${CLAUDE_PLUGIN_ROOT}` doesn't expand in command bash, so there's no runtime read.)
-> **Maintainers: bump this string on every release** — it's the one line that must track the version.
+**Print the Relay banner first.** Begin your reply — before anything else — with this banner
+**verbatim, inside a fenced code block** so the monospace alignment holds in the terminal:
+
+```
+ ____      _
+|  _ \ ___| | __ _ _   _
+| |_) / _ \ |/ _` | | | |
+|  _ <  __/ | (_| | |_| |
+|_| \_\___|_|\__,_|\__, |
+                   |___/
+  continuity-first SSDLC workbench                          v0.12.4
+```
+
+The version is **hardcoded in this banner on purpose** — it certifies which command file actually
+ran, so if it shows an older number than the installed plugin, the session is running a **cached**
+command and needs a reload (a pre-banner cached command prints no banner at all — an instant tell).
+`${CLAUDE_PLUGIN_ROOT}` doesn't expand in command bash, so there's no runtime read.
+**Maintainers: bump the version in this banner on every release.**
 
 ## Step 0 — Choose the root and the budget tier, and record them
 Relay keeps all its durable state under one **root** folder, and shapes how hard it fans out to a
