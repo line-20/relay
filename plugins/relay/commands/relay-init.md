@@ -7,12 +7,11 @@ Set up the durable files Relay's commands read and write, so a fresh repo can ru
 immediately. This is **idempotent** — safe to run again; it never overwrites an existing
 board or handover.
 
-> **Output discipline.** Scaffolding is routine — run it quietly. Don't narrate between writes, don't
-> echo file contents back to the terminal, and **don't seed speculative content**. End with **one
-> compact report** (Step 6), not a play-by-play.
-
-**Print the Relay banner first.** Begin your reply — before anything else — with this banner
-**verbatim, inside a fenced code block** so the monospace alignment holds in the terminal:
+**Always begin with the banner — non-negotiable, and it OVERRIDES the "run quietly" discipline
+below.** Your reply MUST start, before any other text, thinking, or tool call, with this banner
+printed **verbatim inside a fenced code block** (monospace keeps it aligned). Never skip it, never
+compress it to a plain line, never treat it as optional decoration — it is the first thing the user
+sees and the one signal that certifies which command file ran:
 
 ```
  ____      _
@@ -21,7 +20,7 @@ board or handover.
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v0.12.5
+  continuity-first SSDLC workbench                          v0.12.6
   by Line20 · @eriklenaerts
 ```
 
@@ -30,6 +29,10 @@ ran, so if it shows an older number than the installed plugin, the session is ru
 command and needs a reload (a pre-banner cached command prints no banner at all — an instant tell).
 `${CLAUDE_PLUGIN_ROOT}` doesn't expand in command bash, so there's no runtime read.
 **Maintainers: bump the version in this banner on every release.**
+
+> **Output discipline (everything AFTER the banner).** Scaffolding is routine — run it quietly. Don't
+> narrate between writes, don't echo file contents back to the terminal, and **don't seed speculative
+> content**. End with **one compact report** (Step 6), not a play-by-play.
 
 ## Step 0 — Choose the root and the budget tier, and record them
 Relay keeps all its durable state under one **root** folder, and shapes how hard it fans out to a

@@ -7,6 +7,14 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.12.6
+
+**Fixed**
+- **`/relay-init` banner is now unskippable.** It was phrased as a soft note and competed with the
+  "run quietly / compact" output discipline, so the model could drop it — defeating its whole
+  version-certification purpose. It's now a non-negotiable directive that explicitly overrides the
+  quiet-mode discipline (which is scoped to "everything after the banner").
+
 ## 0.12.5
 
 **Changed**
