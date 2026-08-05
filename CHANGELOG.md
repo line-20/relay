@@ -7,6 +7,11 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.12.5
+
+**Changed**
+- **`/relay-init` banner gains a byline** — `by Line20 · @eriklenaerts` under the tagline.
+
 ## 0.12.4
 
 **Changed**

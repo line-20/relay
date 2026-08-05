@@ -21,7 +21,8 @@ board or handover.
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v0.12.4
+  continuity-first SSDLC workbench                          v0.12.5
+  by Line20 · @eriklenaerts
 ```
 
 The version is **hardcoded in this banner on purpose** — it certifies which command file actually
