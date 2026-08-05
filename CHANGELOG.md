@@ -7,6 +7,17 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.12.3
+
+**Added**
+- **`/relay-init` prints the running version first** (`⏺ Relay v0.12.3 · /relay-init`). Because the
+  version is hardcoded into the command file, it certifies *which command file actually executed* — so
+  if it shows an older number than the installed plugin, the session is running a **cached** command
+  and needs a reload. This directly surfaces the "am I running the version I think I am?" trap.
+  (`${CLAUDE_PLUGIN_ROOT}` doesn't expand in a command's bash, so a runtime read isn't possible;
+  hardcoding is both the only option and the more correct one here — a runtime lookup could read a
+  different cached copy than the file that's running. Maintainers bump the one string per release.)
+
 ## 0.12.2
 
 **Fixed**

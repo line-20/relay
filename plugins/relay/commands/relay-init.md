@@ -11,6 +11,13 @@ board or handover.
 > echo file contents back to the terminal, and **don't seed speculative content**. End with **one
 > compact report** (Step 6), not a play-by-play.
 
+> **Announce the version first.** Begin your reply with this exact line, before anything else:
+> `⏺ Relay v0.12.3 · /relay-init`
+> The version is **hardcoded here on purpose** — it certifies which command file actually ran, so if
+> it prints an older number than the installed plugin, the session is running a **cached** command and
+> needs a reload. (`${CLAUDE_PLUGIN_ROOT}` doesn't expand in command bash, so there's no runtime read.)
+> **Maintainers: bump this string on every release** — it's the one line that must track the version.
+
 ## Step 0 — Choose the root and the budget tier, and record them
 Relay keeps all its durable state under one **root** folder, and shapes how hard it fans out to a
 per-repo **budget tier**. Decide both before scaffolding:
