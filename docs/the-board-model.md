@@ -18,6 +18,12 @@ about the thread *you* care about. Threads don't take turns.
 Relay's answer: **one durable, curated index, on `main`, that every session reads and
 writes.** That's the board.
 
+> **A note on paths.** This doc writes the durable files as `relay/…`, which is the default. The
+> root is **configurable per repo**: a `relay.config.json` with `{ "root": "docs" }` at the repo
+> root makes every command read and write `docs/board.md`, `docs/handover/…`, and so on — so a repo
+> that already runs a board/handover convention under its own folder adopts Relay without moving a
+> file. Read every `relay/…` below as `<root>/…`.
+
 ## The three concepts
 
 ### 1. The board (`relay/board.md`)

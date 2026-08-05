@@ -13,6 +13,11 @@ everywhere `$PR` appears below).
 > dbms, test, security, privacy, i18n, solution-architect). This command decides which to
 > launch from the diff, runs them in parallel, and merges their findings into one report.
 
+> **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
+> `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
+> `ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"` — the merged
+> report below is written under `<root>/pr-reviews/`.
+
 ## Step 1 — Classify the diff
 Get a diffstat before invoking any subagent:
 - With a PR number: `gh pr diff $PR | git apply --stat`
@@ -21,7 +26,7 @@ Get a diffstat before invoking any subagent:
 **Docs-only short-circuit**: if every changed file is a non-code file (`*.md`, `*.mdx`,
 `docs/**`, `LICENSE`, `CHANGELOG*`, and similar), stop here — don't launch any specialist.
 Say directly that the diff is docs-only and no specialist review was needed; don't write a
-`relay/pr-reviews/` file for it. This is a content fact, not a size guess.
+`<root>/pr-reviews/` file for it. This is a content fact, not a size guess.
 
 From the file list, note which side(s) are touched. **Discover the repo's own layout** (from
 `CLAUDE.md`, the workspace config, or the directory structure) rather than assuming fixed
@@ -93,8 +98,8 @@ touches no schema/form/log/third-party-call code" — so a skip is always audita
 ## Step 3 — Merge into ONE report, in EXACTLY this structure
 The report must look the same every time, no matter which specialists ran or how many findings
 they raised — a reader (and `/fix-pr-review`) should be able to scan any Relay review report
-without relearning its shape. `mkdir -p relay/pr-reviews`, then write
-`relay/pr-reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md` using this template verbatim — same
+without relearning its shape. `mkdir -p <root>/pr-reviews`, then write
+`<root>/pr-reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md` using this template verbatim — same
 frontmatter fields, same sections, same order, every time:
 
 ```markdown

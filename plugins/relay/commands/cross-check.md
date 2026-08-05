@@ -13,12 +13,17 @@ re-gathered each time.
 Use it **standalone** at the start of a domain ("what's the landscape for X?") or to pressure-
 test a design, and it's offered at the end of `/explore` before a design is committed.
 
-> **Relay convention.** Reference frames live at `relay/reference/<topic-slug>.md`, committed to
+> **Relay convention.** Reference frames live at `<root>/reference/<topic-slug>.md`, committed to
 > `main` like the board — durable, shared, and cross-referenced by later work.
+
+> **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
+> `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
+> `ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"` — and read every
+> `<root>/…` path below relative to it.
 
 ## Step 1 — Scope it
 Work out the **topic** and whether there's an **approach to check**:
-- If `$ARGUMENTS` names a brief (`relay/briefs/<slug>.md`), read it — the "Approach" section is
+- If `$ARGUMENTS` names a brief (`<root>/briefs/<slug>.md`), read it — the "Approach" section is
   what you'll cross-check; derive the topic from the problem it addresses.
 - If `$ARGUMENTS` is a bare topic or a design statement, use it directly (topic = the problem
   space; approach = the statement, if one is given).
@@ -29,7 +34,7 @@ Pick a stable **topic slug** for the reference frame (the problem space, not the
 extends the same frame.
 
 ## Step 2 — Load or start the frame
-Read `relay/reference/<topic-slug>.md` if it exists (`git show origin/main:...` to get the
+Read `<root>/reference/<topic-slug>.md` if it exists (`git show origin/main:...` to get the
 shared copy). If it doesn't, you'll create it in Step 4. An existing frame is a head start, not
 gospel — treat its entries as claims to confirm and extend.
 
@@ -52,7 +57,7 @@ Prefer specifics over generalities: "Stripe idempotency-keys writes on a client-
 beats "some APIs handle retries".
 
 ## Step 4 — Write / update the reference frame
-Write `relay/reference/<topic-slug>.md` (`mkdir -p relay/reference` first — it may not exist in a
+Write `<root>/reference/<topic-slug>.md` (`mkdir -p <root>/reference` first — it may not exist in a
 fresh clone) using this structure (merge into an existing frame rather than overwriting — keep
 prior entries, add and correct):
 
@@ -91,7 +96,7 @@ Recommend concrete adjustments. If this is running inside `/explore`, **STOP for
 — the user may fold the findings into the approach before the brief is written.
 
 ## Step 6 — Commit the frame and report
-Commit `relay/reference/<topic-slug>.md` to `main` (durable, shared — use the temp-index push
+Commit `<root>/reference/<topic-slug>.md` to `main` (durable, shared — use the temp-index push
 `/handover` uses if you're on a feature branch, or a normal commit on main). Then report: the
 frame path, a one-line landscape summary, and — if you cross-checked an approach — the sharpest
 one or two findings and your recommendation. Don't paste the whole frame into the terminal.

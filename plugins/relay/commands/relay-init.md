@@ -1,29 +1,45 @@
 ---
-description: Scaffold the Relay convention in this repo — the board, handover/roadmap/brief dirs, and relay/pr-reviews — so /continue, /whats-next, /handover and /wrapup work on turn one
-argument-hint: "(no arguments)"
+description: Scaffold the Relay convention in this repo — pick the root, then the board, handover/roadmap/brief dirs, and pr-reviews — so /continue, /whats-next, /handover and /wrapup work on turn one
+argument-hint: "[--root <dir>  (where durable state lives; default 'relay')]"
 ---
 
 Set up the durable files Relay's commands read and write, so a fresh repo can run the loop
 immediately. This is **idempotent** — safe to run again; it never overwrites an existing
 board or handover.
 
+## Step 0 — Choose the root and record it
+Relay keeps all its durable state under one **root** folder. Decide it before scaffolding:
+1. **Default `relay`.** Use it unless `$ARGUMENTS` passes `--root <dir>`, or the repo already keeps
+   this kind of state somewhere (a `docs/board.md`, an existing handover convention) — in that case
+   propose that dir as the root so nothing has to move.
+2. Set `ROOT` to the chosen dir (`<root>` below = this value).
+3. **Write `relay.config.json` at the repo root when `ROOT` isn't `relay`** so every command finds
+   it (the default needs no file — absent config ⇒ `relay`):
+   ```bash
+   [ "$ROOT" != "relay" ] && printf '{\n  "root": "%s"\n}\n' "$ROOT" > relay.config.json
+   ```
+4. **Already have a board under `<root>`?** Then you're *adopting*, not scaffolding — write only
+   `relay.config.json` (step 3), skip the scaffold below, and report that the existing structure is
+   now wired to the `relay:*` commands. This is the zero-migration path for a repo with a bespoke
+   predecessor.
+
 ## Step 1 — Check what already exists
 ```bash
-ls relay/board.md relay/roadmap.md 2>/dev/null
-ls -d relay/handover relay/briefs relay/archive relay/pr-reviews 2>/dev/null
+ls <root>/board.md <root>/roadmap.md 2>/dev/null
+ls -d <root>/handover <root>/briefs <root>/archive <root>/pr-reviews 2>/dev/null
 ```
-If `relay/board.md` already exists, **do not overwrite it** — report that Relay is already
+If `<root>/board.md` already exists, **do not overwrite it** — report that Relay is already
 set up and stop (unless the user explicitly asks to re-scaffold). Otherwise continue.
 
 ## Step 2 — Create the directories
 ```bash
-mkdir -p relay/handover/archive relay/briefs relay/reference relay/archive relay/board-audit relay/pr-reviews/archive
+mkdir -p <root>/handover/archive <root>/briefs <root>/reference <root>/archive <root>/board-audit <root>/pr-reviews/archive
 ```
-(`relay/reference/` holds reference frames from `/cross-check` — how other systems and standards
+(`<root>/reference/` holds reference frames from `/cross-check` — how other systems and standards
 solve a problem. It starts empty; `/cross-check` and `/explore` fill it over time.)
 
 ## Step 3 — Write the board (the front door)
-Write `relay/board.md`. The board has two parts: **Tracks** (stable, long-lived lanes of
+Write `<root>/board.md`. The board has two parts: **Tracks** (stable, long-lived lanes of
 work) and **Open threads** (the authoritative table of what's in flight *right now*).
 Seed it with the tracks that fit this repo — inspect the repo first (its `CLAUDE.md`,
 top-level packages/apps, README) and name 2–4 real tracks rather than inventing generic
@@ -34,7 +50,7 @@ ones. Use this shape:
 
 The front door. **Open threads** is the source of truth for what's in flight — never
 "newest handover wins". Each item has a stable `track/slug`. Detail lives in
-`relay/roadmap.md` and per-item briefs under `relay/briefs/`.
+`<root>/roadmap.md` and per-item briefs under `<root>/briefs/`.
 
 Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · 🔍 in-review · ⏸ parked · ✅ done
 
@@ -42,10 +58,10 @@ Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · �
 
 | Item | Status | Owner | Latest handover | Detail |
 |---|---|---|---|---|
-| `<track>/<slug>` | 🔜 | — | — | `relay/briefs/<slug>.md` |
+| `<track>/<slug>` | 🔜 | — | — | `<root>/briefs/<slug>.md` |
 
 > `Owner` = the live branch/worktree actively on it, or `—` when it's free for `/continue`
-> to pick up. `Latest handover` links the `relay/handover/next-*.md` a cold session resumes from.
+> to pick up. `Latest handover` links the `<root>/handover/next-*.md` a cold session resumes from.
 
 ## Tracks
 
@@ -56,13 +72,13 @@ Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · �
 ```
 
 ## Step 4 — Write the roadmap and a first brief stub
-Write `relay/roadmap.md` — the narrative behind each board item (the board stays terse; the
+Write `<root>/roadmap.md` — the narrative behind each board item (the board stays terse; the
 roadmap carries the "why" and the sequencing):
 
 ```markdown
 # Roadmap
 
-The detailed narrative behind each board item. The board (`relay/board.md`) is the terse
+The detailed narrative behind each board item. The board (`<root>/board.md`) is the terse
 index; this is where the reasoning, sequencing, and open decisions live.
 
 ## <track-name>
@@ -70,7 +86,7 @@ index; this is where the reasoning, sequencing, and open decisions live.
 <what it is, why it matters, the rough sequence of slices>
 ```
 
-Write one placeholder brief so the pattern is visible, `relay/briefs/<slug>.md`:
+Write one placeholder brief so the pattern is visible, `<root>/briefs/<slug>.md`:
 
 ```markdown
 # <slug>
@@ -89,7 +105,7 @@ Write one placeholder brief so the pattern is visible, `relay/briefs/<slug>.md`:
 ```
 
 ## Step 5 — Add a README pointer to the docs dir
-Create `relay/README.md` (or append to it) a short note so a newcomer to the repo
+Create `<root>/README.md` (or append to it) a short note so a newcomer to the repo
 understands the convention:
 
 ```markdown
@@ -113,7 +129,8 @@ orphaned worktrees when needed.
 
 ## Step 6 — Commit and report
 ```bash
-git add relay/board.md relay/roadmap.md relay/briefs relay/README.md
+git add <root>/board.md <root>/roadmap.md <root>/briefs <root>/README.md
+[ -f relay.config.json ] && git add relay.config.json    # only exists when root ≠ relay
 git commit -m "chore: scaffold Relay workflow (board + handover + briefs)"
 ```
 Do NOT push automatically — let the user review first. Then report, in plain language:

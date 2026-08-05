@@ -7,6 +7,14 @@ Run the full end-of-session loop in sequence. Move straight through; STOP only a
 gates called out below. This DOES merge and DOES hand over — but the merge proceeds only
 on the unambiguous green path defined in Phase 5; on anything ambiguous it stops.
 
+**Resolve the Relay root first.** Durable state lives under a per-repo root — default `relay/`,
+overridable via a `relay.config.json` at the repo root (`{ "root": "docs" }`). Resolve it once; read
+every `<root>/…` path below relative to it. Absent config ⇒ `<root>` = `relay`. (The commands this
+loop composes — `/review-pr`, `/handover` — resolve it themselves too.)
+```bash
+ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
+```
+
 ## Phase 1 — Test
 Run the project's test suite (discover the command from `CLAUDE.md`/`package.json`/README —
 e.g. `pnpm test`, `npm test`, `cargo test`). If the project has DB-backed integration tests
@@ -31,7 +39,7 @@ playbook in that command exactly:
    mode (findings only, no per-agent report, no per-agent verdict). Which ones apply is
    decided by `/review-pr` Step 2. security-specialist is **always** launched.
 3. **Merge** every specialist's findings into ONE report at
-   `relay/pr-reviews/pr-<N>-<YYYY-MM-DD>.md` (🔴/🟡/🟢, blocker-first, each finding keeping its
+   `<root>/pr-reviews/pr-<N>-<YYYY-MM-DD>.md` (🔴/🟡/🟢, blocker-first, each finding keeping its
    file path). Verdict is `request-changes` if ANY specialist raised a 🔴, else `approve`;
    `blockers` = the total 🔴 count.
 

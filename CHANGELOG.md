@@ -7,6 +7,23 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.7.0
+
+**Added**
+- **Configurable root — adopt Relay without moving a file.** Relay's durable state (board,
+  roadmap, briefs, handover, archive, board-audit, pr-reviews, reference) used to be hardcoded
+  under `relay/`; a repo that already keeps this state elsewhere couldn't use the commands at all.
+  Now the root is **configurable per repo**: drop a `relay.config.json` at the repo root with
+  `{ "root": "docs" }` and every command reads and writes `docs/board.md`, `docs/handover/…`, etc.
+  Every command resolves the root once at the top (a "resolve the Relay root" step) and interpolates
+  `<root>/…` throughout; `continue`/`whats-next` add a soft existence check that points at
+  `/relay-init` if the configured root has no board. **Fully back-compatible** — no config ⇒ root is
+  `relay/`, so existing repos are unchanged. `/relay-init` gained `--root <dir>`: it writes the
+  config (when non-default), scaffolds under the chosen root, or — if a board already exists there —
+  **adopts** the existing structure by writing only the config, wiring a bespoke predecessor to the
+  `relay:*` commands with zero migration. Docs (quickstart, the-board-model) document the root and
+  the override.
+
 ## 0.6.0
 
 **Added**

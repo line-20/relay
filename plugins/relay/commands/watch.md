@@ -9,12 +9,17 @@ this thread, watches the dependency in the background, and **auto-resumes** the 
 
 `$ARGUMENTS` names what to wait for. If empty, ask.
 
+> **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
+> `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
+> `ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"` — and read every
+> `<root>/…` path below relative to it.
+
 ## Step 1 — Resolve the dependency and its "landed" signal
 Work out *what* you're waiting for and *how you'll know it landed* — pick by what `$ARGUMENTS`
 looks like:
 - **A PR number** (`#434` / `434`) → landed when `gh pr view <n> --json state,mergedAt` reports
   **MERGED**.
-- **A board item** (`track/slug`) → landed when that item's row on `relay/board.md` (on
+- **A board item** (`track/slug`) → landed when that item's row on `<root>/board.md` (on
   `origin/main`) reaches **✅ / done**. **This is the signal to prefer when no PR exists yet** —
   a sibling that's still committing locally has no PR to watch, but when it eventually ships via
   its own `/wrapup`, its board row flips. Watch the board, not the PR.

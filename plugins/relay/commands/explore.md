@@ -7,8 +7,13 @@ Take a fuzzy idea and shape it into something worth building — or decide it is
 the **front of the loop**: it produces a brief and a board item that `/whats-next` can later start.
 It does **not** write code. Shaping the work and doing the work are deliberately separate.
 
-> **Relay convention.** Output lands in `relay/briefs/<slug>.md` and a new row on
-> `relay/board.md`, so the thing you explored is immediately startable with `/whats-next`.
+> **Relay convention.** Output lands in `<root>/briefs/<slug>.md` and a new row on
+> `<root>/board.md`, so the thing you explored is immediately startable with `/whats-next`.
+
+> **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
+> `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
+> `ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"` — and read every
+> `<root>/…` path below relative to it.
 
 ## Step 1 — Restate the idea, don't shape it yet
 `$ARGUMENTS` is the raw idea. If it's empty, ask what the user wants to think through and
@@ -67,7 +72,7 @@ option, merge two, or redirect.
 Once an approach is chosen, **offer to `/cross-check` it** before it hardens into a brief —
 this is the cheapest moment to catch a reinvented wheel, a missed standard, or a blind spot
 everyone else in the space has already solved. If the user accepts, run the `/cross-check` flow
-on the chosen approach (build/extend `relay/reference/<topic>.md`, then report Aligns /
+on the chosen approach (build/extend `<root>/reference/<topic>.md`, then report Aligns /
 Diverges / Blind spots / Reinvention) and **fold its findings into the approach** before Step 5.
 If the user declines, or the idea is small/obvious enough that prior art won't teach you
 anything, skip it — don't force a landscape study onto a two-line change.
@@ -79,7 +84,7 @@ now and fold the answers into the brief. If it defines none, skip this step.
 
 ## Step 5 — Write the brief and put it on the board
 Pick a slug (`<track>/<slug>`) on an existing board track, or propose a new track if none fits.
-Write `relay/briefs/<slug>.md`:
+Write `<root>/briefs/<slug>.md`:
 
 ```markdown
 # <slug>
@@ -110,11 +115,11 @@ main's copy, make one surgical edit, never overwrite the whole file):
 
 ```bash
 git fetch origin main
-git show FETCH_HEAD:relay/board.md > /tmp/board.md   # main's current copy to edit from
+git show FETCH_HEAD:<root>/board.md > /tmp/board.md   # main's current copy to edit from
 ```
 
 Add one row to **Open threads** (`Status` = 🔜 or 💡, `Owner` = —, `Latest handover` = —,
-`Detail` = `relay/briefs/<slug>.md`) and a one-line entry under its track. Commit the brief +
+`Detail` = `<root>/briefs/<slug>.md`) and a one-line entry under its track. Commit the brief +
 board together onto `main` — if you're on `main` a normal `git add && git commit && git push`
 is fine; if you're on a feature branch, use the temp-index push `/handover` uses so you don't
 switch branches. If the push is rejected (main moved, or protected), say so — the files are

@@ -15,9 +15,17 @@ re-research the state of the project.
 `$ARGUMENTS`, if present, is the focus or next target to plan around. If empty, infer the
 next item from the roadmap/board.
 
-> **Relay convention.** The durable records are `relay/board.md` and
-> `relay/handover/next-*.md`, both on `main`. Run `/relay-init` once if your repo
+> **Relay convention.** The durable records are `<root>/board.md` and
+> `<root>/handover/next-*.md`, both on `main`. Run `/relay-init` once if your repo
 > doesn't have them yet.
+
+**Resolve the Relay root first.** Durable state lives under a per-repo root — default `relay/`,
+overridable via a `relay.config.json` at the repo root (`{ "root": "docs" }`). Resolve it once; read
+every `<root>/…` path below relative to it. Absent config (or no `root` key) ⇒ `<root>` = `relay`,
+so existing repos are unchanged.
+```bash
+ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
+```
 
 ## Step 0 — Finish-the-loop guard
 Before generating anything, make sure you're not handing over mid-flow:
@@ -28,7 +36,7 @@ gh pr view --json number,state,reviewDecision,url 2>/dev/null
 
 - **No PR** (command empty/errors) → fine: a planning handover, or the work is already merged into main. Proceed.
 - **state MERGED** → loop closed. Proceed.
-- **state OPEN** → the loop isn't finished. Check `relay/pr-reviews/` for a report on this PR; if none, it's also unreviewed. WARN and STOP:
+- **state OPEN** → the loop isn't finished. Check `<root>/pr-reviews/` for a report on this PR; if none, it's also unreviewed. WARN and STOP:
   `⚠ Handing over with PR #<n> still open (<reviewed | UNREVIEWED>): <url>. The flow expects it merged first.`
   Ask to either finish the loop (`/fix-pr-review`, then merge) or reply "handover anyway" to continue. Wait for the answer.
 - **state CLOSED (not merged)** → note it and ask the same way.
@@ -37,8 +45,8 @@ gh pr view --json number,state,reviewDecision,url 2>/dev/null
 1. `git branch --show-current`.
 2. `git log --oneline -20`, then `git log --stat -5` — what landed recently.
 3. `git status` and `git diff HEAD` — work in flight (staged, unstaged, untracked).
-4. Read `relay/board.md` — the front-door index. Identify **which board item** this session advanced (its `track/slug`) and which item comes next. The board's **Open threads** table, not "newest file", is the source of truth for what's in flight.
-5. Read `relay/roadmap.md` (if present) for the detailed narrative behind that item.
+4. Read `<root>/board.md` — the front-door index. Identify **which board item** this session advanced (its `track/slug`) and which item comes next. The board's **Open threads** table, not "newest file", is the source of truth for what's in flight.
+5. Read `<root>/roadmap.md` (if present) for the detailed narrative behind that item.
 6. Read the handover the board links from *this* item (its "Latest handover" cell), if any, so you continue that thread rather than whatever file is newest by timestamp.
 7. Draw on what you know from THIS session — decisions made, dead-ends hit, things deliberately deferred, things half-done — that git alone wouldn't reveal. This is the most valuable input. Do not skip it.
 
@@ -56,8 +64,8 @@ the next session has the repo's `CLAUDE.md` but no chat history.
 - Front-load the research you just did so the next session doesn't repeat it.
 - Pointers over dumps. Concrete.
 
-`mkdir -p relay/handover`, capture the timestamp once with `TS=$(date +%Y-%m-%d-%H%M)`
-(reuse it in Steps 4–5), and write to `relay/handover/next-$TS.md` using EXACTLY this
+`mkdir -p <root>/handover`, capture the timestamp once with `TS=$(date +%Y-%m-%d-%H%M)`
+(reuse it in Steps 4–5), and write to `<root>/handover/next-$TS.md` using EXACTLY this
 structure:
 
 ---
@@ -94,7 +102,7 @@ phase: <roadmap phase/milestone>
 <Anything unresolved the next session should decide or ask the user about. "None." if there are none.>
 
 ## Step 4 — Update the board, then commit both to main
-The handover AND `relay/board.md` are durable records `/continue` reads from `origin/main`,
+The handover AND `<root>/board.md` are durable records `/continue` reads from `origin/main`,
 so both land on main — no branch, no PR — WITHOUT switching branches or disturbing your
 working tree.
 
@@ -103,10 +111,10 @@ First bring the board to main's version and apply this thread's update to it. Th
 
 ```bash
 git fetch origin main
-git show FETCH_HEAD:relay/board.md > relay/board.md   # refresh to main's copy
+git show FETCH_HEAD:<root>/board.md > <root>/board.md   # refresh to main's copy
 ```
 
-Now edit `relay/board.md` for this thread's item (`item:` slug from the frontmatter):
+Now edit `<root>/board.md` for this thread's item (`item:` slug from the frontmatter):
 - Update its row in the **Open threads** table — set `Status`, `Owner`, and
   `Latest handover` → `handover/next-$TS.md`. **`Owner` = `—` for a hand-off.**
   Writing a handover means you are RELINQUISHING the thread for a cold session to
@@ -123,12 +131,12 @@ Then commit **both files** onto main via a temporary index (no branch switch, wo
 ```bash
 TMPIDX="$(mktemp)"
 GIT_INDEX_FILE="$TMPIDX" git read-tree FETCH_HEAD
-GIT_INDEX_FILE="$TMPIDX" git add "relay/handover/next-$TS.md" relay/board.md
+GIT_INDEX_FILE="$TMPIDX" git add "<root>/handover/next-$TS.md" <root>/board.md
 TREE="$(GIT_INDEX_FILE="$TMPIDX" git write-tree)"
 COMMIT="$(git commit-tree "$TREE" -p FETCH_HEAD -m "docs(handover+board): $TS — <item>")"
 git push origin "$COMMIT:main"
 rm -f "$TMPIDX"
-git checkout HEAD -- relay/board.md 2>/dev/null || true   # restore branch's board; keep the feature branch clean
+git checkout HEAD -- <root>/board.md 2>/dev/null || true   # restore branch's board; keep the feature branch clean
 ```
 
 If the push is rejected (main moved on, or direct pushes to main are blocked), STOP and
@@ -137,22 +145,22 @@ commit them. The handover stays untracked on the current feature branch until ma
 propagates; that's expected.
 
 ## Step 4.5 — Tidy the record (archive superseded notes)
-`/handover` and `/review-pr` mint a new file every session, so `relay/handover/` and
-`relay/pr-reviews/` grow without bound. Since you've just synced with `main` and are already
+`/handover` and `/review-pr` mint a new file every session, so `<root>/handover/` and
+`<root>/pr-reviews/` grow without bound. Since you've just synced with `main` and are already
 committing there, sweep the **superseded** files into `archive/` in the same breath — nothing
 is deleted, git keeps full history, so this is always safe and reversible. **Skip this step if
 Step 4's push FAILED** (you're not synced with main; don't touch the record).
 
 The rule is "keep only what's still live":
 - **Handovers** — the board's *Open threads* table is the source of truth. Archive every
-  `relay/handover/next-*.md` on main whose basename is **not** linked from `relay/board.md`
+  `<root>/handover/next-*.md` on main whose basename is **not** linked from `<root>/board.md`
   (the one you just wrote IS linked, so it stays). Keep the ones the board still points at.
 - **PR reviews** — a review doc is consumed at merge time. Keep the **20 most recent**
-  `relay/pr-reviews/*.md` and archive the rest.
+  `<root>/pr-reviews/*.md` and archive the rest.
 
 Do it on `main` with the same temp-index pattern as Step 4 (no branch switch). Refresh from
 main, compute the moves, and commit them as one archival commit — `git read-tree FETCH_HEAD`,
-stage the renames into `relay/handover/archive/` and `relay/pr-reviews/archive/` in the temp
+stage the renames into `<root>/handover/archive/` and `<root>/pr-reviews/archive/` in the temp
 index, `write-tree`, `commit-tree -p FETCH_HEAD`, push to `main`. If nothing qualifies, skip
 the commit. Report a one-line count (e.g. "archived 3 handovers, 5 reviews") or say "nothing
 to archive".
@@ -162,7 +170,7 @@ Do NOT paste the full handover into the terminal. Print only a short summary plu
 open questions:
 
 ```
-📋 Handover → relay/handover/next-$TS.md   (pushed to main: <short-sha>)
+📋 Handover → <root>/handover/next-$TS.md   (pushed to main: <short-sha>)
    Item:   <track/slug>  →  <new status on the board>
    Next:   <next objective, one line>
    Landed: <what just landed, one line>
@@ -192,8 +200,8 @@ gets skipped, so do it explicitly.
 `/continue` reads), clean the local working tree of the now-redundant artifacts:
 
 ```bash
-rm -f "relay/handover/next-$TS.md"                        # committed to main via the temp index, but still UNTRACKED here
-git checkout HEAD -- relay/board.md 2>/dev/null || true    # restore the branch's board (idempotent with Step 4)
+rm -f "<root>/handover/next-$TS.md"                        # committed to main via the temp index, but still UNTRACKED here
+git checkout HEAD -- <root>/board.md 2>/dev/null || true    # restore the branch's board (idempotent with Step 4)
 git status --porcelain                                    # expect EMPTY
 ```
 

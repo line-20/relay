@@ -11,6 +11,17 @@ This is NOT `/continue`. `/continue` **resumes an in-flight thread** from its ha
 handover yet, just a brief. Keep them distinct: `/whats-next` never resumes ⚙/🔍 work (that's
 already owned by a live session).
 
+## Step 0 — Resolve the Relay root
+Durable state lives under a per-repo root — default `relay/`, overridable via a `relay.config.json`
+at the repo root (`{ "root": "docs" }`). Resolve it once; read every `<root>/…` path below relative
+to it. Absent config (or no `root` key) ⇒ `<root>` = `relay`, so existing repos are unchanged.
+```bash
+ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
+```
+**Soft check:** if the resolved `<root>/board.md` is nowhere to be found (not on `origin/main`, not
+local), STOP and say so plainly — e.g. *"root `docs` configured but `docs/board.md` missing — run
+`/relay-init`?"* — rather than failing deep in a later step.
+
 ## Three levels — pick by `$ARGUMENTS`
 The levels differ ONLY in how hard they verify before ranking. Steps 1–2 (read board, filter to
 startable) and Steps 3–6 (rank, present, worktree, start) are shared. What changes is the middle.
@@ -19,11 +30,11 @@ startable) and Steps 3–6 (rank, present, worktree, start) are shared. What cha
   against their briefs (**Step 3.5**). Seconds. Trusts the board. Use for a fast "what's next".
 - **L2 · Verify** — `$ARGUMENTS` contains `verify`, `check`, `thorough`, or `deep`. Rebuild the
   ranking from **ground truth for the shortlist**: fan out one research agent per plausible
-  contender (~8–10) across its board row + full brief + relay/pr-reviews + handovers + git/code, so the
+  contender (~8–10) across its board row + full brief + <root>/pr-reviews + handovers + git/code, so the
   recommendation is accurate, not just board-deep (**Step 2.9A** replaces Step 3.5). Minutes.
 - **L3 · Audit** — `$ARGUMENTS` contains `audit`, `archive`, `exhaustive`, `compact`, or `full`. A
   **board audit**, not just a recommendation: reconcile **EVERY** startable item against **all
-  sources** — board, briefs, relay/pr-reviews, handovers, code, and GitHub history (`gh pr`/`gh issue`).
+  sources** — board, briefs, <root>/pr-reviews, handovers, code, and GitHub history (`gh pr`/`gh issue`).
   Its primary product is a **dated, committed archival report**; the shortlist falls out as a
   byproduct. It can then **compact the board** — archive shipped briefs, slim Open threads to just
   live work — as a confirmed follow-through (**Step 2.9B step 5**). Can take a long time — that's
@@ -32,9 +43,9 @@ startable) and Steps 3–6 (rank, present, worktree, start) are shared. What cha
 (Any other argument — a track, theme, or exact slug — biases the candidate set at *any* level.)
 
 ## Step 1 — Read the board (the curated front door, fetched from main)
-Do NOT sweep `relay/briefs/` blindly — the board already distils them.
+Do NOT sweep `<root>/briefs/` blindly — the board already distils them.
 1. `git fetch origin main` to refresh the shared board.
-2. Read it: `git show FETCH_HEAD:relay/board.md`. The **Open threads** table and the
+2. Read it: `git show FETCH_HEAD:<root>/board.md`. The **Open threads** table and the
    **Tracks** section are the source of truth for what exists and its status.
 3. Glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · 🔍 in-review · ⏸ parked · ✅ done.
 
@@ -56,7 +67,7 @@ so the ranking rests on what's actually true rather than the board's one-liner.
 2. **Fan out one research agent per contender, in parallel**, in a single message so they run
    concurrently. Give each the item slug and this brief:
    > Research board item `<slug>` for a "what to work on next" decision. Read (a) its board row
-   > in `relay/board.md`, (b) its full brief/detail doc, (c) any `relay/pr-reviews/` file naming it and
+   > in `<root>/board.md`, (b) its full brief/detail doc, (c) any `<root>/pr-reviews/` file naming it and
    > its latest handover, (d) `git log`/`git grep` for its code area. Report: **real current
    > status** (what's actually shipped vs the board's claim), **startable-now?** (yes /
    > blocked-on-what), **staleness** (does the board row or brief disagree with the code? quote
@@ -76,14 +87,14 @@ and real token cost — completeness beats speed.
    count and process in batches; never silently drop items (a silent cap defeats an audit).
 2. **Fan out one research agent per item** (or run it as a workflow if your harness has one, so
    it's resumable and progress-visible). Each reconciles the item across all sources:
-   > Audit board item `<slug>`. Read: (a) its board row(s) in `relay/board.md`; (b) its full
-   > brief/detail doc; (c) every `relay/pr-reviews/` file that names it; (d) every `relay/handover/`
+   > Audit board item `<slug>`. Read: (a) its board row(s) in `<root>/board.md`; (b) its full
+   > brief/detail doc; (c) every `<root>/pr-reviews/` file that names it; (d) every `<root>/handover/`
    > (incl. `archive/`) that names it; (e) the actual code (`git log`/`git grep`/read files); (f)
    > GitHub history (`gh pr list --search <slug>`, `gh issue list --search <slug>`, relevant merged
    > PRs). Return STRUCTURED: `{slug, realStatus, boardStatus, startable, blockedOn, staleness:
    > [{source, boardSays, truthIs, evidence}], size, leverage, recommendedNextSlice, evidence:[]}`.
    > Cite every claim (sha / file:line / PR# / handover path). Do not assert without a source.
-3. **Write the archival report** to `relay/board-audit/<timestamp>.md` (`mkdir -p relay/board-audit`
+3. **Write the archival report** to `<root>/board-audit/<timestamp>.md` (`mkdir -p <root>/board-audit`
    first — it may not exist in a fresh clone; get `<timestamp>` from a `date +%Y-%m-%d-%H%M` Bash call). Structure: a summary (item count, how many rows drifted), a
    per-item table (slug · board status · real status · drift? · size · startable), a **Drift ledger**
    (every board/brief row that disagrees with reality, with the exact fix), and the **ranked
@@ -97,7 +108,7 @@ on that finding. This is the goal: shrink the board back to a short "what's stil
 
 Present a **compaction plan** and, only on explicit go-ahead, apply it in **one confirmed pass**:
 - **Archive shipped briefs.** For each ✅ item the audit *verified as actually shipped*, move its
-  brief `relay/briefs/<slug>.md` → `relay/archive/`, and drop its row from the **Open threads**
+  brief `<root>/briefs/<slug>.md` → `<root>/archive/`, and drop its row from the **Open threads**
   table, leaving a one-line ✅ trace on its track's Done line. Never a silent delete — the full
   record lives in git + the committed report.
 - **A ✅-claimed row the code contradicts does NOT get archived** — it stays put and goes in the

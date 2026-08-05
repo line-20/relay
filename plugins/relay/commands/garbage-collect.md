@@ -20,6 +20,11 @@ force-remove just because the user said "clean them all" — surface the risky o
 Run this from the **main checkout**. If `git rev-parse --show-toplevel` is itself a worktree,
 stop and tell the user to run it from the main checkout instead.
 
+> **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
+> `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
+> `ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"` — the board read
+> below uses `<root>/board.md`.
+
 ## Step 1 — Take inventory
 ```bash
 git worktree list --porcelain
@@ -31,7 +36,7 @@ For **each** worktree (skip the main checkout):
   a merged branch is the **normal resting state between slices**, not garbage
 - **topic still live?** — does an **open or queued** board item share this topic (i.e. will the
   next `/whats-next`/`/continue` re-baseline and reuse this tree)? Refresh with `git fetch origin
-  main` + read `git show FETCH_HEAD:relay/board.md` if the board exists
+  main` + read `git show FETCH_HEAD:<root>/board.md` if the board exists
 - **locked?** — a `locked` line means a session marked it in-use; treat as untouchable
 - **dirty?** — `git -C <path> status --porcelain` non-empty → uncommitted work
 - **merged?** — is its branch in the `--merged main` list

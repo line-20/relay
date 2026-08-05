@@ -30,24 +30,32 @@ Restart Claude Code if prompted. You should now see `/relay-init`, `/explore`, `
 /relay-init
 ```
 
-This inspects your repo and creates:
+This inspects your repo and creates **one folder — the Relay root** — holding every durable file
+the workflow reads and writes. This is the exact structure every command builds and looks for:
 
 ```
-relay/
-  board.md          ← the front door (seeded with tracks that fit your repo)
-  roadmap.md        ← the narrative behind each board item
-  briefs/           ← one brief per unit of pending work
-  handover/         ← cold-start handovers live here
-  reference/        ← reference frames from /cross-check (how others solve a problem)
-  pr-reviews/       ← merged review reports
-  archive/          ← shipped briefs move here when the board is compacted
-  board-audit/      ← dated reconciliation reports from /whats-next audit
-  README.md         ← a short note explaining the convention to teammates
+relay/                ← the Relay root (default name; see "point it elsewhere" below)
+  board.md            ← the front door: the Open-threads table + tracks. Every command reads this first.
+  roadmap.md          ← the longer narrative behind each board item
+  briefs/             ← one brief per unit of pending work (what /explore writes, /whats-next starts from)
+  handover/           ← cold-start handovers (next-*.md); what /handover writes and /continue resumes from
+    archive/          ← superseded handovers, moved here by housekeeping (never deleted)
+  pr-reviews/         ← one merged review report per PR (what /review-pr + /wrapup write)
+    archive/          ← review reports past the newest 20, moved here by housekeeping
+  reference/          ← reference frames from /cross-check (how others solve a problem)
+  archive/            ← shipped briefs, moved here when the board is compacted
+  board-audit/        ← dated whole-board reconciliation reports from /whats-next audit
+  README.md           ← a short note explaining the convention to teammates
 ```
-(`handover/` and `pr-reviews/` also get an `archive/` subdir used by housekeeping.)
 
-Everything the workflow owns lives under one `relay/` folder — it stays out of your repo's
-own `docs/`, and a teammate can see the whole convention at a glance.
+Everything the workflow owns lives under this **one root**, so a teammate sees the whole convention
+at a glance and it stays cleanly separated from the rest of your repo.
+
+> **Already keep this state somewhere else? Point Relay at it instead of migrating.** The root is
+> configurable per repo — drop a `relay.config.json` at the repo root with `{ "root": "docs" }` and
+> every command reads/writes `docs/board.md`, `docs/handover/…`, etc. No config (the default) means
+> the root is `relay/`. This is how a repo that already runs a board/handover convention under its
+> own folder adopts the `relay:*` commands **without moving a single file**.
 
 It commits these but does **not** push — review the seeded tracks, edit them to match how
 you actually think about the work, then push when you're happy. The tracks are a starting
