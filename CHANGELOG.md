@@ -7,6 +7,14 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.12.7
+
+**Fixed**
+- **Next-step suggestions now show the full `/relay:` prefix.** `/relay-init` and `/explore` handed
+  users bare command names (`/explore`, `/whats-next`, `/refine`) that can't be invoked by copy-paste
+  — a bare `/explore` isn't a command and tab-completes to the built-in `/export`. The actionable
+  "next move" lines now show `/relay:<name>` and note to tab-complete after the colon.
+
 ## 0.12.6
 
 **Fixed**

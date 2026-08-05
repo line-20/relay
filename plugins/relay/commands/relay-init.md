@@ -210,9 +210,12 @@ no file-content recaps):
 - **What was created** — the `<root>/` structure, in one line; and the **tier** recorded (or "none —
   full fan-out").
 - **The next move** — the important part, and it differs by what you found in Step 2.5:
-  - **Greenfield** → the board is intentionally **empty**. Next: **`/explore <your first idea>`** to
-    shape the first feature into a brief. Do NOT tell them to run `/whats-next` yet — there's nothing
-    on the board to pick.
-  - **Populated** → **`/whats-next`** to pick from the seeded tracks (edit them first — they're a guess).
-- **The loop, one line** so they see the shape: `explore → refine → whats-next/continue → test-drive →
-  deploy → review-pr → wrapup → persist` (each optional; invoke what the work needs).
+  - **Greenfield** → the board is intentionally **empty**. Next: **`/relay:explore <your first idea>`**
+    to shape the first feature into a brief. Do NOT tell them to run `/relay:whats-next` yet — there's
+    nothing on the board to pick.
+  - **Populated** → **`/relay:whats-next`** to pick from the seeded tracks (edit them first — a guess).
+- **Write commands with the `/relay:` prefix** — they're plugin-namespaced, so a bare `/explore` isn't
+  a command (it tab-completes to the built-in `/export`). Always show the full `/relay:<name>` so the
+  user can copy it straight; tell them to tab-complete *after* the colon.
+- **The loop, one line** so they see the shape (each is a `/relay:` command, optional — invoke what the
+  work needs): `explore → refine → whats-next/continue → test-drive → deploy → review-pr → wrapup → persist`.
