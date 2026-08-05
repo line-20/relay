@@ -153,13 +153,42 @@ where only the first slice fits a session.
 Then ask which one — or offer that the user can name a different board item. **Stop here and wait**
 unless `$ARGUMENTS` already named an exact item slug.
 
-## Step 4 — On pick: worktree first (ALWAYS — never the shared main checkout)
+## Step 4 — On pick: topic-scoped worktree (ALWAYS — never the shared main checkout)
 Like `/continue`, `/whats-next` **always works in a git worktree**. Do NOT ask worktree-or-main.
-1. Derive a short branch/worktree name from the item slug (e.g. `pricing/increment-h` → `increment-h`).
-2. Create/enter it (a native worktree tool if your harness has one, else `git worktree add`). If one
-   already exists for that branch, enter it. **Never** `git checkout`/`git switch` in the main
-   checkout (clobbers other sessions).
-3. If you'll run the app, copy any untracked files it needs (e.g. `.env`) from the main checkout first.
+
+**Key the worktree to the topic, not the slice.** A worktree is stable and long-lived; the
+branch inside it rotates per slice. This keeps one tree per topic instead of one per slice — so
+`wrapup → clear → whats-next` on the same topic stays in the same VS Code tab, and stale trees
+stop piling up.
+
+1. **Derive the topic** from the item's track — the board's **Track**, or equivalently the
+   `<track>/` prefix of its slug (`pricing/increment-h` → topic `pricing`). If the slug has no
+   `/`, use its first hyphen-segment (`unit-field-slice3` → `unit-field`). The **worktree dir is
+   the topic**; the **branch is the slice** (keep the existing per-slice branch name — branch/PR
+   naming is unchanged).
+2. **If a worktree already exists for that topic, REUSE it** — do not create a second one. Find
+   its path in `git worktree list` (the dir ending in `/<topic>`).
+   - Check its tree is clean: `git -C <path> status --porcelain`. **If dirty, STOP and surface
+     it** — a sibling session may have in-flight work there; never `reset --hard` over it (ask
+     whether to use it anyway or wait).
+   - If clean, enter it and re-baseline off fresh main, then rotate to the new slice-branch:
+     ```
+     EnterWorktree({ path: "<that path>" })          # switching in is allowed even mid-worktree
+     git fetch origin main && git reset --hard origin/main
+     git switch -C <slice-branch> origin/main         # -C so a leftover branch of that name is reset, not an error
+     ```
+3. **Else create it** with the harness's native worktree tool (else `git worktree add`). Name the
+   worktree for the **topic** — the tool bases it on fresh `origin/main` and creates a branch of
+   the same name, so **rename that branch to the slice** afterward:
+   ```
+   EnterWorktree({ name: "<topic>" })                # creates .claude/worktrees/<topic>, branch <topic> off origin/main
+   git branch -m <slice-branch>                       # rotate the topic-named branch to the flat slice name
+   ```
+   Slice branches stay flat (`increment-h`, unchanged) so they never collide with the single-segment
+   topic branch. **Never** `git checkout`/`git switch` in the main checkout (clobbers other sessions).
+4. If you'll run the app, copy any untracked files it needs (e.g. `.env`) from the main checkout first.
+5. **Report which you did** — "reused + re-baselined the `pricing/` worktree" vs "created a new
+   `pricing/` worktree" — so the user knows a tree was recycled, not spawned.
 
 ## Step 4.5 — Dependency pre-flight (does this need a sibling thread's work first?)
 Before building, check whether this item depends on something **another live session** is doing

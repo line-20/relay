@@ -35,17 +35,51 @@ main is merged in locally.
    exists, STOP — nothing to continue.
 6. Remember the item slug, source, and filename you used; report them in Step 4.
 
-## Step 1.5 — Get into the thread's worktree (ALWAYS — don't ask)
+## Step 1.5 — Get into the thread's topic worktree (ALWAYS — don't ask)
 `/continue` **always works in a git worktree** — never directly on `main` in the shared
-checkout. Do NOT ask worktree-or-main; just do it.
+checkout. Do NOT ask worktree-or-main; just do it. Worktrees are **keyed to the topic, not
+the slice**: one stable tree per topic, the slice-branch inside it rotates. So resuming a
+thread means getting into its *topic* tree and checking out its branch there.
 
-1. The thread's branch is the `branch:` line in the handover frontmatter.
-2. If this session is **already inside the worktree for that branch** (`git branch
-   --show-current` matches and the cwd is under the worktree dir), you're done — continue.
-3. Otherwise **enter/create the worktree for that branch**. If your harness has a native
-   worktree tool, use it; otherwise `git worktree add`. If one already exists for the
-   branch, enter it. Never `git checkout`/`git switch` in the main checkout — that risks
-   clobbering another session's tree.
+1. The handover's `branch:` frontmatter is the thread's *last* branch; the **topic** is the
+   item's track — the `<track>/` prefix of its slug (`pricing/increment-h` → `pricing`), or the
+   slug's first hyphen-segment if it has no `/`.
+2. **Shipped-or-resume — decide which branch you're checking out.** A handover written by a
+   mid-thread `/handover` pause hands back an **in-flight** slice; one written by `/wrapup` hands
+   back a thread whose slice **already shipped** and whose "Next objective" is the *next* slice.
+   Tell them apart, then pick the **target branch**:
+   ```
+   git fetch origin main
+   git merge-base --is-ancestor <handover-branch> origin/main    # exit 0 = that branch is already merged
+   ```
+   - **Not merged → in-flight.** Target branch = the handover's `<branch>`; you resume it as-is.
+   - **Merged → shipped.** The old branch is done (its PR merged, remote branch deleted). You are
+     **starting the next slice**: target branch = a fresh slice-branch named from the handover's
+     **Next-objective item slug** (flat last segment, status-quo style — `pricing/slice-c` →
+     `slice-c`), which you cut off fresh `origin/main`. This is the `/whats-next` re-baseline path,
+     reached via `/continue` because the thread is ⚙ in-progress with a handover.
+3. If this session is **already inside the topic worktree with the target branch checked out**
+   (`git branch --show-current` matches and the cwd is under the worktree dir), you're done.
+4. Otherwise **get into the topic worktree**, then check out the target branch per the case above:
+   - Find the topic's worktree in `git worktree list` (dir ending in `/<topic>`). If it exists,
+     **enter it**; else **create it** named for the topic:
+     ```
+     EnterWorktree({ path: "<that path>" })          # reuse — switching in is allowed even mid-worktree
+     # — or, if none exists —
+     EnterWorktree({ name: "<topic>" })              # create .claude/worktrees/<topic> (branch <topic>, off origin/main)
+     ```
+     **If an existing tree is dirty with someone else's in-flight work, STOP and surface it** —
+     never `reset --hard` or discard it; ask how to proceed.
+   - **Check out the target branch:**
+     ```
+     # in-flight — resume the existing branch as-is (do NOT re-baseline; that would nuke the WIP):
+     git switch <target>                              # or `git switch -c <target> origin/<target>` if it's only on the remote
+
+     # shipped — re-baseline the tree to fresh main, then cut the next slice-branch:
+     git reset --hard origin/main && git switch -C <target> origin/main
+     ```
+   - Never `git checkout`/`git switch` in the main checkout — that risks clobbering another
+     session's tree.
 4. **Capture the worktree root and hold it for the whole session.** Run
    `git rev-parse --show-toplevel` — the result is the worktree dir, NOT the main checkout.
    **Every** Edit/Write/Read `file_path` for the rest of this thread MUST begin with that
@@ -57,11 +91,14 @@ checkout. Do NOT ask worktree-or-main; just do it.
    the app needs from the main checkout first.
 
 ## Step 2 — Verify we're in the right place (the one gate)
-1. `git branch --show-current`, compare to the `branch:` line in the handover frontmatter.
+1. `git branch --show-current`, compare to the **target branch** from Step 1.5.2 — the handover's
+   `branch:` in the **in-flight** case, or the fresh next-slice branch in the **shipped** case
+   (NOT the frontmatter branch, which is the merged predecessor).
    - After Step 1.5 these should match by construction. **If they still differ, STOP** —
      show both branches and ask to confirm; something is off with the worktree.
-2. `git status` — if the working tree doesn't match the handover's "In flight" section,
-   note it briefly and keep going.
+2. `git status` — in the **in-flight** case, if the working tree doesn't match the handover's
+   "In flight" section, note it briefly and keep going. In the **shipped** case the tree is a
+   clean re-baseline off `origin/main` (In flight was "None") — expect it clean.
 
 ## Step 2.5 — Run any project setup the handover names
 A handover often follows a merge that shipped schema/dependency changes. If the handover

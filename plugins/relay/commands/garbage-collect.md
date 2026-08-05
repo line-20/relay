@@ -27,19 +27,29 @@ git branch --merged main --format='%(refname:short)'   # branches already merged
 ```
 For **each** worktree (skip the main checkout):
 - **branch** — its checked-out branch
+- **topic** — worktrees are keyed to a topic (its dir name), not a slice; a clean topic tree on
+  a merged branch is the **normal resting state between slices**, not garbage
+- **topic still live?** — does an **open or queued** board item share this topic (i.e. will the
+  next `/whats-next`/`/continue` re-baseline and reuse this tree)? Refresh with `git fetch origin
+  main` + read `git show FETCH_HEAD:relay/board.md` if the board exists
 - **locked?** — a `locked` line means a session marked it in-use; treat as untouchable
 - **dirty?** — `git -C <path> status --porcelain` non-empty → uncommitted work
 - **merged?** — is its branch in the `--merged main` list
 - **age** — `git -C <path> log -1 --format=%cr`
 
 ## Step 2 — Classify
-- **SAFE to auto-remove** — `merged` **AND** not `dirty` **AND** not `locked`.
+- **KEEP — live topic tree** — clean and its **topic is still live** on the board (open/queued
+  work will reuse it). A merged branch here is expected, NOT a reason to remove — this is the
+  whole point of topic-scoped worktrees. Leave it be.
+- **SAFE to auto-remove** — `merged` **AND** not `dirty` **AND** not `locked` **AND** its topic
+  is *not* live (nothing queued will reuse it — a genuine orphan or a shipped-and-done topic).
 - **RISKY — ask first** — anything `dirty`, `locked`, or `unmerged`.
 
 ## Step 3 — Report before acting
 Print a plain-language table, one row per worktree with its verdict — **"remove (merged &
-clean)"**, **"keep — uncommitted changes"**, **"keep — locked"**, **"keep — not yet merged"**.
-Don't bury it; this is where the user catches a mistake.
+clean, topic done)"**, **"keep — live topic tree"**, **"keep — uncommitted changes"**, **"keep
+— locked"**, **"keep — not yet merged"**. Don't bury it; this is where the user catches a
+mistake — especially a live topic tree that used to look like removable garbage.
 
 ## Step 4 — Remove the safe ones
 ```bash

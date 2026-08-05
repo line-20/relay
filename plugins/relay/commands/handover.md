@@ -203,10 +203,18 @@ report it and STOP — do NOT auto-delete unrelated work** (a parallel session m
 **If the push FAILED, skip the cleanup entirely** — those files are the only copy. Leave
 them, keep the worktree, and the user will commit them.
 
-Then release the worktree (if your harness has a native tool that refuses to remove a
-dirty/unmerged tree, prefer it — it's self-protecting):
-- **Loop closed** (this PR is MERGED, or there was no PR and the work is already on main;
-  tree clean) → remove the worktree dir + branch, the clean end of a finished thread.
+Then release the worktree. **Worktrees are keyed to the topic, not the slice** — the tree is
+long-lived and the slice-branch inside it rotates, so a merged slice does NOT mean "delete the
+tree". Default to **keeping** it:
+- **Loop closed** (this PR is MERGED, or there was no PR and the work is already on main; tree
+  clean) → **keep the topic worktree** — the next `/whats-next`/`/continue` on this topic will
+  re-baseline it (`reset --hard origin/main`) and cut the next slice-branch. Just leave it clean
+  and drop any lock so the next slice isn't blocked. With the native tool that means
+  `ExitWorktree({ action: "keep" })` (NOT `"remove"`) — it returns you to the main checkout but
+  leaves the tree on disk. Removing it only recreates the per-slice churn this design removed.
+  **Only remove the tree if the topic itself is done** — no open or queued board item shares it,
+  so nothing will reuse it — and even then use `ExitWorktree({ action: "remove" })`, which
+  refuses a dirty/unmerged tree rather than clobbering it.
 - **In flight** (unmerged — you handed over mid-thread) → keep the worktree/branch's work
   but drop any lock so the next `/continue` isn't blocked. Board `Owner = —` alone is NOT
   enough — a concurrent-session guard keys off the live process, not the board text.
@@ -216,9 +224,11 @@ Other sessions may own live worktrees with uncommitted work, and a forced remova
 so this is report-only:
 - `git worktree prune` — drops administrative entries for worktree dirs already deleted by
   hand. Safe; touches no live tree.
-- Then, if any *other* worktree is **merged into main AND has a clean tree** (a finished thread
-  whose session ended without releasing it), **name it and suggest the one-liner** to remove it
-  (`git worktree remove <path>`) — but do NOT run it. A dirty or unmerged sibling may be a live
-  session's work; leave it and say nothing beyond noting it exists.
+- Then, if any *other* worktree is **merged into main, clean, AND its topic is no longer live**
+  on the board (nothing open/queued will reuse it), **name it and suggest the one-liner** to
+  remove it (`git worktree remove <path>`) — but do NOT run it. **Do NOT flag a clean+merged tree
+  whose topic is still live** — that's a resting topic tree waiting for its next slice, not an
+  orphan. A dirty or unmerged sibling may be a live session's work; leave it and note only that
+  it exists.
 
 Then remind the user to `/clear` this session before the cold one runs `/continue`.
