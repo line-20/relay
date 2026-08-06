@@ -42,7 +42,7 @@ with the ones already there.
 ## The shape of a good review agent
 
 Relay's review agents all follow one contract, and a new one should too:
-- **Findings only.** In a fan-out (`/review-pr`), an agent returns findings — no report file,
+- **Findings only.** In a fan-out (`/review`), an agent returns findings — no report file,
   no verdict. The command merges them. Say this in the agent's own description.
 - **Severity-graded**: 🔴 blocker · 🟡 should-fix · 🟢 nit. Each finding carries a `file:line`.
 - **Stack-agnostic**: discover the actual stack/conventions from the project's `CLAUDE.md` and

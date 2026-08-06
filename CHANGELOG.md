@@ -7,6 +7,24 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.0 — in progress (branch `1.0`)
+
+The breaking cut. Assembled on branch `1.0`; main stays on 0.14.0 until it lands, so the break is
+tagged **once**. Building piece by piece — this entry grows as each lands.
+
+**Changed (breaking)**
+- **Command renames.** The lifecycle now reads as its verbs, and the `relay:` namespace already says
+  "relay" so redundant prefixes/plumbing names are gone:
+  `relay-init`→`init`, `whats-next`→`next`, `review-pr`→`review`, `fix-pr-review`→`fix`,
+  `test-drive`→`test`, `wrapup`→`ship`, `garbage-collect`→`gc`. Unchanged: `explore`, `refine`,
+  `continue`, `deploy`, `persist`, `guardrails`, `handover`, `cross-check`, `watch`, `version`.
+  Every cross-reference across commands, agents, and docs was swept to the new names. (Migration for
+  existing adopters comes with #11; the durable-state dir renames `pr-reviews/`→`reviews/` and
+  `board-audit/`→`audits/` are part of that per-path work, not this rename.)
+
+**Still to land in 1.0:** explore→refine split, epic modelling, reflect loop, per-path config +
+migration path + docs/quickstart rewrite (and the destructive brownfield adopt from 0.14.0 rides along).
+
 ## 0.14.0
 
 **Changed**

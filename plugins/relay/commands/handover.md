@@ -4,7 +4,7 @@ argument-hint: "[optional focus, e.g. 'health monitoring metering']"
 allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Read, Write, Edit, ExitWorktree
 ---
 
-> **Run by the loop.** `/wrapup` calls this for you (Phase 6) at the end of a shipped session.
+> **Run by the loop.** `/ship` calls this for you (Phase 6) at the end of a shipped session.
 > Invoke it standalone only to hand off **mid-thread** — when you're stopping *without*
 > shipping and want a cold session (`/continue`) to resume later.
 
@@ -16,7 +16,7 @@ re-research the state of the project.
 next item from the roadmap/board.
 
 > **Relay convention.** The durable records are `<root>/board.md` and
-> `<root>/handover/next-*.md`, both on `main`. Run `/relay-init` once if your repo
+> `<root>/handover/next-*.md`, both on `main`. Run `/init` once if your repo
 > doesn't have them yet.
 
 **Resolve the Relay root first.** Durable state lives under a per-repo root — default `relay/`,
@@ -38,7 +38,7 @@ gh pr view --json number,state,reviewDecision,url 2>/dev/null
 - **state MERGED** → loop closed. Proceed.
 - **state OPEN** → the loop isn't finished. Check `<root>/pr-reviews/` for a report on this PR; if none, it's also unreviewed. WARN and STOP:
   `⚠ Handing over with PR #<n> still open (<reviewed | UNREVIEWED>): <url>. The flow expects it merged first.`
-  Ask to either finish the loop (`/fix-pr-review`, then merge) or reply "handover anyway" to continue. Wait for the answer.
+  Ask to either finish the loop (`/fix`, then merge) or reply "handover anyway" to continue. Wait for the answer.
 - **state CLOSED (not merged)** → note it and ask the same way.
 
 ## Step 1 — Read the current state
@@ -145,7 +145,7 @@ commit them. The handover stays untracked on the current feature branch until ma
 propagates; that's expected.
 
 ## Step 4.5 — Tidy the record (archive superseded notes)
-`/handover` and `/review-pr` mint a new file every session, so `<root>/handover/` and
+`/handover` and `/review` mint a new file every session, so `<root>/handover/` and
 `<root>/pr-reviews/` grow without bound. Since you've just synced with `main` and are already
 committing there, sweep the **superseded** files into `archive/` in the same breath — nothing
 is deleted, git keeps full history, so this is always safe and reversible. **Skip this step if
@@ -215,7 +215,7 @@ Then release the worktree. **Worktrees are keyed to the topic, not the slice** �
 long-lived and the slice-branch inside it rotates, so a merged slice does NOT mean "delete the
 tree". Default to **keeping** it:
 - **Loop closed** (this PR is MERGED, or there was no PR and the work is already on main; tree
-  clean) → **keep the topic worktree** — the next `/whats-next`/`/continue` on this topic will
+  clean) → **keep the topic worktree** — the next `/next`/`/continue` on this topic will
   re-baseline it (`reset --hard origin/main`) and cut the next slice-branch. Just leave it clean
   and drop any lock so the next slice isn't blocked. With the native tool that means
   `ExitWorktree({ action: "keep" })` (NOT `"remove"`) — it returns you to the main checkout but

@@ -116,7 +116,7 @@ On approval, write **surgically and idempotently** — update in place, never cl
   path in its `extends`). If the dimension has **no** `extends` file yet, create one
   (`<root>/knowledge/<dim>-house.md`), add the rule, and register it by **surgically merging** the
   path into that dimension's `extends` array in `relay.config.json` (preserve every other key — see
-  the merge pattern `/relay-init` uses). **Never touch a baseline.**
+  the merge pattern `/init` uses). **Never touch a baseline.**
 - **Design system:** append the pattern/token to the design-system doc (`<root>/knowledge/ui-design.md`,
   honouring a `paths.design-system` override) in its Relay-managed section.
 - **AI memory:** write each non-obvious decision as one fact (decision + why + how-to-apply) via the

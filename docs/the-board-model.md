@@ -45,14 +45,14 @@ An **item** on the board is a unit of work. Its **status glyph** says where it i
 | Glyph | Meaning | Who owns it |
 |---|---|---|
 | 💡 | idea (icebox) | nobody — a maybe-someday |
-| 🔜 | next (queued) | nobody — free to start with `/whats-next` |
+| 🔜 | next (queued) | nobody — free to start with `/next` |
 | ⚙ | in-progress | a live session in a worktree |
 | 🔍 | in-review | a live session (PR open) |
 | ⏸ | parked | nobody — blocked on something; note what |
 | ✅ | done | shipped; leaves Open threads |
 
 The **Owner** column names the live branch/worktree actively on an item, or `—` when it's
-free. This is what keeps parallel sessions from colliding: `/whats-next` and `/continue` skip
+free. This is what keeps parallel sessions from colliding: `/next` and `/continue` skip
 anything a live owner holds, and `/handover` sets `Owner = —` when it relinquishes a thread
 so a cold session can pick it up.
 
@@ -101,23 +101,23 @@ reports and waits rather than deleting.
   adds a brief + a board row (🔜/💡) — the front of the loop that feeds everything below.
 - `/cross-check` **writes** a reference frame under `relay/reference/` (how others solve the
   problem) and checks an approach against it — offered at the end of `/explore`, or on its own.
-- `/whats-next` **reads** Open threads, filters to what's startable (🔜/⏸/💡, no live owner),
+- `/next` **reads** Open threads, filters to what's startable (🔜/⏸/💡, no live owner),
   ranks it, and starts your pick in the topic's worktree (created once, reused each slice).
 - `/continue` **reads** Open threads, finds your thread (by slug or current branch), and
   resumes from its linked handover.
 - `/watch` **parks** an item (⏸, `blocked-on: …`) when it depends on a sibling's unlanded work,
   watches the dependency reach `main` in the background, and flips the row back to ⚙ (reclaiming
   `Owner`) when it lands — the only command that drives the ⏸ state programmatically.
-- `/test-drive` touches the **PR, not the board**: it opens a draft PR for the thread's branch and
+- `/test` touches the **PR, not the board**: it opens a draft PR for the thread's branch and
   writes a structured test plan into it (and can drive it in the browser) — a pre-merge checkpoint
   that never merges.
 - `/handover` **writes** a handover and **updates** the item's row (status, owner → `—`,
   latest handover), both onto `main`.
-- `/wrapup` runs the ship loop and ends by calling `/handover`.
+- `/ship` runs the ship loop and ends by calling `/handover`.
 - `/handover`, as it commits, also **archives** superseded handovers/reviews the board no
   longer references and **prunes** dead worktree entries — the end-of-session housekeeping,
   folded into the step that already touches those records.
-- `/garbage-collect` is the off-happy-path escape hatch: it **reclaims** orphaned worktrees a
+- `/gc` is the off-happy-path escape hatch: it **reclaims** orphaned worktrees a
   crashed or un-handed-over session left behind. You don't need it in normal use.
 
 That's the whole system. Everything else is detail.

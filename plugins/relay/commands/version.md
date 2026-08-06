@@ -13,7 +13,7 @@ block** (monospace keeps it aligned) — no preamble, no explanation, no tool ca
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v0.14.0
+  continuity-first SSDLC workbench                          v1.0.0
   by Line20 · @eriklenaerts
   update: /plugin marketplace update line-20 · then reload the window
 ```
@@ -21,5 +21,5 @@ block** (monospace keeps it aligned) — no preamble, no explanation, no tool ca
 The version is **hardcoded in this banner on purpose** — it certifies which command file is loaded.
 There's no runtime read (`${CLAUDE_PLUGIN_ROOT}` doesn't expand in command bash), so if this shows an
 older number than you expect, the session is running a **cached** command and needs a reload.
-**Maintainers: bump this version on every release** — mirror `plugin.json`; `/relay-init`'s banner
+**Maintainers: bump this version on every release** — mirror `plugin.json`; `/init`'s banner
 carries the same string and must move with it.

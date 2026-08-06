@@ -19,9 +19,9 @@ open PR or opens one, never a second.
   Use when the work isn't PR-ready, or you only asked for "what to test". No drive, no ask.
 - **`drive`/`run`** — do PR mode, then **drive the plan in the browser** (Step 6) without asking.
 
-This is NOT `/wrapup`. `/wrapup` ships (merges). `/test-drive` **stops at a tested-but-unmerged
+This is NOT `/ship`. `/ship` ships (merges). `/test` **stops at a tested-but-unmerged
 PR** (or a printed checklist) — a human (or Claude, in drive mode) exercises it against the
-preview before anyone merges. Merge later with `/wrapup` or by hand once it passes.
+preview before anyone merges. Merge later with `/ship` or by hand once it passes.
 
 ## Step 1 — Ensure a PR (committed work only; never merge here)
 **`plan-only` mode → skip this whole step.** Don't open, push, or require anything — go straight

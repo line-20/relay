@@ -6,7 +6,10 @@ guardrail-aware review specialists) in 0.8.0; #2 (budget/tier in config, `/revie
 budget-aware) in 0.9.0; #3 (`/refine` — context + guardrails + threat model + budget slicing) in
 0.10.0; #4 (`/persist` — knowledge harvest into the extends overlay + design system + memory) in
 0.11.0; #5 (`/deploy` — orchestrate/verify + security-gate a PR preview) in 0.12.0** — the rest is
-sequenced below.
+sequenced below. **The 1.0 breaking cut is now in progress on branch `1.0`** (0.14.0 stays on main
+untouched until the cut lands): command renames (#7) done; explore-split (#8), epics (#9), reflect
+loop (#10), and per-path config + migration + docs rewrite (#11) still to do. The tables below still
+use the pre-1.0 names/paths — they get rewritten as part of #11.
 
 ## Vision
 Turn Relay from a continuity-first *loop* into a continuity-first **Secure SDLC workbench** — one
@@ -175,7 +178,10 @@ quarantined into the final major cut.
    falls out of 1/3/4 once they exist.
 
 **Breaking (assemble into the major cut — 1.0):**
-7. **Command renames** — `init`, `next`, `review`, `fix`, `test`, `ship`, `gc` (per "Clean break").
+7. **Command renames** ✅ *(done on branch `1.0`)* — `relay-init`→`init`, `whats-next`→`next`,
+   `review-pr`→`review`, `fix-pr-review`→`fix`, `test-drive`→`test`, `wrapup`→`ship`,
+   `garbage-collect`→`gc` (files renamed, every cross-reference + docs swept). Dir renames
+   (`pr-reviews/`→`reviews/`, `board-audit/`→`audits/`) are part of #11's per-path work, not here.
 8. **Explore split (phase b)** — `/explore` becomes purely context-free; context moves to `/refine`.
 9. **Epic modeling (phase d)** — epics grouping slices on the board (board schema change).
 10. **Reflect loop (phase i)** — formalize result → `/refine`/`/explore` re-entry.

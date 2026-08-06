@@ -1,5 +1,5 @@
 ---
-description: Scaffold the Relay convention in this repo — pick the root and budget tier, then the board, handover/roadmap/brief dirs, and pr-reviews — so /continue, /whats-next, /handover and /wrapup work on turn one
+description: Scaffold the Relay convention in this repo — pick the root and budget tier, then the board, handover/roadmap/brief dirs, and pr-reviews — so /continue, /next, /handover and /ship work on turn one
 argument-hint: "[--root <dir>  (where durable state lives; default 'relay')] [--tier free|pro|max]"
 ---
 
@@ -20,7 +20,7 @@ sees and the one signal that certifies which command file ran:
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v0.14.0
+  continuity-first SSDLC workbench                          v1.0.0
   by Line20 · @eriklenaerts
 ```
 
@@ -44,8 +44,8 @@ per-repo **budget tier**. Decide both before scaffolding:
    propose that dir as the root so nothing has to move.
 2. Set `ROOT` to the chosen dir (`<root>` below = this value).
 
-**Budget tier** (asked once, here — it drives how many review agents `/review-pr` fans out and how
-wide `/whats-next` researches; later increments read it in `/refine` and `/test`):
+**Budget tier** (asked once, here — it drives how many review agents `/review` fans out and how
+wide `/next` researches; later increments read it in `/refine` and `/test`):
 3. If `$ARGUMENTS` passes `--tier free|pro|max`, take that. Otherwise **ask once**, plainly — it
    tracks the driver's Claude plan, not the project:
    - **`free`** — lean fan-out: a safety core (security · tests · migrations) plus a couple of
@@ -251,11 +251,11 @@ understands the convention:
 - **`reference/`** — reference frames from `/cross-check` (how others solve a problem).
 - **`pr-reviews/`** — one merged review report per PR.
 
-Commands: `/explore` (shape an idea) · `/whats-next` (what to work on) · `/continue` (resume a
-thread) · `/cross-check` (check against prior art) · `/test-drive` (draft PR + structured test
+Commands: `/explore` (shape an idea) · `/next` (what to work on) · `/continue` (resume a
+thread) · `/cross-check` (check against prior art) · `/test` (draft PR + structured test
 plan; can drive it in the browser) · `/watch` (park on a dependency, auto-resume when it lands) ·
-`/wrapup` (test→review→merge→handover→tidy). `/review-pr`, `/fix-pr-review`, `/handover` are run
-by `/wrapup` — call them standalone only when you need one on its own. `/garbage-collect` reclaims
+`/ship` (test→review→merge→handover→tidy). `/review`, `/fix`, `/handover` are run
+by `/ship` — call them standalone only when you need one on its own. `/gc` reclaims
 orphaned worktrees when needed.
 ```
 
@@ -284,11 +284,11 @@ no file-content recaps):
   nothing they'd written down was dropped, and where each kind landed.
 - **The next move** — the important part, and it differs by what you found in Step 2.5:
   - **Greenfield** → the board is intentionally **empty**. Next: **`/relay:explore <your first idea>`**
-    to shape the first feature into a brief. Do NOT tell them to run `/relay:whats-next` yet — there's
+    to shape the first feature into a brief. Do NOT tell them to run `/relay:next` yet — there's
     nothing on the board to pick.
-  - **Populated** → **`/relay:whats-next`** to pick from the seeded tracks (edit them first — a guess).
+  - **Populated** → **`/relay:next`** to pick from the seeded tracks (edit them first — a guess).
 - **Write commands with the `/relay:` prefix** — they're plugin-namespaced, so a bare `/explore` isn't
   a command (it tab-completes to the built-in `/export`). Always show the full `/relay:<name>` so the
   user can copy it straight; tell them to tab-complete *after* the colon.
 - **The loop, one line** so they see the shape (each is a `/relay:` command, optional — invoke what the
-  work needs): `explore → refine → whats-next/continue → test-drive → deploy → review-pr → wrapup → persist`.
+  work needs): `explore → refine → next/continue → test → deploy → review → ship → persist`.

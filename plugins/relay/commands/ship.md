@@ -10,7 +10,7 @@ on the unambiguous green path defined in Phase 5; on anything ambiguous it stops
 **Resolve the Relay root first.** Durable state lives under a per-repo root — default `relay/`,
 overridable via a `relay.config.json` at the repo root (`{ "root": "docs" }`). Resolve it once; read
 every `<root>/…` path below relative to it. Absent config ⇒ `<root>` = `relay`. (The commands this
-loop composes — `/review-pr`, `/handover` — resolve it themselves too.)
+loop composes — `/review`, `/handover` — resolve it themselves too.)
 ```bash
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
@@ -30,14 +30,14 @@ behind a fixture stack, bring it up and run them too.
    b. Clean tree: push committed work if needed (`git push -u origin <branch>`), then `gh pr create --fill --draft`.
 
 ## Phase 3 — Review (multi-specialist fan-out)
-Review the PR with the **`/review-pr` fan-out**, not a single reviewer — follow the
+Review the PR with the **`/review` fan-out**, not a single reviewer — follow the
 playbook in that command exactly:
 1. **Classify the diff** (its Step 1): note which side(s) are touched (frontend / backend)
    and the privacy / architecture / copy content gates. If the diff is **docs-only**,
    short-circuit — no specialist review, say so, and go straight to Phase 5.
 2. **Launch the applicable specialists IN PARALLEL, in a single message**, in contributor
    mode (findings only, no per-agent report, no per-agent verdict). Which ones apply is
-   decided by `/review-pr` Step 2. security-specialist is **always** launched.
+   decided by `/review` Step 2. security-specialist is **always** launched.
 3. **Merge** every specialist's findings into ONE report at
    `<root>/pr-reviews/pr-<N>-<YYYY-MM-DD>.md` (🔴/🟡/🟢, blocker-first, each finding keeping its
    file path). Verdict is `request-changes` if ANY specialist raised a 🔴, else `approve`;
@@ -46,7 +46,7 @@ playbook in that command exactly:
 - If verdict is **approve with zero blockers**, skip Phase 4 and go to Phase 5.
 
 ## Phase 4 — Fix (only if there are findings)
-Work the report the way `/fix-pr-review` does:
+Work the report the way `/fix` does:
 - Re-verify each finding against the current code BEFORE changing anything (confirmed / stale / wrong / needs-judgment).
 - Fix confirmed findings with the smallest change; for security/auth/SQL boundaries, downgrade to needs-judgment rather than guess.
 - Keep the typecheck green; run the relevant tests; tick the boxes in the report.

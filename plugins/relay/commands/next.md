@@ -7,8 +7,8 @@ Answer one question in plain, simple English: **what's the next best thing to wo
 Then, once picked, start it in a worktree.
 
 This is NOT `/continue`. `/continue` **resumes an in-flight thread** from its handover.
-`/whats-next` **surveys what's queued** and recommends where to start — an item that has no
-handover yet, just a brief. Keep them distinct: `/whats-next` never resumes ⚙/🔍 work (that's
+`/next` **surveys what's queued** and recommends where to start — an item that has no
+handover yet, just a brief. Keep them distinct: `/next` never resumes ⚙/🔍 work (that's
 already owned by a live session).
 
 ## Step 0 — Resolve the Relay root and budget tier
@@ -21,11 +21,11 @@ TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"
 ```
 `TIER` caps how wide the verify/audit levels fan out research agents (Steps 2.9A / 2.9B). **`unset`
 ⇒ no cap** — the levels run at their full width, exactly as before; budget shaping is opt-in via
-`/relay-init`. It never changes the *default* level (Quick stays the default at every tier) — only
+`/init`. It never changes the *default* level (Quick stays the default at every tier) — only
 how wide a level goes once chosen.
 **Soft check:** if the resolved `<root>/board.md` is nowhere to be found (not on `origin/main`, not
 local), STOP and say so plainly — e.g. *"root `docs` configured but `docs/board.md` missing — run
-`/relay-init`?"* — rather than failing deep in a later step.
+`/init`?"* — rather than failing deep in a later step.
 
 ## Three levels — pick by `$ARGUMENTS`
 The levels differ ONLY in how hard they verify before ranking. Steps 1–2 (read board, filter to
@@ -58,7 +58,7 @@ Do NOT sweep `<root>/briefs/` blindly — the board already distils them.
 Keep only items that could be picked up **now**:
 - ✅ include **🔜 next**, **⏸ parked** (note what it's waiting on), and the strongest **💡 ideas**.
 - ❌ exclude **⚙ in-progress** and **🔍 in-review** — a live worktree already owns those
-  (that's `/continue` / `/fix-pr-review` territory, not `/whats-next`).
+  (that's `/continue` / `/fix` territory, not `/next`).
 - ❌ exclude anything whose `Owner` column names a live branch/worktree.
 - If `$ARGUMENTS` is given, use it to bias the filter (a track name, a theme, or an exact slug
   to jump straight to Step 4).
@@ -175,11 +175,11 @@ Then ask which one — or offer that the user can name a different board item. *
 unless `$ARGUMENTS` already named an exact item slug.
 
 ## Step 4 — On pick: topic-scoped worktree (ALWAYS — never the shared main checkout)
-Like `/continue`, `/whats-next` **always works in a git worktree**. Do NOT ask worktree-or-main.
+Like `/continue`, `/next` **always works in a git worktree**. Do NOT ask worktree-or-main.
 
 **Key the worktree to the topic, not the slice.** A worktree is stable and long-lived; the
 branch inside it rotates per slice. This keeps one tree per topic instead of one per slice — so
-`wrapup → clear → whats-next` on the same topic stays in the same VS Code tab, and stale trees
+`ship → clear → next` on the same topic stays in the same VS Code tab, and stale trees
 stop piling up.
 
 1. **Derive the topic** from the item's track — the board's **Track**, or equivalently the

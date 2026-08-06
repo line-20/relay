@@ -18,7 +18,7 @@ can pick up where another left off** — because the state that matters lives in
 ┌────────────────────── the loop · every session cycles through it ────────────────────────┐
 │                                                                                          │
 ▼                                                                                          │
-relay/board.md  ──▶ /whats-next   ──▶   ┌ worktree A ┐   ──▶  /wrapup    ──▶    /handover  ┘
+relay/board.md  ──▶ /next   ──▶   ┌ worktree A ┐   ──▶  /ship    ──▶    /handover  ┘
 shared · on main    or /continue        │            │        test → review →   writes back
 what's in flight                        ├ worktree B ┤        merge → ship      to the board
                                         │            │ 
@@ -28,14 +28,14 @@ what's in flight                        ├ worktree B ┤        merge → ship
          all sharing the one board.    /explore feeds new briefs in · handover closes it ↺
 ```
 
-Read it as a **ring**, not a pipeline: a session picks a thread off the board (`/whats-next`)
-or resumes one (`/continue`), works in its own isolated worktree, and `/wrapup` ships it and
+Read it as a **ring**, not a pipeline: a session picks a thread off the board (`/next`)
+or resumes one (`/continue`), works in its own isolated worktree, and `/ship` ships it and
 hands the thread back to the board — where the next session picks it up. And it's not one ring
 but **many at once**: several sessions run this same loop in parallel, each in its own worktree,
 the shared board the only thing between them.
 
 Worktrees are keyed to the **topic**, not the slice: one persistent tree per topic, reused
-across slices with the branch rotating inside it. `/wrapup` keeps it, and the next `/whats-next`
+across slices with the branch rotating inside it. `/ship` keeps it, and the next `/next`
 or `/continue` on that topic re-baselines it off `main` and cuts the next branch — same topic,
 same directory, same editor tab, instead of a fresh tree per slice.
 
@@ -49,22 +49,22 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 
 | Command | What it does |
 |---|---|
-| `/relay-init` | Scaffold the board + handover/brief dirs in a repo (run **once**, at setup) |
+| `/init` | Scaffold the board + handover/brief dirs in a repo (run **once**, at setup) |
 | `/explore` | Turn a rough idea into a shaped brief on the board — interrogate it, weigh alternatives, never builds |
-| `/whats-next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
+| `/next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
 | `/continue` | Resume an in-flight thread from its handover |
-| `/wrapup` | End-of-session loop: test → PR + review → fix → merge → handover |
+| `/ship` | End-of-session loop: test → PR + review → fix → merge → handover |
 
-**Run by the loop** — `/wrapup` composes these for you. You *can* call them standalone, but in
+**Run by the loop** — `/ship` composes these for you. You *can* call them standalone, but in
 the normal flow you don't:
 
 | Command | Composed by | Standalone only when… |
 |---|---|---|
-| `/review-pr` | `/wrapup` Phase 3 | you want a review without shipping |
-| `/fix-pr-review` | `/wrapup` Phase 4 | you're working an existing review report |
-| `/handover` | `/wrapup` Phase 6 | you're handing off **mid-thread**, without shipping |
+| `/review` | `/ship` Phase 3 | you want a review without shipping |
+| `/fix` | `/ship` Phase 4 | you're working an existing review report |
+| `/handover` | `/ship` Phase 6 | you're handing off **mid-thread**, without shipping |
 
-> `/wrapup` also does the end-of-session housekeeping (archiving superseded handovers and old
+> `/ship` also does the end-of-session housekeeping (archiving superseded handovers and old
 > reviews, pruning dead worktree entries) as part of its handover step — there's no separate
 > cleanup command to remember. It **keeps** the topic's worktree for the next slice (removed only
 > when the topic itself is done).
@@ -73,12 +73,12 @@ the normal flow you don't:
 
 | Command | What it does |
 |---|---|
-| `/test-drive` | After a chunk of work, open (or reuse) a PR and write a **consistent, structured test plan** into it — preconditions, happy path, and the edge/error/tenant-isolation cases an LLM skips by default. Can then **drive the happy path in the browser** against the preview and report pass/fail with a GIF. Stops at a **draft** PR (never merges); `plan-only` prints the checklist without a PR. |
+| `/test` | After a chunk of work, open (or reuse) a PR and write a **consistent, structured test plan** into it — preconditions, happy path, and the edge/error/tenant-isolation cases an LLM skips by default. Can then **drive the happy path in the browser** against the preview and report pass/fail with a GIF. Stops at a **draft** PR (never merges); `plan-only` prints the checklist without a PR. |
 | `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/explore`. |
-| `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/whats-next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
-| `/garbage-collect` | Reclaim **orphaned** worktrees left by sessions that skipped the happy path (crashed, or `/clear`ed without a handover). You never need it in normal use — `/wrapup` cleans up after itself; reach for it only when orphans pile up. |
+| `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
+| `/gc` | Reclaim **orphaned** worktrees left by sessions that skipped the happy path (crashed, or `/clear`ed without a handover). You never need it in normal use — `/ship` cleans up after itself; reach for it only when orphans pile up. |
 
-**Review agents** (dispatched by `/review-pr`): backend, frontend, ui-ux, api-architect,
+**Review agents** (dispatched by `/review`): backend, frontend, ui-ux, api-architect,
 dbms, test-engineer, security, privacy, i18n, solution-architect. All stack-agnostic — they
 read your project's `CLAUDE.md` and code rather than assuming a framework.
 
@@ -96,11 +96,11 @@ Relay is distributed as a Claude Code plugin. From inside Claude Code:
 Then, once, in each repo you want to use it in:
 
 ```
-/relay-init
+/init
 ```
 
 That scaffolds the board and the handover/brief directories, seeded with tracks that fit
-your repo. From there, `/whats-next` picks the first thing to work on.
+your repo. From there, `/next` picks the first thing to work on.
 
 > New to it? Read **[docs/quickstart.md](docs/quickstart.md)** (10 minutes to your first loop),
 > then **[docs/the-board-model.md](docs/the-board-model.md)** for the one mental model
@@ -137,7 +137,7 @@ and the savings *are* the design, not an add-on:
   one doesn't pay to re-derive it.
 - **The board is a tiny curated index**, read with a cheap `git show` — a few hundred tokens to
   know the whole project's state, versus re-exploring the repo every session.
-- **Review fans out, scoped and gated.** `/review-pr` runs specialists in *parallel* subagents,
+- **Review fans out, scoped and gated.** `/review` runs specialists in *parallel* subagents,
   each scoped to the area it reviews, and only launches the ones the diff actually touches — you
   don't pay for a privacy or i18n pass on a CSS-only change.
 - **Dependency-awareness avoids throwaway work** — catching that you'd be building on unlanded
@@ -155,7 +155,7 @@ rather than measuring spend. These are the next places to sharpen, not solved pr
 - **[docs/the-board-model.md](docs/the-board-model.md)** — the board, threads, tracks, and
   why "newest handover wins" is a trap. The core mental model.
 - **[docs/a-day-in-the-loop.md](docs/a-day-in-the-loop.md)** — one item walked end to end,
-  from `/whats-next` to merged-and-handed-over, annotated.
+  from `/next` to merged-and-handed-over, annotated.
 - **[docs/authoring-skills.md](docs/authoring-skills.md)** — add your own commands and agents.
 - **[docs/ssdlc-roadmap.md](docs/ssdlc-roadmap.md)** — where Relay is heading: the Secure-SDLC
   spiral, the layered guardrails model, and the increment arc to 1.0.

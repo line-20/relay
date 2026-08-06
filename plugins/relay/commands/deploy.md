@@ -1,10 +1,10 @@
 ---
-description: Orchestrate and verify the PR preview the project's OWN CI produces — ensure it built, wait for it, smoke-check it's healthy, and gate it (including security) — then hand a trustworthy preview URL to /test-drive. Never owns deployment. Phase (h).
+description: Orchestrate and verify the PR preview the project's OWN CI produces — ensure it built, wait for it, smoke-check it's healthy, and gate it (including security) — then hand a trustworthy preview URL to /test. Never owns deployment. Phase (h).
 argument-hint: "[pr-number — omit to use the current branch's PR]"
 ---
 
 Make a PR's **preview** ready and trustworthy to test against. This is phase (h): it sits between
-build/review and `/test-drive`, and its whole value is turning "there might be a preview building
+build/review and `/test`, and its whole value is turning "there might be a preview building
 somewhere" into "here is a verified, security-gated URL, click through it." It is deliberately
 **thin — it never deploys anything itself.** It only ever drives the **project's own pipeline**
 (its PR-triggered preview, its CI checks), which is exactly what lets one command span a Vercel
@@ -18,7 +18,7 @@ preview, a container on a review env, or any other setup without special-casing 
 ## Step 0 — Identify the PR (a preview needs one)
 `$ARGUMENTS` is a PR number; if empty, use the current branch's PR (`gh pr view --json
 number,url,state,headRefName`). A preview is a **PR artefact**, so:
-- **No PR for this branch ⇒ STOP** — point at `/test-drive` (which opens one) or `gh pr create`.
+- **No PR for this branch ⇒ STOP** — point at `/test` (which opens one) or `gh pr create`.
   `/deploy` verifies a preview; it doesn't open PRs.
 - A merged/closed PR ⇒ note it; a preview may no longer exist. Ask before proceeding.
 
@@ -30,7 +30,7 @@ Find out **how this project previews a PR**, from the project itself:
   it's triggered (automatic on PR, a label, a `workflow_dispatch`, a comment command).
 
 **No preview mechanism found ⇒ STOP** and say so plainly: this project has no PR preview, so there's
-nothing for `/deploy` to verify — testing falls back to a **local run** (`/test-drive` handles that
+nothing for `/deploy` to verify — testing falls back to a **local run** (`/test` handles that
 path). Don't fabricate a deploy. This is the honest edge, not a failure.
 
 ## Step 2 — Ensure the preview build is running (through the project's own trigger only)
@@ -76,7 +76,7 @@ State, outcome-first:
 - the **verified preview URL** and how to authenticate to it (from Step 1),
 - **what gated it** — the checks that passed, the security checks that passed (or the noted gap), and
   that it's confirmed a preview env,
-- the handoff: **`/test-drive <pr> drive`** now exercises the happy path (and the safe non-happy-path
+- the handoff: **`/test <pr> drive`** now exercises the happy path (and the safe non-happy-path
   probes) against this URL.
 
 If anything stopped the flow (no mechanism, build failed, unhealthy, security gate failed), report

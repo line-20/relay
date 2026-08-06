@@ -3,7 +3,7 @@ description: Review a PR (or the current branch) with domain specialists (fronte
 argument-hint: "[pr-number]   # omit to review the current branch"
 ---
 
-> **Run by the loop.** `/wrapup` calls this for you (Phase 3). Invoke it standalone only when
+> **Run by the loop.** `/ship` calls this for you (Phase 3). Invoke it standalone only when
 > you want a review *without* the rest of the ship loop — e.g. a review pass mid-thread.
 
 Review PR $ARGUMENTS. If no number was given, review the current branch instead (use that
@@ -20,7 +20,7 @@ everywhere `$PR` appears below).
 >
 > **Resolve the budget tier too:** `TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"`.
 > It caps how many specialists fan out (Step 1.5). **`unset` ⇒ no cap** — every applicable
-> specialist runs, exactly as before; budget shaping is opt-in via `/relay-init`.
+> specialist runs, exactly as before; budget shaping is opt-in via `/init`.
 
 ## Step 1 — Classify the diff
 Get a diffstat before invoking any subagent:
@@ -72,7 +72,7 @@ tier decides how many of them actually launch. Never trade away safety for budge
 
 Any cappable specialist that its gate selected but the budget deferred is **not silently dropped**
 — it goes in Step 3's *Skipped specialists* with the reason `deferred — tier=<t> budget cap (re-run
-/review-pr standalone for full coverage)`. A budget defer is always auditable, same as a content skip.
+/review standalone for full coverage)`. A budget defer is always auditable, same as a content skip.
 
 ## Step 2 — Launch reviewers in parallel
 In a single message, launch whichever of these apply **after the Step 1.5 cap** — all in
@@ -126,7 +126,7 @@ is always auditable, never silent.
 
 ## Step 3 — Merge into ONE report, in EXACTLY this structure
 The report must look the same every time, no matter which specialists ran or how many findings
-they raised — a reader (and `/fix-pr-review`) should be able to scan any Relay review report
+they raised — a reader (and `/fix`) should be able to scan any Relay review report
 without relearning its shape. `mkdir -p <root>/pr-reviews`, then write
 `<root>/pr-reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md` using this template verbatim — same
 frontmatter fields, same sections, same order, every time:
@@ -165,7 +165,7 @@ never omit the heading.>
 ## Skipped specialists
 <One line per specialist that did NOT run, with the reason — a content gate that didn't fire
 ("privacy-specialist — diff touches no schema/form/log/third-party-call code") or a tier budget
-defer ("ui-ux-designer — deferred, tier=free budget cap; re-run /review-pr standalone for full
+defer ("ui-ux-designer — deferred, tier=free budget cap; re-run /review standalone for full
 coverage"). "_None — all applicable specialists ran._" if none were skipped. This makes every gate
 and every budget defer auditable.>
 
@@ -184,7 +184,7 @@ raised, an undocumented-but-inferred rule worth writing down, a follow-up out of
 - **`verdict` is `request-changes` if there is ANY 🔴, else `approve`.** `blockers` = the 🔴
   count. `counts` totals all three severities. These three frontmatter facts must agree with the
   Verdict line and the Findings.
-- The findings checklist is what `/fix-pr-review` consumes — keep the `- [ ]`, the severity
+- The findings checklist is what `/fix` consumes — keep the `- [ ]`, the severity
   order, and the `file:line` so it can re-verify and tick each one.
 
 ## Step 4 — Return

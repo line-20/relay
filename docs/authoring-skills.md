@@ -41,7 +41,7 @@ reading.
 
 Relay's agents share one contract; a new one should too:
 
-- **Findings only** in a fan-out — no report file, no verdict. `/review-pr` merges them.
+- **Findings only** in a fan-out — no report file, no verdict. `/review` merges them.
 - **Severity-graded**: 🔴 blocker · 🟡 should-fix · 🟢 nit, each with a `file:line`.
 - **Stack-agnostic** — discover the stack and conventions from the project's `CLAUDE.md` and
   code, never hardcode a framework. This is *why* Relay's agents port between repos unchanged.

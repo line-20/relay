@@ -18,16 +18,16 @@ and handed it off to a fresh session — the full Relay loop, once.
 /plugin install relay
 ```
 
-Restart Claude Code if prompted. You should now see `/relay-init`, `/explore`, `/whats-next`,
-`/continue`, `/wrapup`, and the rest in your command list.
+Restart Claude Code if prompted. You should now see `/init`, `/explore`, `/next`,
+`/continue`, `/ship`, and the rest in your command list.
 
-> **Command names collide?** If your setup already has a `/continue` or `/whats-next`, Claude Code
-> namespaces plugin commands — invoke them as `/relay:continue`, `/relay:whats-next`, etc.
+> **Command names collide?** If your setup already has a `/continue` or `/next`, Claude Code
+> namespaces plugin commands — invoke them as `/relay:continue`, `/relay:next`, etc.
 
 ## 2. Scaffold the convention
 
 ```
-/relay-init
+/init
 ```
 
 This inspects your repo and creates **one folder — the Relay root** — holding every durable file
@@ -37,14 +37,14 @@ the workflow reads and writes. This is the exact structure every command builds 
 relay/                ← the Relay root (default name; see "point it elsewhere" below)
   board.md            ← the front door: the Open-threads table + tracks. Every command reads this first.
   roadmap.md          ← the longer narrative behind each board item
-  briefs/             ← one brief per unit of pending work (what /explore writes, /whats-next starts from)
+  briefs/             ← one brief per unit of pending work (what /explore writes, /next starts from)
   handover/           ← cold-start handovers (next-*.md); what /handover writes and /continue resumes from
     archive/          ← superseded handovers, moved here by housekeeping (never deleted)
-  pr-reviews/         ← one merged review report per PR (what /review-pr + /wrapup write)
+  pr-reviews/         ← one merged review report per PR (what /review + /ship write)
     archive/          ← review reports past the newest 20, moved here by housekeeping
   reference/          ← reference frames from /cross-check (how others solve a problem)
   archive/            ← shipped briefs, moved here when the board is compacted
-  board-audit/        ← dated whole-board reconciliation reports from /whats-next audit
+  board-audit/        ← dated whole-board reconciliation reports from /next audit
   README.md           ← a short note explaining the convention to teammates
 ```
 
@@ -83,7 +83,7 @@ deliberately separate. When it's done you have a startable item, not a half-buil
 ## 4. Start it
 
 ```
-/whats-next
+/next
 ```
 
 Relay reads the board, ranks what's startable, and shows you a short table with a ⭐
@@ -97,7 +97,7 @@ session's work.
 When the slice is done and committed:
 
 ```
-/wrapup
+/ship
 ```
 
 This runs the whole end-of-session loop in order, stopping at any gate that needs you:
@@ -129,14 +129,14 @@ nothing about your last one, and it doesn't need to. That's the point.
 
 - **Got a rough idea?** `/explore` — shape it into a brief on the board before you build.
 - **Unsure if you're reinventing something?** `/cross-check` — see how others solve it first.
-- **Starting fresh?** `/whats-next` — pick from the board.
+- **Starting fresh?** `/next` — pick from the board.
 - **Picking up a thread?** `/continue` — resume from its handover.
-- **Want to try it before merging?** `/test-drive` — a draft PR with a structured test plan
+- **Want to try it before merging?** `/test` — a draft PR with a structured test plan
   (happy path + the edge/error/tenant-isolation cases); add `drive` to run the happy path in the
   browser. Never merges.
 - **Blocked on a sibling session's unlanded work?** `/watch` — park it, auto-resume when it lands.
-- **Done for now?** `/wrapup` (to ship) or `/handover` (to hand off mid-thread).
-- **Cleaning up?** Nothing to run — `/wrapup` archives old notes and prunes dead worktree entries
+- **Done for now?** `/ship` (to ship) or `/handover` (to hand off mid-thread).
+- **Cleaning up?** Nothing to run — `/ship` archives old notes and prunes dead worktree entries
   as part of its handover step, and keeps your topic worktrees for their next slice.
 
 Next: **[the-board-model.md](the-board-model.md)** — the one mental model that makes all of

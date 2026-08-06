@@ -1,14 +1,14 @@
 ---
-description: Turn a rough idea into a well-shaped brief — interrogate it, explore real alternatives, recommend one, and write it to the board as a startable item. Never builds; it shapes the work /whats-next then picks up.
+description: Turn a rough idea into a well-shaped brief — interrogate it, explore real alternatives, recommend one, and write it to the board as a startable item. Never builds; it shapes the work /next then picks up.
 argument-hint: "[a rough idea, e.g. 'let users export their data']"
 ---
 
 Take a fuzzy idea and shape it into something worth building — or decide it isn't. This is
-the **front of the loop**: it produces a brief and a board item that `/whats-next` can later start.
+the **front of the loop**: it produces a brief and a board item that `/next` can later start.
 It does **not** write code. Shaping the work and doing the work are deliberately separate.
 
 > **Relay convention.** Output lands in `<root>/briefs/<slug>.md` and a new row on
-> `<root>/board.md`, so the thing you explored is immediately startable with `/whats-next`.
+> `<root>/board.md`, so the thing you explored is immediately startable with `/next`.
 
 > **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
 > `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
@@ -143,7 +143,7 @@ between a note and a spec.
 - the brief path and the board item (`track/slug` + status),
 - any open questions still needing a decision,
 - and the next move: **`/relay:refine <slug>`** to ground it in the project (code, guardrails, threat
-  model, budget-sized slices) before building, or **`/relay:whats-next`** to start it straight away if
+  model, budget-sized slices) before building, or **`/relay:next`** to start it straight away if
   it's small enough not to need grooming. (Commands are `/relay:`-namespaced — a bare `/refine` isn't
   a command; tab-complete after the colon.)
 

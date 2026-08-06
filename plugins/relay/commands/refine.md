@@ -1,5 +1,5 @@
 ---
-description: Groom a shaped idea against THIS project — its code, guardrails, memory, and your budget tier — into project-grounded, budget-sized slices with a threat model, ready to build. The bridge from /explore to /whats-next.
+description: Groom a shaped idea against THIS project — its code, guardrails, memory, and your budget tier — into project-grounded, budget-sized slices with a threat model, ready to build. The bridge from /explore to /next.
 argument-hint: "[track/slug of a brief to refine; omit to pick from the board]"
 ---
 
@@ -7,7 +7,7 @@ Take a brief that `/explore` shaped **in the abstract** and groom it **against t
 its existing code, its guardrails, its accumulated memory, and the driver's **budget tier** — so
 what reaches the builder is grounded, security is designed in, and every slice is sized to the
 budget it'll actually run under. This is phase (c): `/explore` shapes the idea, `/refine` fits it to
-the project, `/whats-next` builds it. Like `/explore`, it **does not write code** — it grooms the plan.
+the project, `/next` builds it. Like `/explore`, it **does not write code** — it grooms the plan.
 
 > **Where `/refine` sits.** `/explore` is deliberately context-free (it shapes *what* to build
 > without letting the codebase bias it). `/refine` is the opposite: its whole job is context —
@@ -134,5 +134,5 @@ into them is `/persist`'s. `/refine` only reads the knowledge layer.
 ## Step 8 — Report
 State, outcome-first: the item (`track/slug`), how the grounding **changed** the plan (the single
 most important reshape), the **threat-model verdict** (surface + mitigations, or none), the **slice
-count** and the tier they're sized for, and that **`/whats-next`** (or `/continue`) now builds it.
+count** and the tier they're sized for, and that **`/next`** (or `/continue`) now builds it.
 Do not start building.

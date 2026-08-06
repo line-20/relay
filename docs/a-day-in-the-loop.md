@@ -38,7 +38,7 @@ Next day, fresh session, no memory of yesterday's `/explore` — but the brief i
 You've no idea what's most worth doing, so you ask:
 
 ```
-/whats-next
+/next
 ```
 
 Relay fetches the board from `main`, filters to what's actually startable (skipping anything
@@ -99,23 +99,23 @@ You confirm, it finishes the slice, commits.
 
 ## Late afternoon: kick the tyres (optional)
 
-Not ready to merge on trust? Before `/wrapup`, hand the change to a test pass:
+Not ready to merge on trust? Before `/ship`, hand the change to a test pass:
 
 ```
-/test-drive
+/test
 ```
 
 Relay opens a draft PR and writes a **structured test plan** into it — preconditions, the happy
 path, and the cases an LLM skips by default: invalid input, wrong-role, tenant-isolation. Add
 `drive` and it clicks through the happy path in the browser against the preview and posts pass/fail
-with a GIF. It **never merges** — it stops at a tested-but-unmerged PR; `/wrapup` still owns the
+with a GIF. It **never merges** — it stops at a tested-but-unmerged PR; `/ship` still owns the
 merge. (On a project with per-PR preview deploys this is where it shines; without one it falls back
 to local-run steps.)
 
 ## Evening: ship it
 
 ```
-/wrapup
+/ship
 ```
 
 The end-of-session loop, in order, stopping at any gate that needs you:
@@ -134,12 +134,12 @@ The end-of-session loop, in order, stopping at any gate that needs you:
    on the `auth` track), updates the board (`auth/rate-limit` → ✅, off Open threads), commits
    to `main`, prints the summary.
 
-`auth/rate-limit` is done. The board shows the next `auth` item as 🔜. Tomorrow's `/whats-next`
+`auth/rate-limit` is done. The board shows the next `auth` item as 🔜. Tomorrow's `/next`
 will surface it — and start it in the same `auth` worktree, re-baselined onto fresh `main`.
 
 ## Housekeeping happens on its own
 
-Notice there was no "clean up" step. That's deliberate: the `/wrapup` you just ran archived
+Notice there was no "clean up" step. That's deliberate: the `/ship` you just ran archived
 `auth/rate-limit`'s now-superseded handover, trimmed old PR reviews past the newest 20, and
 pruned dead worktree entries — all folded into its handover step, on `main`, nothing deleted
 (git keeps it all). It **kept** the `auth` worktree — the topic still has queued work, so
@@ -153,11 +153,11 @@ cleanup command to remember.
 
 ## The shape of it
 
-The ship path is three commands — explore the idea, start it, wrap it up (`/wrapup` runs
+The ship path is three commands — explore the idea, start it, wrap it up (`/ship` runs
 the review, the merge, the handover, **and the tidy-up** for you at the end):
 
 ```
-/explore ──► /whats-next ──► build in worktree ──► /wrapup ──► merged, handed off & tidied
+/explore ──► /next ──► build in worktree ──► /ship ──► merged, handed off & tidied
    idea →                                        test → review → merge → handover → archive
    brief on board
 ```
@@ -171,7 +171,7 @@ build ──► /handover ──► /clear     (pause: hand the thread off unfin
    (cold session, later)
               │
               ▼
-        /continue ──► build ──► /wrapup   (resume, then ship)
+        /continue ──► build ──► /ship   (resume, then ship)
 ```
 
 Every arrow that crosses a session boundary crosses through a file on `main`. That's the
