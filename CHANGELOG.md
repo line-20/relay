@@ -7,6 +7,29 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.14.0
+
+**Changed**
+- **`/relay-init` now *adopts* a brownfield repo's existing work instead of just pointing at it.**
+  0.12.8 surfaced pre-existing idea docs on the board by reference — which left two homes (a mostly
+  empty `relay/briefs/` beside the real `ideas/`). Init now **triages** existing docs by intent and
+  acts on each:
+  - **Work-inputs** (ideas, specs, plans, TODOs — *volatile*, spent once shipped) are **imported into
+    `<root>/briefs/`** and put on the board. This is Relay's job: track them to done, then archive.
+  - **Deliverable knowledge** (design guide, DB conventions, architecture, tone-of-voice, runbooks —
+    *durable*, still true after shipping) is **left with the code** to feed the knowledge layer
+    (`/guardrails` reads it, `/persist` grows it).
+  - **Code/content/assets** are left untouched.
+
+  Init presents the triage table and **STOPs for approval before moving anything**. The import
+  **preserves git history** (`git mv` for tracked files) and rewrites path references to moved files;
+  name-based `[[wikilinks]]` survive. A doc that's both a plan and a decided model is imported as a
+  brief now — `/persist` lifts its durable decision into the knowledge layer when the work ships.
+- **`/relay-init` no longer assumes git.** Not every project is a git repo: the adoption move falls
+  back to a plain `mv` when there's no git (or the file is untracked), and the final commit is skipped
+  (init never force-`git init`s a project that isn't under version control) — the files are just
+  written in place and the report says so.
+
 ## 0.13.0
 
 **Added**

@@ -343,6 +343,15 @@ non-cheap gaps; both are addressed by R2/R3. Everything else is a dimension away
   notes** first (release notes gated on user-visibility, not the non-obvious lesson test); add
   architecture / ops / manual / ADRs in later slices.
 - **Threat model** is a **section inside guardrails**, not a separate doc — one fewer sprawl surface.
+- **Work-inputs vs deliverable knowledge (brownfield adoption).** Two categories of existing doc, and
+  they live in different places. **Work-inputs** (ideas, specs, plans, TODOs, notes — *volatile*,
+  value spent once shipped) belong **in Relay** (`<root>/briefs/`, tracked on the board, archived when
+  done); `/relay-init` **imports** them on a brownfield repo. **Deliverable knowledge** (design system,
+  architecture, conventions, runbooks, manuals — *durable*, still true after shipping) stays **with the
+  code** and feeds the knowledge layer. The "live with the code" principle governs only the latter. A
+  doc that is both is imported as a brief; `/persist` lifts its durable decision into the knowledge
+  layer at completion. Adoption **triages, STOPs for approval, preserves git history** (`git mv`), and
+  **does not assume git** (plain `mv` fallback; never force-`git init`).
 - **Version line.** The breaking cut is **1.0** (first stable major from 0.x). castles runs ahead on
   a **pre-release channel**; the world gets the additive 0.x increments until 1.0 assembles the break.
 

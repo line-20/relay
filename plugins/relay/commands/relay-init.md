@@ -20,7 +20,7 @@ sees and the one signal that certifies which command file ran:
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v0.13.0
+  continuity-first SSDLC workbench                          v0.14.0
   by Line20 · @eriklenaerts
 ```
 
@@ -98,9 +98,9 @@ POPULATED="$( { git ls-files; git ls-files --others --exclude-standard; } 2>/dev
 ```
 - **Populated** (`POPULATED` non-empty, or there's obvious source/config on disk) — there's a real
   codebase to describe, so inspect it (`CLAUDE.md`, packages/apps, README) and seed **2–4 real
-  tracks** (Step 3) with a roadmap narrative and one brief stub (Step 4). **Also scan for
-  pre-existing idea/plan docs and surface them on the board (Step 3.5)** — a real repo often already
-  has intended work written down, and dropping it is the failure mode to avoid.
+  tracks** (Step 3) with a roadmap narrative and one brief stub (Step 4). **Also adopt any existing
+  work docs (Step 3.5)** — a real repo often already has intended work written down; triage it and
+  import the work-inputs, because dropping it is the failure mode to avoid.
 - **Greenfield** (empty repo, or nothing but the folder name and maybe a README) — **seed nothing
   speculative.** A folder called `todo-app` is not a spec; guessing tracks from the name just makes
   work the user has to delete. Scaffold the **structure only**: an **empty board**, a **roadmap
@@ -144,26 +144,62 @@ Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · �
 - ✅ Done: <slug>, <slug>
 ```
 
-## Step 3.5 — Populated only: surface pre-existing idea/plan docs (NEVER drop them)
-A real repo often already collects intended work as docs — the code tells you what *exists*, but
-these tell you what the user *means to build*, and inspecting only the code misses them entirely.
-**Discover them** (don't assume a folder name — look for anything that reads as "a thing we intend to
-build"): an `ideas/`, `briefs/`, `rfcs/`, `proposals/`, `docs/*-project.md` / `*-baseline.md`, a
-`HANDOFF.md`, and similar. Skip pure reference/convention docs (a design guide, DB conventions, an
-architecture doc that's context, not a work item).
+## Step 3.5 — Populated only: adopt existing work (triage → import → board)
+A real repo usually already holds work written down — and it comes in **two kinds that belong in
+different places.** Triage before touching anything; the signal is **intent**:
 
-For **each** intended-work doc found, add a board **Open threads** row:
-- **Status 💡** by default (icebox — it's captured, not committed), or **🔜** if the doc plainly says
-  it's next/active.
-- `Owner` = —, `Latest handover` = —, and **`Detail` = the doc's existing path** — point at it **in
-  place**. Do **not** move, copy, or rewrite the user's docs into `<root>/briefs/`; Relay **adopts**,
-  never migrates.
-- Slot each under the best-fitting seeded track; add a track only if a cluster of ideas needs one.
+- **Work-inputs** — thoughts, requirements, specs, feature plans, ideas, TODOs, notes: docs that
+  describe *something to build*. They're **volatile** — once shipped, their value is spent and they
+  get archived. That track-to-done-then-archive lifecycle is exactly Relay's job, so they **belong in
+  `<root>/briefs/`** and on the board — **import them.** Common homes: `ideas/`, `briefs/`, `rfcs/`,
+  `proposals/`, `todo/`, `notes/`, `docs/*-project.md` / `*-baseline.md`, `HANDOFF.md`.
+- **Deliverable knowledge** — docs describing *how the system is / how we work*: design guide, DB
+  conventions, architecture, tone-of-voice, runbooks, user manuals. They're **durable** — still true
+  after the work ships — so they **stay with the code** and feed the knowledge layer (`/guardrails`
+  reads them, `/persist` grows them). **Leave them where they are.**
+- **Code, content, assets, blog posts** — not work docs. **Leave untouched.**
 
-**Completeness beats tidiness:** list every intended-work doc, even a dozen 💡 rows. A board that
-silently omits work the user already wrote down is worse than a long one — the whole point of the
-board is that nothing in flight or intended is invisible. In the report (Step 6), say **how many** you
-surfaced and from where.
+A doc that is genuinely both (a plan that also records a decided model) counts as a **work-input now**
+— it rides as a brief while the work is open, and `/persist` lifts the durable decision into the
+knowledge layer when it ships. Nothing durable is lost; the transient wrapper is what gets archived.
+
+### Present the adoption plan and confirm — **STOP**
+Importing moves files — show a triage table and **wait for approval before touching anything:**
+
+> | Doc | Kind | Action |
+> |---|---|---|
+> | `ideas/tms-project.md` | work-input | → `<root>/briefs/tms-project.md`, board 🔜 |
+> | `ideas/customers.md` | work-input | → `<root>/briefs/customers.md`, board 💡 |
+> | `docs/design-guide.md` | deliverable | leave (knowledge layer — `/guardrails`) |
+> | `apps/**` | code/content | leave |
+
+List **every** discovered work doc — a silent omission is the failure mode. Flag anything ambiguous
+and ask rather than guess.
+
+### On approval — import the work-inputs (history-preserving *when there's git*, plain move otherwise)
+**Not every project is a git repo** — the move must work either way:
+```bash
+adopt() { # <src> <dst>
+  mkdir -p "$(dirname "$2")"
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git ls-files --error-unmatch "$1" >/dev/null 2>&1; then
+    git mv "$1" "$2"          # tracked file in a git repo → preserves blame/history
+  else
+    mv "$1" "$2"              # no git, or an untracked file → plain move
+  fi
+}
+```
+Then:
+- **Rewrite references to each moved file** so nothing dangles: search the repo for its old path (e.g.
+  `ideas/tms-project.md`) — `CLAUDE.md`, other docs, and cross-links *between* the moved docs — and
+  update to the new `<root>/briefs/…` path. Name-based `[[wikilinks]]` resolve by slug and survive the
+  move; only explicit **path** references need rewriting.
+- **Add a board Open-threads row** per imported brief — **💡** by default (**🔜** if the doc says it's
+  next/active), `Owner` = —, `Detail` = the new `<root>/briefs/<name>.md` path — slotted under the
+  best-fit track.
+
+**Leave deliverable-knowledge docs in place** — just **note** them in the report as inputs for
+`/guardrails`. **Completeness beats tidiness:** account for every discovered work doc; the board must
+never silently omit work the user already wrote down.
 
 ## Step 4 — Write the roadmap (and, only if populated, a first brief stub)
 Write `<root>/roadmap.md` — the narrative behind each board item (the board stays terse; the
@@ -224,17 +260,28 @@ orphaned worktrees when needed.
 ```
 
 ## Step 6 — Commit and report (compact)
+**Only if this is a git repo** — commit the scaffold and adoption. **Do not `git init` a project that
+isn't under version control** (not every project is in git); just leave the files in place and say so.
+Stage **only what init touched** — never `git add -A` (that would sweep the user's unrelated
+uncommitted work into the scaffold commit):
 ```bash
-git add <root> && [ -f relay.config.json ] && git add relay.config.json
-git commit -m "chore: scaffold Relay workflow"
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git add <root> relay.config.json 2>/dev/null   # scaffold + config
+  # Step 3.5's `git mv` already staged each move; also stage every reference file you rewrote, by name:
+  #   git add CLAUDE.md <other-rewritten-paths>
+  git commit -m "chore: scaffold Relay + adopt existing work onto the board"
+else
+  : # not a git repo — files written in place, nothing to commit (report this)
+fi
 ```
 Do NOT push automatically — let the user review first. Then give **one compact report** (a few lines,
 no file-content recaps):
 - **What was created** — the `<root>/` structure, in one line; and the **tier** recorded (or "none —
-  full fan-out").
-- **Populated only** — the tracks you seeded (a guess to edit) and **how many pre-existing idea/plan
-  docs you surfaced** as 💡 items, and from where (e.g. "6 ideas from `ideas/` added as icebox items").
-  So the user can see nothing they'd written down was dropped.
+  full fan-out"). If not a git repo, say the files were written but **not committed** (no git).
+- **Populated only** — the tracks you seeded (a guess to edit) and the **adoption result**: how many
+  work-input docs you **imported** into `<root>/briefs/` (and from where — e.g. "6 from `ideas/`"), and
+  how many deliverable-knowledge docs you **left in place** for the knowledge layer. So the user can see
+  nothing they'd written down was dropped, and where each kind landed.
 - **The next move** — the important part, and it differs by what you found in Step 2.5:
   - **Greenfield** → the board is intentionally **empty**. Next: **`/relay:explore <your first idea>`**
     to shape the first feature into a brief. Do NOT tell them to run `/relay:whats-next` yet — there's
