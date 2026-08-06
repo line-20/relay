@@ -7,6 +7,11 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.7 — namespace note on the remaining docs
+
+**Changed**
+- Added the `/relay:`-namespace one-liner to `docs/the-board-model.md` and `docs/conventions.md` (they name commands in prose but lacked it), so the whole doc set is consistent.
+
 ## 1.0.6 — copy-able docs + new-user nudges
 
 **Changed**

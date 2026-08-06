@@ -3,6 +3,10 @@
 This is the one mental model everything in Relay rests on. If you read only one doc, read
 this one.
 
+> Commands are namespaced `/relay:<name>` — this doc writes them bare (`/next`, `/refine`, …) for
+> readability; add the `/relay:` prefix when you type (tab-complete after the colon). `/relay:help`
+> prints the whole map.
+
 ## The problem it solves
 
 You run several Claude sessions at once. Each one works on something different. You check

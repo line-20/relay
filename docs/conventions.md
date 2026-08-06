@@ -3,6 +3,9 @@
 The shared contracts every Relay command honours. Two config surfaces, one output style, one
 extension mechanism. Commands reference this doc so behaviour is consistent across the whole set.
 
+> Commands are namespaced `/relay:<name>` — written bare here (`/refine`, `/adopt`, …) for
+> readability; add the `/relay:` prefix when you type. `/relay:help` prints the whole map.
+
 > **The config principle: opt-in depth, never a gate.** You can go from zero to shipping without ever
 > opening a config file — absent keys *are* sensible defaults. Config is there the moment you want more,
 > three ways: **just-in-time** (a phase offers the one knob it needs), **`/relay:config`** (a guided
