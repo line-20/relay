@@ -29,7 +29,7 @@ sees and the one signal that certifies which command file ran:
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v1.0.3
+  continuity-first SSDLC workbench                          v1.0.4
   by Line20 · @eriklenaerts
 ```
 

@@ -7,7 +7,19 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
-## 1.0.3 — the config front door (unreleased, branch `1.0.3`)
+## 1.0.4 — layered config
+
+**Changed**
+- **`/relay:config` is now layered gentlest-first**, instead of opening with a flat "here's all six
+  areas, pick" table (which was the questionnaire the command was meant to avoid). It now: **leads with
+  the two cheap driver prefs** (session + verbosity, one brief question each) and STOPs — most users are
+  done there; then, only on a yes, gives a **compact, evidence-based offer** for the project knobs
+  (guardrails → `/guardrails`, hooks → `/adopt`), offered only when the repo shows evidence for them;
+  and keeps the **structural knobs (`root`, `paths`) out of the guided flow entirely** — reachable on
+  demand via `/relay:config paths` / `root` for someone who's read the docs. The full current-vs-default
+  table is now a reference (`/relay:config show`), not the opening menu.
+
+## 1.0.3 — the config front door (released)
 
 **Added**
 - **`/relay:config` — guided config, opt-in depth never a gate.** The config principle stated plainly
