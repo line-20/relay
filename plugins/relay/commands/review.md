@@ -3,6 +3,8 @@ description: Review a PR (or the current branch) with domain specialists (fronte
 argument-hint: "[pr-number]   # omit to review the current branch"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 > **Run by the loop.** `/ship` calls this for you (Phase 3). Invoke it standalone only when
 > you want a review *without* the rest of the ship loop — e.g. a review pass mid-thread.
 
@@ -18,11 +20,12 @@ everywhere `$PR` appears below).
 > `ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"` — the merged
 > report below is written under `<root>/reviews/`.
 >
-> **Resolve the budget tier too:** `TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"`.
-> It caps how many specialists fan out (Step 1.5). **`unset` ⇒ no cap** — every applicable specialist
-> runs. This is the classic **fan-out moment**, so if `TIER` is unset, run at full **and mention once**
-> that setting a budget tier (`free`/`pro`/`max`) would right-size this to the driver's Claude plan —
-> write it to `relay.config.json` if the user picks one. Never block the review on it.
+> **Resolve the session size too** (see [[conventions]]):
+> `SESSION="$(jq -r '.session // empty' relay.config.local.json 2>/dev/null)"; : "${SESSION:=$(jq -r '.tier // empty' relay.config.json 2>/dev/null)}"`
+> — a per-call word (`small`/`medium`/`large`) in `$ARGUMENTS` overrides. It caps how many specialists
+> fan out (Step 1.5). **Empty ⇒ no cap** — every applicable specialist runs. This is the classic
+> **fan-out moment**, so if `SESSION` is empty, run at full **and mention once** that setting a session
+> size (in `relay.config.local.json`, or per-call) right-sizes it — never block the review on it.
 
 ## Step 1 — Classify the diff
 Get a diffstat before invoking any subagent:
@@ -53,9 +56,9 @@ content judgments, not size judgments — the question is never "is this diff sm
   user-facing string (label, button, heading, placeholder, toast, empty-state, validation
   message). False only if it changes no user-facing text anywhere.
 
-## Step 1.5 — Apply the budget tier to the fan-out
+## Step 1.5 — Apply the session size to the fan-out
 Step 1 gives the **content-selected set** — the specialists whose gate fired for this diff. The
-tier decides how many of them actually launch. Never trade away safety for budget:
+session size decides how many of them actually launch. Never trade away safety for budget:
 
 - **Safety core — always runs when its gate fired, never capped:** `security-specialist`
   (unconditional), `test-engineer` (it's the one that runs the typecheck + suite — losing it loses
@@ -66,14 +69,14 @@ tier decides how many of them actually launch. Never trade away safety for budge
   (the domain developer for the side with the most changed files first, then `privacy-specialist`
   if gated on, then the rest by relevance).
 
-| `TIER` | Fan-out |
+| `SESSION` | Fan-out |
 |---|---|
-| `free` | safety core + up to **2** cappable |
-| `pro` | safety core + up to **4** cappable |
-| `max` / `unset` | **no cap** — every content-selected specialist runs (today's behaviour) |
+| `small` | safety core + up to **2** cappable |
+| `medium` | safety core + up to **4** cappable |
+| `large` / empty | **no cap** — every content-selected specialist runs (today's behaviour) |
 
 Any cappable specialist that its gate selected but the budget deferred is **not silently dropped**
-— it goes in Step 3's *Skipped specialists* with the reason `deferred — tier=<t> budget cap (re-run
+— it goes in Step 3's *Skipped specialists* with the reason `deferred — session=<s> budget cap (re-run
 /review standalone for full coverage)`. A budget defer is always auditable, same as a content skip.
 
 ## Step 2 — Launch reviewers in parallel
@@ -121,9 +124,9 @@ In a single message, launch whichever of these apply **after the Step 1.5 cap** 
 pre-filter to safely narrow (a one-line render change can still be an XSS vector).
 
 **Transparency on skips**: whenever a specialist doesn't run — either a content gate didn't fire
-(privacy, i18n, solution-architect) **or** the tier budget deferred it (Step 1.5) — record why in
+(privacy, i18n, solution-architect) **or** the session-size budget deferred it (Step 1.5) — record why in
 the final report's *Skipped specialists* section, e.g. "privacy-specialist skipped: diff touches no
-schema/form/log/third-party-call code" or "ui-ux-designer deferred — tier=free budget cap". A skip
+schema/form/log/third-party-call code" or "ui-ux-designer deferred — session=small budget cap". A skip
 is always auditable, never silent.
 
 ## Step 3 — Merge into ONE report, in EXACTLY this structure
@@ -166,8 +169,8 @@ never omit the heading.>
 
 ## Skipped specialists
 <One line per specialist that did NOT run, with the reason — a content gate that didn't fire
-("privacy-specialist — diff touches no schema/form/log/third-party-call code") or a tier budget
-defer ("ui-ux-designer — deferred, tier=free budget cap; re-run /review standalone for full
+("privacy-specialist — diff touches no schema/form/log/third-party-call code") or a session-size
+budget defer ("ui-ux-designer — deferred, session=small budget cap; re-run /review standalone for full
 coverage"). "_None — all applicable specialists ran._" if none were skipped. This makes every gate
 and every budget defer auditable.>
 

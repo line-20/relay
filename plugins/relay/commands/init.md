@@ -1,12 +1,13 @@
 ---
 description: Scaffold the MINIMAL Relay convention — a board and the dirs to start — so /explore, /next and /continue work on turn one. Works on greenfield and brownfield; deepens progressively; never destructive.
-argument-hint: "[--root <dir>  (where durable state lives; default 'relay')] [--tier free|pro|max]"
+argument-hint: "[--root <dir>  (where durable state lives; default 'relay')]"
 ---
 
 Get a repo ready to run the Relay loop **with the least possible ceremony**. This does the *minimum*
 to start — a board and the dirs the first commands write — and **nothing else up front**. Everything
-heavier (a budget tier, guardrails, pulling legacy docs into Relay) is **deferred** and offered by the
-phase that needs it, so onboarding is a few seconds, not a setup wizard. It's **idempotent** (safe to
+heavier (session size, verbosity, guardrails, pulling legacy docs into Relay) is **deferred** and
+offered by the phase that needs it, so onboarding is a few seconds, not a setup wizard. It's
+**idempotent** (safe to
 re-run) and **never destructive** — it never moves your files or overwrites an existing board.
 
 It handles **both kinds of repo**:
@@ -28,7 +29,7 @@ sees and the one signal that certifies which command file ran:
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v1.0.0
+  continuity-first SSDLC workbench                          v1.0.1
   by Line20 · @eriklenaerts
 ```
 
@@ -47,21 +48,22 @@ Relay keeps its durable state under one **root** folder (default `relay/`).
 1. Use `relay` unless `$ARGUMENTS` passes `--root <dir>`, or the repo already keeps this kind of state
    somewhere (a `docs/board.md`, an existing handover convention) — then propose that dir so nothing
    has to move. Set `ROOT` to the chosen dir (`<root>` below = this value).
-2. **The budget tier is NOT asked here** — it's deferred (progressive setup). Absent ⇒ full fan-out,
-   which is a fine default; the first command that actually fans out (`/review`, `/refine`,
-   `/next` verify/audit) offers to set it. Only if `$ARGUMENTS` passes `--tier free|pro|max` do you
-   record it now — otherwise leave `TIER` empty and say nothing about it.
+2. **Ask for nothing else here.** Session size and verbosity are **driver preferences**, not project
+   config — they live in a gitignored `relay.config.local.json` and are offered just-in-time by the
+   phase that needs them (see [[conventions]]). Don't interrogate them at init.
 
-**Write `relay.config.json`** only if it carries something (a non-default root, or a `--tier` flag);
-the plain default needs no file. Merge surgically — preserve existing keys (e.g. a `guardrails` block):
+**Write `relay.config.json`** only if the root is non-default; the plain default needs no file. Merge
+surgically — preserve existing keys (e.g. a `guardrails` block):
 ```bash
-if [ "$ROOT" != "relay" ] || [ -n "$TIER" ]; then
+if [ "$ROOT" != "relay" ]; then
   base='{}'; [ -f relay.config.json ] && base="$(cat relay.config.json)"
-  printf '%s' "$base" | jq --arg root "$ROOT" --arg tier "$TIER" '
-      (if $root != "relay" then .root = $root else . end)
-    | (if $tier != ""      then .tier = $tier else . end)
-  ' > relay.config.json.tmp && mv relay.config.json.tmp relay.config.json
+  printf '%s' "$base" | jq --arg root "$ROOT" '.root = $root' > relay.config.json.tmp && mv relay.config.json.tmp relay.config.json
 fi
+```
+
+**Keep local prefs out of git.** Ensure `.gitignore` ignores the driver-preferences file (create/append):
+```bash
+grep -qxF 'relay.config.local.json' .gitignore 2>/dev/null || echo 'relay.config.local.json' >> .gitignore
 ```
 
 3. **Already have a board under `<root>`?** Then you're *adopting*, not scaffolding — write only the
@@ -244,10 +246,11 @@ no file-content recaps):
     Don't point at `/relay:next` yet — nothing's on the board.
   - **Populated** → **`/relay:next`** to start something, or **`/relay:refine <slug>`** to ground a
     referenced idea (which also pulls it into Relay).
-- **Deepen when you need it (not now)** — one line: a **budget tier** is offered the first time a
-  command fans out; **`/relay:guardrails`** sets project standards when you want reviews to check
-  against them; **`/relay:adopt [area]`** bulk-pulls your legacy docs into Relay and tidies them. All
-  optional, all later.
+- **Deepen when you need it (not now)** — one line: **session size + verbosity** live in a gitignored
+  `relay.config.local.json` (or pass `small`/`large`/`terse` per-call), offered when a command first
+  needs them; **`/relay:guardrails`** sets project standards; **`/relay:adopt [area]`** bulk-pulls your
+  legacy docs into Relay (and reconciles any existing `.claude/` commands/skills). All optional, later.
+  If the repo already has `.claude/commands` or skills, mention `/relay:adopt` reconciles them.
 - **Write commands with the `/relay:` prefix** (a bare `/explore` tab-completes to the built-in
   `/export`) — show the full `/relay:<name>`; tab-complete after the colon.
 - **The loop, one line** (each a `/relay:` command, optional — invoke what the work needs):

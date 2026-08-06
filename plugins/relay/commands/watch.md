@@ -3,6 +3,8 @@ description: Park the current thread on a dependency and watch it land in the ba
 argument-hint: "[what to wait for: a PR number (#434), a board item (track/slug), or a branch name]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 You've hit a dependency: this thread can't sensibly go further until something *another* session
 is doing lands on `main`. Rather than sit and poll, or forget and build on sand, `/watch` parks
 this thread, watches the dependency in the background, and **auto-resumes** the moment it lands.

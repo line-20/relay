@@ -3,6 +3,8 @@ description: After a chunk of work, open (or reuse) a PR and write a consistent,
 argument-hint: "[focus/area · a PR number · 'plan-only' (checklist alone) · 'drive'/'run' (also run it in the browser)]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Answer one question for whoever tests this next: **if we deploy this change, what exactly
 should we click through — including the ways it could break — to trust it?** Produce a plan
 that's the *same shape every time*, so testing a Relay PR is muscle memory — then, if asked,

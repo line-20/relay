@@ -156,13 +156,13 @@ and the savings *are* the design, not an add-on:
 - **Dependency-awareness avoids throwaway work** — catching that you'd be building on unlanded
   code *before* you build it saves the tokens (and the rework) of doing it twice.
 
-- **A budget tier right-sizes the spend.** A per-repo `tier` (`free`/`pro`/`max`) caps how far
-  `/review` fans out, how wide `/next` and `/refine` research, and how deep `/test` goes — matched to
-  the driver's Claude plan. It's asked lazily (the first time a command actually fans out), and absent
-  it Relay runs at full, so nothing is front-loaded.
+- **Session size right-sizes the work.** A driver preference — `session` = `small`/`medium`/`large` in
+  a gitignored `relay.config.local.json`, or a per-call word — sizes slices in `/refine` (so a build
+  finishes within the healthy part of a context window) and, as a knock-on, how far `/review` and
+  `/next` fan out. Offered lazily; absent, Relay runs at full, so nothing is front-loaded.
 
 **Where it can improve — honestly:** the review fan-out is deliberately thorough, so on a tiny
-diff it can spend more than the change warranted (gating + the budget tier help, but a lightweight
+diff it can spend more than the change warranted (gating + session sizing help, but a lightweight
 "quick-review" mode for small diffs is still a real future win); and `/cross-check` with live web
 search can be token-heavy. These are the next places to sharpen, not solved problems.
 

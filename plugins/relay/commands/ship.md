@@ -3,6 +3,8 @@ description: End-of-session orchestrator — test → open PR + review → fix �
 argument-hint: "(no arguments)"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Run the full end-of-session loop in sequence. Move straight through; STOP only at the
 gates called out below. This DOES merge and DOES hand over — but the merge proceeds only
 on the unambiguous green path defined in Phase 5; on anything ambiguous it stops.
@@ -16,9 +18,11 @@ ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 
 ## Phase 1 — Test
-Run the project's test suite (discover the command from `CLAUDE.md`/`package.json`/README —
-e.g. `pnpm test`, `npm test`, `cargo test`). If the project has DB-backed integration tests
-behind a fixture stack, bring it up and run them too.
+Run the project's test suite. **If `relay.config.json` has a `hooks.test`** (a project command/skill,
+e.g. `test-stack`), **dispatch that** — it's the project's own way to bring the fixture stack up and
+run tests (see [[conventions]] → Hooks). Otherwise discover the command from
+`CLAUDE.md`/`package.json`/README (e.g. `pnpm test`, `npm test`, `cargo test`) and, if there are
+DB-backed integration tests behind a fixture stack, bring it up and run them too.
 - **If anything fails, STOP.** Report the failing suites and don't touch the PR.
 - If green, continue. (Tear down any throwaway fixture at the very end, after handover.)
 

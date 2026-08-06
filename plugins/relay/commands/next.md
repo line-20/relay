@@ -3,6 +3,8 @@ description: Recommend the next best thing to work on — a ranked shortlist fro
 argument-hint: "[track/theme/slug; or 'verify' (thorough shortlist) / 'audit' (exhaustive all-items + archival)]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Answer one question in plain, simple English: **what's the next best thing to work on?**
 Then, once picked, start it in a worktree.
 
@@ -11,20 +13,20 @@ This is NOT `/continue`. `/continue` **resumes an in-flight thread** from its ha
 handover yet, just a brief. Keep them distinct: `/next` never resumes ⚙/🔍 work (that's
 already owned by a live session).
 
-## Step 0 — Resolve the Relay root and budget tier
+## Step 0 — Resolve the Relay root and session size
 Durable state lives under a per-repo root — default `relay/`, overridable via a `relay.config.json`
 at the repo root (`{ "root": "docs" }`). Resolve it once; read every `<root>/…` path below relative
 to it. Absent config (or no `root` key) ⇒ `<root>` = `relay`, so existing repos are unchanged.
 ```bash
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
-TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"
+# session size: local prefs → (committed tier, back-compat); a per-call word in $ARGUMENTS wins
+SESSION="$(jq -r '.session // empty' relay.config.local.json 2>/dev/null)"; : "${SESSION:=$(jq -r '.tier // empty' relay.config.json 2>/dev/null)}"
 ```
-`TIER` caps how wide the verify/audit levels fan out research agents (Steps 2.9A / 2.9B). **`unset`
-⇒ no cap** — the levels run at their full width. It never changes the *default* level (Quick stays the
-default at every tier) — only how wide a level goes once chosen. If you're about to run a **verify or
-audit** level with `TIER` unset, **offer once** to set a budget tier (it right-sizes the research
-fan-out); write it to `relay.config.json` if the user picks one, and never block. (Quick doesn't
-fan out, so it never needs to ask.)
+`SESSION` (`small`/`medium`/`large`, see [[conventions]]) caps how wide the verify/audit levels fan
+out research agents (Steps 2.9A / 2.9B). **Empty ⇒ no cap** — full width. It never changes the
+*default* level (Quick stays default at every size) — only how wide a chosen level goes. If you're
+about to run a **verify or audit** level with `SESSION` empty, **offer once** to set a session size (in
+`relay.config.local.json`, or per-call); never block. (Quick doesn't fan out, so it never asks.)
 **Soft check:** if the resolved `<root>/board.md` is nowhere to be found (not on `origin/main`, not
 local), STOP and say so plainly — e.g. *"root `docs` configured but `docs/board.md` missing — run
 `/init`?"* — rather than failing deep in a later step.
@@ -70,9 +72,9 @@ Skip unless L2. Replaces Step 3.5 — research the plausible contenders, not jus
 so the ranking rests on what's actually true rather than the board's one-liner.
 
 1. Take the startable set from Step 2 and keep the most promising contenders — **how many depends
-   on `TIER`**: `free` → ~4, `pro` → ~8, `max`/`unset` → ~10 (drop the obvious non-starters). Note
-   any you deferred to fit the tier cap — never silently drop the tail; say "researched the top N,
-   deferred the rest (tier=<t>)" so the narrowing is visible.
+   on `SESSION`**: `small` → ~4, `medium` → ~8, `large`/empty → ~10 (drop the obvious non-starters).
+   Note any you deferred to fit the cap — never silently drop the tail; say "researched the top N,
+   deferred the rest (session=<s>)" so the narrowing is visible.
 2. **Fan out one research agent per contender, in parallel**, in a single message so they run
    concurrently. Give each the item slug and this brief:
    > Research board item `<slug>` for a "what to work on next" decision. Read (a) its board row
@@ -93,9 +95,9 @@ Skip unless L3. This is a **board audit**; the ranked shortlist is a byproduct. 
 and real token cost — completeness beats speed.
 
 1. **Candidate set = every startable item** from Step 2 — do NOT cap (an audit is exhaustive by
-   definition; the tier caps the *verify* width, never the audit's coverage). If it's very large,
+   definition; session size caps the *verify* width, never the audit's coverage). If it's very large,
    note the count and process in batches; never silently drop items (a silent cap defeats an audit).
-   **On `TIER=free`, an exhaustive audit is token-heavy** — say so up front and offer to scope it to
+   **On `SESSION=small`, an exhaustive audit is token-heavy** — say so up front and offer to scope it to
    one track, or to run L2 (verify) instead, before fanning out. Proceed in full only on the go-ahead.
 2. **Fan out one research agent per item** (or run it as a workflow if your harness has one, so
    it's resumable and progress-visible). Each reconciles the item across all sources:
@@ -162,7 +164,9 @@ show them together and recommend the **next unstarted slice**, not the epic as a
 never one session's work. A single row can stand in for the epic with "(slice N of `epic`)" in its
 What-it-is cell.
 
-**Keep cells terse or the table stops rendering.** Hard rules:
+**Always a GFM markdown table — never a stacked record list or ASCII separators** (see [[conventions]]).
+Do NOT "helpfully" reformat to `Field: value` lines or `────` dividers when it looks wide — that's the
+failure to avoid. Keep cells terse so it renders. Hard rules:
 - Each cell is **one short clause (~≤8 words)**. If you need more, it goes in a footnote, not the cell.
 - **No `⚠`, italics, parentheticals, or drift notes inside cells.** Any caveat becomes a numbered
   footnote `¹²³` under the table.

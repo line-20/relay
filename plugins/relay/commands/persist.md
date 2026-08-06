@@ -3,6 +3,8 @@ description: Harvest what a lap produced back into the project's living knowledg
 argument-hint: "[pr-number or slug — the lap to harvest from; omit for the most recent merge]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Close the lap by feeding what it produced back into the project's living knowledge, so the next lap
 starts smarter — and so a human can see what shipped. This is phase (j), the compounding step. It
 **never writes code**, and it produces **two kinds of output**, each with its own discipline:

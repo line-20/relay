@@ -3,6 +3,8 @@ description: Establish the project's guardrails — per-dimension, layered (base
 argument-hint: "[optional: one dimension to (re)configure, e.g. 'api' — omit for the full pass]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Establish, in one place every reviewer and `/refine` can read, what **"good" means for THIS
 project** — its API style, design system, and security/privacy/testing bars — as **layered
 guardrails** you can extend and adapt. This is the backbone of the SSDLC knowledge layer: `/refine`

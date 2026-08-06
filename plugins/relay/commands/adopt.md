@@ -3,6 +3,8 @@ description: Bring a brownfield repo's existing material under Relay management,
 argument-hint: "[area/track, a path glob, or --all; omit to preview the whole repo]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Fast-forward a repo's adoption into Relay. Relay adopts **progressively by default** — `/init`
 *references* existing docs, `/refine` *pulls a work-input in* the moment it's touched, `/guardrails`
 *registers* context when a dimension first matters. `/adopt` is the **bulk button** for when you'd
@@ -55,14 +57,21 @@ Show a triage table for the scope and **wait for approval before touching anythi
 Note residue left outside the scope, and flag anything ambiguous. **STOP for the go-ahead.**
 
 ## Step 3 — Work-inputs: move + actualise
-For each in-scope work-input, on approval:
+**Safety net first** (see [[conventions]]): in a git repo, ensure the source is committed (git is the
+backup — a move is one `git revert` away); if the tree is dirty for it, STOP and ask to commit. **No
+git ⇒ copy the original to `<root>/archive/pre-adopt/<name>.<ts>` before moving.** For each in-scope
+work-input, on approval:
 - **Move** into `<root>/briefs/` — history-preserving where there's git, plain move otherwise (not
   every project is a git repo):
   ```bash
   adopt_mv() { mkdir -p "$(dirname "$2")"
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git ls-files --error-unmatch "$1" >/dev/null 2>&1
-    then git mv "$1" "$2"; else mv "$1" "$2"; fi; }
+    then git mv "$1" "$2"; else mkdir -p "<root>/archive/pre-adopt" && cp "$1" "<root>/archive/pre-adopt/$(basename "$1").$(date +%s)" && mv "$1" "$2"; fi; }
   ```
+- **Stamp provenance** — add a line near the top of the moved brief:
+  `_Adopted from `<original path>` (moved) · <date>_` — so its origin is readable from the file, no
+  `git` archaeology (a freshly-created brief has no such line — that's how you tell them apart).
+- **State the move explicitly** in the report: "moved `<src>` → `<root>/briefs/<name>.md`; original gone."
 - **Actualise as you import** — don't move a fossil. Reconcile the doc against current reality: cut
   what's already shipped, correct assumptions that drifted, tighten the rest. (This is the same pass
   `/refine` does on pull-on-touch; `/adopt` just does it in bulk.)
@@ -79,11 +88,26 @@ For each in-scope deliverable doc, on approval — **never move it; it lives wit
 2. **Dispatch the domain steward to compact/actualise it** — the same specialist `/review` uses:
    `ui-ux-designer` for a design guide, `api-architect` for API guidelines, etc. The steward
    **dedupes, de-stales, restructures, and shrinks** the doc in place. **Guardrails on this:**
+   - **Safety net first** (see [[conventions]]): rewriting a durable doc is high-stakes — ensure it's
+     committed (git is the backup), or back it up to `<root>/archive/pre-adopt/` if there's no git.
    - **Preserve every real rule** — dedupe and restructure, never amputate. A rule you'd drop as
      obsolete is called out for confirmation, not silently deleted.
-   - The steward **reports what it cut and why** (a summary or a diff) and the change **STOPs for
-     approval** before it's written — it's a real project deliverable.
+   - The steward **reports what it cut and why** (a summary or a diff, and the before/after size) and
+     the change **STOPs for approval** before it's written — it's a real project deliverable.
    - This is a **one-time catch-up**; `/persist` keeps the doc from re-bloating lap to lap afterward.
+
+## Step 4.5 — Reconcile the existing `.claude/` setup (commands + skills)
+A brownfield repo often already has its own `.claude/commands/` and `.claude/skills/`. Relay is a
+**good citizen** — it discovers them and proposes a disposition per item (show the table, **STOP**):
+- **Not covered by Relay → keep.** No Relay equivalent; leave it untouched, no opinion.
+- **Covered / redundant → offer removal.** Relay already does this (e.g. a project `release` vs
+  `/ship`). Propose deletion, remove **only on confirm**, never silently. Classify **conservatively** —
+  if it does something Relay doesn't, it's *not* redundant; keep it.
+- **Complementary → keep + hook.** Wire it into the matching Relay phase via the **`hooks` map** in
+  `relay.config.json` (surgical merge): `{ "hooks": { "test": "test-stack", "commit": "commit" } }`.
+  Then `/test`/`/ship` bring the fixture stack up via the `test` hook, `/ship`/`/handover` commit via
+  `commit`, etc. (see [[conventions]] → Hooks). `test-stack` is the poster child: the test phase
+  *should* call your fixture skill, not reinvent it.
    If a dimension has no steward agent, register it but skip compaction (note it).
 
 ## Step 5 — Commit and report
