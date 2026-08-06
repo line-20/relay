@@ -39,7 +39,7 @@ relocatable via a `paths["release-notes"]` override (e.g. a product docs site ou
 (`git log --merges -1` / `gh pr list --state merged --limit 1`). Gather everything the lap produced,
 because the lessons live in the gap between what was planned and what actually shipped:
 - The **diff** — what really changed (`gh pr diff <n>` or `git diff` for the merged range).
-- The **review report** — `<root>/pr-reviews/pr-<n>-*.md`: its findings are the richest lesson source
+- The **review report** — `<root>/reviews/pr-<n>-*.md`: its findings are the richest lesson source
   (a 🔴 that recurred, a fix pattern applied more than once).
 - The **brief** — `<root>/briefs/<slug>.md`: its **Threat model**, the **alternatives it beat**, and
   any decision recorded mid-flight.
@@ -116,7 +116,7 @@ On approval, write **surgically and idempotently** — update in place, never cl
   path in its `extends`). If the dimension has **no** `extends` file yet, create one
   (`<root>/knowledge/<dim>-house.md`), add the rule, and register it by **surgically merging** the
   path into that dimension's `extends` array in `relay.config.json` (preserve every other key — see
-  the merge pattern `/relay-init` uses). **Never touch a baseline.**
+  the merge pattern `/init` uses). **Never touch a baseline.**
 - **Design system:** append the pattern/token to the design-system doc (`<root>/knowledge/ui-design.md`,
   honouring a `paths.design-system` override) in its Relay-managed section.
 - **AI memory:** write each non-obvious decision as one fact (decision + why + how-to-apply) via the
@@ -141,3 +141,8 @@ lesson is enforced from here on. If a lap taught no durable lesson **and** shipp
 user-visible, say so plainly: **"nothing to persist — no durable lesson, no user-visible change"** is
 a valid, sprawl-respecting outcome, not a failure. (A common case: a user-visible lap that taught
 nothing still gets a release note but no lesson — that's correct, not a half-result.)
+
+**Reflect — the loop edge.** Persist doesn't end the loop; it feeds the next lap. Seeing this result
+may spark a next move — surface it: if it's a **new** idea, `/relay:explore` it; if it **changes this**
+idea, `/relay:refine` it again with the result as input. Re-entering `/explore` (new) or `/refine`
+(changed) is how the spiral turns — name the reflect move rather than letting the thread just stop.

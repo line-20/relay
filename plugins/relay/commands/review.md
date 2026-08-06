@@ -3,7 +3,7 @@ description: Review a PR (or the current branch) with domain specialists (fronte
 argument-hint: "[pr-number]   # omit to review the current branch"
 ---
 
-> **Run by the loop.** `/wrapup` calls this for you (Phase 3). Invoke it standalone only when
+> **Run by the loop.** `/ship` calls this for you (Phase 3). Invoke it standalone only when
 > you want a review *without* the rest of the ship loop — e.g. a review pass mid-thread.
 
 Review PR $ARGUMENTS. If no number was given, review the current branch instead (use that
@@ -16,11 +16,13 @@ everywhere `$PR` appears below).
 > **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
 > `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
 > `ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"` — the merged
-> report below is written under `<root>/pr-reviews/`.
+> report below is written under `<root>/reviews/`.
 >
 > **Resolve the budget tier too:** `TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"`.
-> It caps how many specialists fan out (Step 1.5). **`unset` ⇒ no cap** — every applicable
-> specialist runs, exactly as before; budget shaping is opt-in via `/relay-init`.
+> It caps how many specialists fan out (Step 1.5). **`unset` ⇒ no cap** — every applicable specialist
+> runs. This is the classic **fan-out moment**, so if `TIER` is unset, run at full **and mention once**
+> that setting a budget tier (`free`/`pro`/`max`) would right-size this to the driver's Claude plan —
+> write it to `relay.config.json` if the user picks one. Never block the review on it.
 
 ## Step 1 — Classify the diff
 Get a diffstat before invoking any subagent:
@@ -30,7 +32,7 @@ Get a diffstat before invoking any subagent:
 **Docs-only short-circuit**: if every changed file is a non-code file (`*.md`, `*.mdx`,
 `docs/**`, `LICENSE`, `CHANGELOG*`, and similar), stop here — don't launch any specialist.
 Say directly that the diff is docs-only and no specialist review was needed; don't write a
-`<root>/pr-reviews/` file for it. This is a content fact, not a size guess.
+`<root>/reviews/` file for it. This is a content fact, not a size guess.
 
 From the file list, note which side(s) are touched. **Discover the repo's own layout** (from
 `CLAUDE.md`, the workspace config, or the directory structure) rather than assuming fixed
@@ -72,7 +74,7 @@ tier decides how many of them actually launch. Never trade away safety for budge
 
 Any cappable specialist that its gate selected but the budget deferred is **not silently dropped**
 — it goes in Step 3's *Skipped specialists* with the reason `deferred — tier=<t> budget cap (re-run
-/review-pr standalone for full coverage)`. A budget defer is always auditable, same as a content skip.
+/review standalone for full coverage)`. A budget defer is always auditable, same as a content skip.
 
 ## Step 2 — Launch reviewers in parallel
 In a single message, launch whichever of these apply **after the Step 1.5 cap** — all in
@@ -126,9 +128,9 @@ is always auditable, never silent.
 
 ## Step 3 — Merge into ONE report, in EXACTLY this structure
 The report must look the same every time, no matter which specialists ran or how many findings
-they raised — a reader (and `/fix-pr-review`) should be able to scan any Relay review report
-without relearning its shape. `mkdir -p <root>/pr-reviews`, then write
-`<root>/pr-reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md` using this template verbatim — same
+they raised — a reader (and `/fix`) should be able to scan any Relay review report
+without relearning its shape. `mkdir -p <root>/reviews`, then write
+`<root>/reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md` using this template verbatim — same
 frontmatter fields, same sections, same order, every time:
 
 ```markdown
@@ -165,7 +167,7 @@ never omit the heading.>
 ## Skipped specialists
 <One line per specialist that did NOT run, with the reason — a content gate that didn't fire
 ("privacy-specialist — diff touches no schema/form/log/third-party-call code") or a tier budget
-defer ("ui-ux-designer — deferred, tier=free budget cap; re-run /review-pr standalone for full
+defer ("ui-ux-designer — deferred, tier=free budget cap; re-run /review standalone for full
 coverage"). "_None — all applicable specialists ran._" if none were skipped. This makes every gate
 and every budget defer auditable.>
 
@@ -184,7 +186,7 @@ raised, an undocumented-but-inferred rule worth writing down, a follow-up out of
 - **`verdict` is `request-changes` if there is ANY 🔴, else `approve`.** `blockers` = the 🔴
   count. `counts` totals all three severities. These three frontmatter facts must agree with the
   Verdict line and the Findings.
-- The findings checklist is what `/fix-pr-review` consumes — keep the `- [ ]`, the severity
+- The findings checklist is what `/fix` consumes — keep the `- [ ]`, the severity
   order, and the `file:line` so it can re-verify and tick each one.
 
 ## Step 4 — Return

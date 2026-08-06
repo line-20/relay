@@ -18,11 +18,17 @@ about the thread *you* care about. Threads don't take turns.
 Relay's answer: **one durable, curated index, on `main`, that every session reads and
 writes.** That's the board.
 
-> **A note on paths.** This doc writes the durable files as `relay/…`, which is the default. The
-> root is **configurable per repo**: a `relay.config.json` with `{ "root": "docs" }` at the repo
-> root makes every command read and write `docs/board.md`, `docs/handover/…`, and so on — so a repo
-> that already runs a board/handover convention under its own folder adopts Relay without moving a
-> file. Read every `relay/…` below as `<root>/…`.
+> **A note on paths.** This doc writes the durable files as `relay/…`, the default. Paths are
+> **configurable per repo** via `relay.config.json`. Two layers, one uniform rule:
+> - `{ "root": "docs" }` relocates the whole root — every `relay/…` becomes `docs/…`.
+> - a `paths` block relocates any *single* logical path independently, e.g.
+>   `{ "paths": { "knowledge": "docs", "design-system": "packages/ui/DESIGN.md" } }`.
+>
+> Resolution: a command maps a logical name to `paths[name]` if set, else `<root>/<name>`. **List only
+> what you move**; with no config, everything sits under `relay/` exactly as shown. Process state
+> (board, briefs, handover, reviews, audits) usually stays under the root; deliverable knowledge
+> (design system, docs) often lives with the code — which is why each path is independently movable.
+> Read every `relay/…` below as "the resolved path".
 
 ## The three concepts
 
@@ -38,6 +44,13 @@ The front door. It has two parts:
 Every item has a stable slug, `track/slug`, that never changes even as its status does. You
 refer to work by its slug, everywhere — in briefs, handovers, reviews, and to Claude.
 
+**Epics** are the one grouping between a track and a slice, for work too big for a single session.
+An epic is a **pure slug convention plus a grouping view — no new board columns**: its slices share a
+slug stem, `track/epic/slice` (e.g. `backend/goods-value-chain/purchase`, `…/production`, `…/sales`),
+and the board lists them together under the epic. `/refine` produces the slices; `/next` groups them
+and recommends the next unstarted one. Nothing else changes — an epic is just how related slices are
+named and shown, so it stays weightless until the work actually earns it.
+
 ### 2. Threads and their status
 
 An **item** on the board is a unit of work. Its **status glyph** says where it is:
@@ -45,14 +58,14 @@ An **item** on the board is a unit of work. Its **status glyph** says where it i
 | Glyph | Meaning | Who owns it |
 |---|---|---|
 | 💡 | idea (icebox) | nobody — a maybe-someday |
-| 🔜 | next (queued) | nobody — free to start with `/whats-next` |
+| 🔜 | next (queued) | nobody — free to start with `/next` |
 | ⚙ | in-progress | a live session in a worktree |
 | 🔍 | in-review | a live session (PR open) |
 | ⏸ | parked | nobody — blocked on something; note what |
 | ✅ | done | shipped; leaves Open threads |
 
 The **Owner** column names the live branch/worktree actively on an item, or `—` when it's
-free. This is what keeps parallel sessions from colliding: `/whats-next` and `/continue` skip
+free. This is what keeps parallel sessions from colliding: `/next` and `/continue` skip
 anything a live owner holds, and `/handover` sets `Owner = —` when it relinquishes a thread
 so a cold session can pick it up.
 
@@ -97,28 +110,38 @@ reports and waits rather than deleting.
 
 ## How the commands map onto the model
 
-- `/explore` **writes** a new item: it interrogates a rough idea, weighs alternatives, and
-  adds a brief + a board row (🔜/💡) — the front of the loop that feeds everything below.
+- `/explore` **writes** a new item: it interrogates a rough idea (purely context-free), weighs
+  alternatives, and adds a brief + a board row (🔜/💡) — the front of the loop that feeds everything.
+- `/refine` **grooms** an item's brief against the project (code, guardrails, threat model, budget-
+  sized slices) — the bridge from a shaped idea to a buildable one; may slice a large item into an epic.
+  On a brownfield repo it also **pulls a referenced legacy doc into `briefs/`** as it grooms it
+  (adopt-on-touch), so the board row flips from "referenced outside `relay/`" to Relay-owned.
+- `/adopt [area]` **bulk-adopts** a brownfield area: moves its work-inputs into `briefs/` (tidying
+  them) and registers + compacts its deliverable docs in place. The fast-forward for what `/refine`
+  and `/guardrails` otherwise do gradually; scoped, and never touches a file without approval.
 - `/cross-check` **writes** a reference frame under `relay/reference/` (how others solve the
   problem) and checks an approach against it — offered at the end of `/explore`, or on its own.
-- `/whats-next` **reads** Open threads, filters to what's startable (🔜/⏸/💡, no live owner),
+- `/next` **reads** Open threads, filters to what's startable (🔜/⏸/💡, no live owner),
   ranks it, and starts your pick in the topic's worktree (created once, reused each slice).
 - `/continue` **reads** Open threads, finds your thread (by slug or current branch), and
   resumes from its linked handover.
 - `/watch` **parks** an item (⏸, `blocked-on: …`) when it depends on a sibling's unlanded work,
   watches the dependency reach `main` in the background, and flips the row back to ⚙ (reclaiming
   `Owner`) when it lands — the only command that drives the ⏸ state programmatically.
-- `/test-drive` touches the **PR, not the board**: it opens a draft PR for the thread's branch and
+- `/test` touches the **PR, not the board**: it opens a draft PR for the thread's branch and
   writes a structured test plan into it (and can drive it in the browser) — a pre-merge checkpoint
   that never merges.
 - `/handover` **writes** a handover and **updates** the item's row (status, owner → `—`,
   latest handover), both onto `main`.
-- `/wrapup` runs the ship loop and ends by calling `/handover`.
+- `/ship` runs the ship loop and ends by calling `/handover`.
 - `/handover`, as it commits, also **archives** superseded handovers/reviews the board no
   longer references and **prunes** dead worktree entries — the end-of-session housekeeping,
   folded into the step that already touches those records.
-- `/garbage-collect` is the off-happy-path escape hatch: it **reclaims** orphaned worktrees a
+- `/gc` is the off-happy-path escape hatch: it **reclaims** orphaned worktrees a
   crashed or un-handed-over session left behind. You don't need it in normal use.
+- **Reflect** is not a command but a **loop edge**: after a lap's result is seen (`/test`, `/ship`,
+  `/persist`), you re-enter with what you learnt — `/explore` for a genuinely new idea, `/refine` for
+  the same idea changed. That re-entry is what makes the board a spiral, not a queue.
 
 That's the whole system. Everything else is detail.
 

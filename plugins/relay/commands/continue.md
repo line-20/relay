@@ -8,7 +8,7 @@ Continue the next phase of work from a handover file and carry it out.
 > **Relay convention.** This command reads durable state from `<root>/board.md`
 > (the front-door index) and `<root>/handover/next-*.md` (cold-start handovers),
 > both committed to `main`. If your repo doesn't have them yet, run
-> `/relay-init` once to scaffold them.
+> `/init` once to scaffold them.
 
 ## Step 0 — Resolve the Relay root
 Durable state lives under a per-repo root — default `relay/`, overridable via a `relay.config.json`
@@ -19,7 +19,7 @@ ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 **Soft check:** if the resolved `<root>/board.md` is nowhere to be found (not on `origin/main`, not
 local), STOP and say so plainly — e.g. *"root `docs` configured but `docs/board.md` missing — run
-`/relay-init`?"* — rather than failing deep in a later step.
+`/init`?"* — rather than failing deep in a later step.
 
 ## Step 1 — Find the thread to continue (board first, then its handover)
 Under parallel worktree sessions there is **no single newest handover** — threads
@@ -56,7 +56,7 @@ thread means getting into its *topic* tree and checking out its branch there.
    item's track — the `<track>/` prefix of its slug (`pricing/increment-h` → `pricing`), or the
    slug's first hyphen-segment if it has no `/`.
 2. **Shipped-or-resume — decide which branch you're checking out.** A handover written by a
-   mid-thread `/handover` pause hands back an **in-flight** slice; one written by `/wrapup` hands
+   mid-thread `/handover` pause hands back an **in-flight** slice; one written by `/ship` hands
    back a thread whose slice **already shipped** and whose "Next objective" is the *next* slice.
    Tell them apart, then pick the **target branch**:
    ```
@@ -66,13 +66,13 @@ thread means getting into its *topic* tree and checking out its branch there.
      || echo "branch absent → shipped"
    git merge-base --is-ancestor <handover-branch> origin/main 2>/dev/null && echo "merged → shipped"
    ```
-   - **Branch missing, or an ancestor of `origin/main` → shipped.** The old branch is done (`/wrapup`
+   - **Branch missing, or an ancestor of `origin/main` → shipped.** The old branch is done (`/ship`
      merged its PR and `--delete-branch` removed it — so on the shipped path the ref is usually
      *gone*, which is why a bare `merge-base` would error rather than answer; the absence IS the
      signal). Confirm with `gh pr view <handover-branch> --json state` (MERGED) if unsure. You are
      **starting the next slice**: target branch = a fresh slice-branch named from the handover's
      **Next-objective item slug** (flat last segment, status-quo style — `pricing/slice-c` →
-     `slice-c`), cut off fresh `origin/main`. This is the `/whats-next` re-baseline path, reached via
+     `slice-c`), cut off fresh `origin/main`. This is the `/next` re-baseline path, reached via
      `/continue` because the thread is ⚙ in-progress with a handover.
    - **Branch exists and is not yet merged → in-flight.** Target branch = the handover's `<branch>`;
      you resume it as-is.

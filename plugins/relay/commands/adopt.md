@@ -1,0 +1,98 @@
+---
+description: Bring a brownfield repo's existing material under Relay management, scoped by area — move + actualise work-inputs into briefs, register + compact deliverable knowledge in place — the bulk escape hatch for progressive adoption.
+argument-hint: "[area/track, a path glob, or --all; omit to preview the whole repo]"
+---
+
+Fast-forward a repo's adoption into Relay. Relay adopts **progressively by default** — `/init`
+*references* existing docs, `/refine` *pulls a work-input in* the moment it's touched, `/guardrails`
+*registers* context when a dimension first matters. `/adopt` is the **bulk button** for when you'd
+rather sweep a whole area at once instead of waiting for it to happen lap by lap — and, crucially, it
+**cleans up as it goes**, so adoption is also the moment stale material gets trimmed.
+
+It handles the **two kinds of existing material differently**, because they have different lifetimes
+(see [[the-board-model]] / the guardrails model):
+
+| | Work-inputs (ideas, plans, todos, rfc, specs) | Deliverable knowledge (design guide, conventions, architecture) |
+|---|---|---|
+| Lifetime | transient — spent once shipped | durable — true after shipping |
+| Action | **move** into `<root>/briefs/`, empty the source | **register** as a guardrails `extends` overlay, **in place** (never moved) |
+| Cleanup | **actualise** — cut shipped, fix drift, tighten | **compact** — dedupe, de-stale, restructure, shrink (via the domain steward) |
+
+**Scoped by design.** Compaction of a durable deliverable is the highest-stakes thing here, so aim it:
+`$ARGUMENTS` is an **area/track** (`ui`, `backend`), a **path glob** (`ideas/finance*`), or `--all`.
+Omit it to **preview** the whole repo without changing anything. Everything below is **offered, never
+automatic** — `/adopt` STOPs for approval before it moves or rewrites a single file.
+
+## Step 0 — Resolve config and the scope
+```bash
+ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
+GUARDRAILS="$(jq -r '.guardrails // empty | keys | join(",")' relay.config.json 2>/dev/null)"
+```
+Interpret `$ARGUMENTS` into a concrete **scope set** of files/dirs: a track/area maps to its code +
+doc areas and its guardrail dimension; a path glob is literal; `--all` is the whole repo; empty ⇒
+preview-only over the whole repo. State the scope you resolved before scanning.
+
+## Step 1 — Discover and triage the material in scope
+Find existing material in scope and sort each item into one of three buckets — the signal is **intent**:
+- **Work-input** — "describes something to build" (an `ideas/`, `briefs/`, `rfcs/`, `todo/`, `notes/`,
+  `docs/*-project.md`/`*-baseline.md`, `HANDOFF.md`). → move + actualise.
+- **Deliverable knowledge** — "describes how the system is / how we work" (design guide, DB
+  conventions, architecture, tone-of-voice, runbook, API guidelines). → register in place + compact.
+- **Code / content / assets** — not a work doc. → leave untouched.
+
+Skip anything already adopted (a work-input already under `<root>/briefs/`; a doc already wired into a
+guardrail `extends`). Account for **everything** in scope — a silent omission defeats the point.
+
+## Step 2 — Present the adoption plan and confirm — **STOP**
+Show a triage table for the scope and **wait for approval before touching anything**:
+
+> | Item | Kind | Action | Cleanup |
+> |---|---|---|---|
+> | `ideas/finance-project.md` | work-input | → `<root>/briefs/finance.md` (💡) | actualise vs current code |
+> | `docs/design-guide.md` | deliverable (`ui`) | register as `ui` `extends` (in place) | steward compaction (5k→lean) |
+> | `apps/**` | code | leave | — |
+
+Note residue left outside the scope, and flag anything ambiguous. **STOP for the go-ahead.**
+
+## Step 3 — Work-inputs: move + actualise
+For each in-scope work-input, on approval:
+- **Move** into `<root>/briefs/` — history-preserving where there's git, plain move otherwise (not
+  every project is a git repo):
+  ```bash
+  adopt_mv() { mkdir -p "$(dirname "$2")"
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git ls-files --error-unmatch "$1" >/dev/null 2>&1
+    then git mv "$1" "$2"; else mv "$1" "$2"; fi; }
+  ```
+- **Actualise as you import** — don't move a fossil. Reconcile the doc against current reality: cut
+  what's already shipped, correct assumptions that drifted, tighten the rest. (This is the same pass
+  `/refine` does on pull-on-touch; `/adopt` just does it in bulk.)
+- **Rewrite references** to the moved file (`CLAUDE.md`, cross-links); name-based `[[wikilinks]]`
+  survive, only explicit paths need fixing.
+- **Update the board row** `Detail` to the new `<root>/briefs/<name>.md` — its status stays what it
+  was (💡/🔜). The source spot is now empty; that item is fully Relay-owned.
+
+## Step 4 — Deliverable knowledge: register in place + compact (via the steward)
+For each in-scope deliverable doc, on approval — **never move it; it lives with the code:**
+1. **Register** it as the `extends` overlay for its dimension in `relay.config.json` (surgical merge,
+   preserve other keys — the pattern `/guardrails` uses). This is what makes the reviewers and
+   `/refine` read it.
+2. **Dispatch the domain steward to compact/actualise it** — the same specialist `/review` uses:
+   `ui-ux-designer` for a design guide, `api-architect` for API guidelines, etc. The steward
+   **dedupes, de-stales, restructures, and shrinks** the doc in place. **Guardrails on this:**
+   - **Preserve every real rule** — dedupe and restructure, never amputate. A rule you'd drop as
+     obsolete is called out for confirmation, not silently deleted.
+   - The steward **reports what it cut and why** (a summary or a diff) and the change **STOPs for
+     approval** before it's written — it's a real project deliverable.
+   - This is a **one-time catch-up**; `/persist` keeps the doc from re-bloating lap to lap afterward.
+   If a dimension has no steward agent, register it but skip compaction (note it).
+
+## Step 5 — Commit and report
+Commit what changed (main-owned; skip the commit if not a git repo, and say so). Then report,
+outcome-first:
+- **Work-inputs**: how many moved + actualised into `<root>/briefs/`, from where.
+- **Deliverable knowledge**: which docs registered as `extends` and which the steward compacted
+  (with the before/after size or a one-line "what got cut").
+- **Residue**: what in scope you left, and what's still referenced *outside* the scope (the board's
+  `Detail` column shows the remaining "outside `relay/`" rows — the repo's not-yet-adopted tail).
+- The next move: run `/adopt <another area>` to continue, or let the rest adopt lap-by-lap via
+  `/refine` and `/guardrails`.

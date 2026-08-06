@@ -6,7 +6,12 @@ guardrail-aware review specialists) in 0.8.0; #2 (budget/tier in config, `/revie
 budget-aware) in 0.9.0; #3 (`/refine` — context + guardrails + threat model + budget slicing) in
 0.10.0; #4 (`/persist` — knowledge harvest into the extends overlay + design system + memory) in
 0.11.0; #5 (`/deploy` — orchestrate/verify + security-gate a PR preview) in 0.12.0** — the rest is
-sequenced below.
+sequenced below. **The 1.0 breaking cut is now in progress on branch `1.0`** (0.14.0 stays on main
+untouched until the cut lands): command renames (#7) and explore-split (#8)
+done; #6 security shift-left, #9 epics, #10 reflect loop, and #11 (per-path config, dir renames,
+migration, docs) also done. **All that remains before releasing 1.0 is the one-time castlesERP
+conversion and the `1.0`→`main` merge + tag.** The transition tables below deliberately keep the
+pre-1.0 names/paths to show the mapping.
 
 ## Vision
 Turn Relay from a continuity-first *loop* into a continuity-first **Secure SDLC workbench** — one
@@ -171,16 +176,27 @@ quarantined into the final major cut.
 5. **`/deploy` (phase h)** ✅ *(increment #5 — shipped 0.12.0)* — orchestrate/verify + security-gate
    a PR preview via the project's own pipeline (stay out of owning deploys); hands a verified URL to
    `/test-drive`. No preview mechanism ⇒ it stops, never invents one.
-6. **Security shift-left** — threat model in (c), security scenarios in (g), gate in (h); mostly
-   falls out of 1/3/4 once they exist.
+6. **Security shift-left** ✅ *(done on branch `1.0`)* — the thread is wired end to end: threat model
+   in `/refine` (c), always-on security review (e), threat-model→scenarios in `/test` (g), security
+   gate in `/deploy` (h), security lessons in `/persist` (j). A modelled threat is now verified, not
+   assumed.
 
 **Breaking (assemble into the major cut — 1.0):**
-7. **Command renames** — `init`, `next`, `review`, `fix`, `test`, `ship`, `gc` (per "Clean break").
-8. **Explore split (phase b)** — `/explore` becomes purely context-free; context moves to `/refine`.
-9. **Epic modeling (phase d)** — epics grouping slices on the board (board schema change).
-10. **Reflect loop (phase i)** — formalize result → `/refine`/`/explore` re-entry.
-11. **1.0 cut** — general migration path (the configurable-root work is the template) + the one-time
-    **castlesERP conversion** + docs/quickstart/board-model rewritten around the spiral.
+7. **Command renames** ✅ *(done on branch `1.0`)* — `relay-init`→`init`, `whats-next`→`next`,
+   `review-pr`→`review`, `fix-pr-review`→`fix`, `test-drive`→`test`, `wrapup`→`ship`,
+   `garbage-collect`→`gc` (files renamed, every cross-reference + docs swept). Dir renames
+   (`pr-reviews/`→`reviews/`, `board-audit/`→`audits/`) are part of #11's per-path work, not here.
+8. **Explore split (phase b)** ✅ *(done on branch `1.0`)* — `/explore` is now purely context-free
+   (never inspects the project); the pre-build fit check and all code-grounding moved to `/refine`.
+9. **Epic modeling (phase d)** ✅ *(done on branch `1.0`)* — a pure slug convention (`track/epic/slice`)
+   + a grouping view in `/next`; no board schema change (kept weightless, as decided).
+10. **Reflect loop (phase i)** ✅ *(done on branch `1.0`)* — formalized as a loop edge in `/test`,
+    `/ship`, and `/persist`: re-enter `/explore` (new idea) or `/refine` (same idea, changed).
+11. **1.0 cut** ✅ *(mechanics done on branch `1.0`)* — per-path config generalization (uniform
+    `paths` resolver), dir renames (`pr-reviews/`→`reviews/`, `board-audit/`→`audits/`), a migration
+    path folded into `/init` (detects a pre-1.0 layout, offers to rename), and docs updated to 1.0.
+    **Remaining before release: the one-time castlesERP conversion** — a real-world action run when
+    1.0 lands, using `/init`'s migration path — and the final merge of `1.0` → `main` + tag.
 
 ## Clean break — naming & structure (1.0)
 A major release is the one chance to drop historical baggage. **Rule: rename only where it earns
@@ -318,12 +334,25 @@ non-cheap gaps; both are addressed by R2/R3. Everything else is a dimension away
 
 ## Decisions — 🔒 closed
 - **Command names.** `init`, `explore`, `refine`, `next`, `continue`, `review`, `fix`, `test`,
-  `deploy`, `persist`, `ship`, `guardrails`, `gc` — plus unchanged `handover`, `cross-check`,
-  `watch`. `persist` (over harvest/capture/learn) and **`ship` stays** as the composite
-  review→fix→merge→persist→handover tail (not dissolved). Default root stays `relay/`.
-- **Budget signal.** A **`tier`** — `free` / `pro` / `max` — in `relay.config.json`, **asked once at
-  `/init`**. Drives slice size in `/refine`, agent fan-out in `/review`, depth in `/test`. (A
-  power-user per-lap token target can layer on later; not 1.0-critical.)
+  `deploy`, `persist`, `ship`, `guardrails`, `gc`, **`adopt`** — plus unchanged `handover`,
+  `cross-check`, `watch`, `version`. `persist` (over harvest/capture/learn) and **`ship` stays** as the
+  composite review→fix→merge→persist→handover tail (not dissolved). Default root stays `relay/`.
+- **Progressive setup (revised — supersedes "tier asked at `/init`").** Onboarding is progressive:
+  `/init` does the **minimum** (a board + the dirs the first commands write) and **nothing destructive
+  or speculative** — greenfield → empty board → `/explore`; brownfield → tracks from code + existing
+  idea docs surfaced **by reference** (never moved). Everything else is **offered just-in-time** by the
+  phase that needs it. The budget tier is **not asked at init** — it's offered the first time a command
+  actually fans out (`/review`/`/refine`/`/next`), absent ⇒ full. Guardrails is offered when
+  `/refine`/`/review` finds none. This makes phases genuinely emergent/optional, as the top principle
+  demands.
+- **Gradual adoption + `/adopt`.** A brownfield repo becomes Relay-managed **as you work**: `/refine`
+  pulls a referenced legacy work-input into `briefs/` (and actualises it) the moment it's groomed, so
+  the source empties over time. The dedicated **`/adopt [area]`** command is the scoped bulk
+  fast-forward — moves+actualises work-inputs, and **registers + compacts** deliverable docs in place
+  via their steward (the accreted-design-guide case). Two adoption verbs by lifetime: **work-inputs
+  move** (transient, Relay-owned); **deliverable knowledge is registered in place** (durable, lives
+  with the code) — both get an actualise/compact cleanup pass on adoption. `/adopt` STOPs before
+  touching anything and doesn't assume git.
 - **Guardrails default stance.** Shipped default is **`vendor-neutral-rest`**; Zalando / Microsoft /
   Google-AIP are **selectable adaptations**, not the default — Relay stays portable, castles opts in.
   Bundled library stays **thin at first** (neutral + `tokens-a11y`) + "bring your own ruleset path";

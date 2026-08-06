@@ -33,7 +33,7 @@ check ".claude-plugin/marketplace.json" \
   "$(jq -r '.metadata.version' .claude-plugin/marketplace.json 2>/dev/null)"
 
 # Mirrors 2..n: the hardcoded banner version on the "SSDLC workbench" line of each command
-for f in plugins/relay/commands/relay-init.md plugins/relay/commands/version.md; do
+for f in plugins/relay/commands/init.md plugins/relay/commands/version.md; do
   banner_v="$(grep 'SSDLC workbench' "$f" 2>/dev/null | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | sed 's/^v//')"
   check "$f (banner)" "$banner_v"
 done

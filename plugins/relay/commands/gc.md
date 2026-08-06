@@ -1,10 +1,10 @@
 ---
-name: garbage-collect
+name: gc
 description: Reclaim orphaned git worktrees left by sessions that skipped the happy path — auto-remove only the provably-finished ones, report the risky ones, prune dead entries. Not needed in normal use; run from the main checkout when orphans pile up.
 argument-hint: "(no arguments)"
 ---
 
-The garbage collector. **On the happy path you never need this** — every `/wrapup` ends by
+The garbage collector. **On the happy path you never need this** — every `/ship` ends by
 releasing its own thread's worktree and pruning dead entries, so a session that runs to
 completion cleans up after itself. This command exists for the times it *doesn't*: a session
 `/clear`ed without a handover, one that crashed, or a worktree abandoned mid-experiment. It
@@ -35,7 +35,7 @@ For **each** worktree (skip the main checkout):
 - **topic** — worktrees are keyed to a topic (its dir name), not a slice; a clean topic tree on
   a merged branch is the **normal resting state between slices**, not garbage
 - **topic still live?** — does an **open or queued** board item share this topic (i.e. will the
-  next `/whats-next`/`/continue` re-baseline and reuse this tree)? Refresh with `git fetch origin
+  next `/next`/`/continue` re-baseline and reuse this tree)? Refresh with `git fetch origin
   main` + read `git show FETCH_HEAD:<root>/board.md` if the board exists
 - **locked?** — a `locked` line means a session marked it in-use; treat as untouchable
 - **dirty?** — `git -C <path> status --porcelain` non-empty → uncommitted work

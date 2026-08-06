@@ -22,7 +22,7 @@ looks like:
 - **A board item** (`track/slug`) → landed when that item's row on `<root>/board.md` (on
   `origin/main`) reaches **✅ / done**. **This is the signal to prefer when no PR exists yet** —
   a sibling that's still committing locally has no PR to watch, but when it eventually ships via
-  its own `/wrapup`, its board row flips. Watch the board, not the PR.
+  its own `/ship`, its board row flips. Watch the board, not the PR.
 - **A branch** (`some-feature`) → landed when it's merged into main
   (`git branch --merged origin/main` lists it, or `git ls-remote` shows it gone after a
   delete-on-merge).

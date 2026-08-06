@@ -7,8 +7,8 @@ Answer one question in plain, simple English: **what's the next best thing to wo
 Then, once picked, start it in a worktree.
 
 This is NOT `/continue`. `/continue` **resumes an in-flight thread** from its handover.
-`/whats-next` **surveys what's queued** and recommends where to start — an item that has no
-handover yet, just a brief. Keep them distinct: `/whats-next` never resumes ⚙/🔍 work (that's
+`/next` **surveys what's queued** and recommends where to start — an item that has no
+handover yet, just a brief. Keep them distinct: `/next` never resumes ⚙/🔍 work (that's
 already owned by a live session).
 
 ## Step 0 — Resolve the Relay root and budget tier
@@ -20,12 +20,14 @@ ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"
 ```
 `TIER` caps how wide the verify/audit levels fan out research agents (Steps 2.9A / 2.9B). **`unset`
-⇒ no cap** — the levels run at their full width, exactly as before; budget shaping is opt-in via
-`/relay-init`. It never changes the *default* level (Quick stays the default at every tier) — only
-how wide a level goes once chosen.
+⇒ no cap** — the levels run at their full width. It never changes the *default* level (Quick stays the
+default at every tier) — only how wide a level goes once chosen. If you're about to run a **verify or
+audit** level with `TIER` unset, **offer once** to set a budget tier (it right-sizes the research
+fan-out); write it to `relay.config.json` if the user picks one, and never block. (Quick doesn't
+fan out, so it never needs to ask.)
 **Soft check:** if the resolved `<root>/board.md` is nowhere to be found (not on `origin/main`, not
 local), STOP and say so plainly — e.g. *"root `docs` configured but `docs/board.md` missing — run
-`/relay-init`?"* — rather than failing deep in a later step.
+`/init`?"* — rather than failing deep in a later step.
 
 ## Three levels — pick by `$ARGUMENTS`
 The levels differ ONLY in how hard they verify before ranking. Steps 1–2 (read board, filter to
@@ -35,11 +37,11 @@ startable) and Steps 3–6 (rank, present, worktree, start) are shared. What cha
   against their briefs (**Step 3.5**). Seconds. Trusts the board. Use for a fast "what's next".
 - **L2 · Verify** — `$ARGUMENTS` contains `verify`, `check`, `thorough`, or `deep`. Rebuild the
   ranking from **ground truth for the shortlist**: fan out one research agent per plausible
-  contender (~8–10) across its board row + full brief + <root>/pr-reviews + handovers + git/code, so the
+  contender (~8–10) across its board row + full brief + <root>/reviews + handovers + git/code, so the
   recommendation is accurate, not just board-deep (**Step 2.9A** replaces Step 3.5). Minutes.
 - **L3 · Audit** — `$ARGUMENTS` contains `audit`, `archive`, `exhaustive`, `compact`, or `full`. A
   **board audit**, not just a recommendation: reconcile **EVERY** startable item against **all
-  sources** — board, briefs, <root>/pr-reviews, handovers, code, and GitHub history (`gh pr`/`gh issue`).
+  sources** — board, briefs, <root>/reviews, handovers, code, and GitHub history (`gh pr`/`gh issue`).
   Its primary product is a **dated, committed archival report**; the shortlist falls out as a
   byproduct. It can then **compact the board** — archive shipped briefs, slim Open threads to just
   live work — as a confirmed follow-through (**Step 2.9B step 5**). Can take a long time — that's
@@ -58,7 +60,7 @@ Do NOT sweep `<root>/briefs/` blindly — the board already distils them.
 Keep only items that could be picked up **now**:
 - ✅ include **🔜 next**, **⏸ parked** (note what it's waiting on), and the strongest **💡 ideas**.
 - ❌ exclude **⚙ in-progress** and **🔍 in-review** — a live worktree already owns those
-  (that's `/continue` / `/fix-pr-review` territory, not `/whats-next`).
+  (that's `/continue` / `/fix` territory, not `/next`).
 - ❌ exclude anything whose `Owner` column names a live branch/worktree.
 - If `$ARGUMENTS` is given, use it to bias the filter (a track name, a theme, or an exact slug
   to jump straight to Step 4).
@@ -74,7 +76,7 @@ so the ranking rests on what's actually true rather than the board's one-liner.
 2. **Fan out one research agent per contender, in parallel**, in a single message so they run
    concurrently. Give each the item slug and this brief:
    > Research board item `<slug>` for a "what to work on next" decision. Read (a) its board row
-   > in `<root>/board.md`, (b) its full brief/detail doc, (c) any `<root>/pr-reviews/` file naming it and
+   > in `<root>/board.md`, (b) its full brief/detail doc, (c) any `<root>/reviews/` file naming it and
    > its latest handover, (d) `git log`/`git grep` for its code area. Report: **real current
    > status** (what's actually shipped vs the board's claim), **startable-now?** (yes /
    > blocked-on-what), **staleness** (does the board row or brief disagree with the code? quote
@@ -98,13 +100,13 @@ and real token cost — completeness beats speed.
 2. **Fan out one research agent per item** (or run it as a workflow if your harness has one, so
    it's resumable and progress-visible). Each reconciles the item across all sources:
    > Audit board item `<slug>`. Read: (a) its board row(s) in `<root>/board.md`; (b) its full
-   > brief/detail doc; (c) every `<root>/pr-reviews/` file that names it; (d) every `<root>/handover/`
+   > brief/detail doc; (c) every `<root>/reviews/` file that names it; (d) every `<root>/handover/`
    > (incl. `archive/`) that names it; (e) the actual code (`git log`/`git grep`/read files); (f)
    > GitHub history (`gh pr list --search <slug>`, `gh issue list --search <slug>`, relevant merged
    > PRs). Return STRUCTURED: `{slug, realStatus, boardStatus, startable, blockedOn, staleness:
    > [{source, boardSays, truthIs, evidence}], size, leverage, recommendedNextSlice, evidence:[]}`.
    > Cite every claim (sha / file:line / PR# / handover path). Do not assert without a source.
-3. **Write the archival report** to `<root>/board-audit/<timestamp>.md` (`mkdir -p <root>/board-audit`
+3. **Write the archival report** to `<root>/audits/<timestamp>.md` (`mkdir -p <root>/audits`
    first — it may not exist in a fresh clone; get `<timestamp>` from a `date +%Y-%m-%d-%H%M` Bash call). Structure: a summary (item count, how many rows drifted), a
    per-item table (slug · board status · real status · drift? · size · startable), a **Drift ledger**
    (every board/brief row that disagrees with reality, with the exact fix), and the **ranked
@@ -155,6 +157,11 @@ Present it as a **markdown table** — no preamble, plain English, one row per i
 recommended pick with a ⭐. Use **t-shirt sizes** (S / S–M / M / L), and tag an L item as an epic
 where only the first slice fits a session.
 
+**Group epics.** When several shortlist items are slices of one epic (shared `track/epic/` stem),
+show them together and recommend the **next unstarted slice**, not the epic as a whole — an epic is
+never one session's work. A single row can stand in for the epic with "(slice N of `epic`)" in its
+What-it-is cell.
+
 **Keep cells terse or the table stops rendering.** Hard rules:
 - Each cell is **one short clause (~≤8 words)**. If you need more, it goes in a footnote, not the cell.
 - **No `⚠`, italics, parentheticals, or drift notes inside cells.** Any caveat becomes a numbered
@@ -175,11 +182,11 @@ Then ask which one — or offer that the user can name a different board item. *
 unless `$ARGUMENTS` already named an exact item slug.
 
 ## Step 4 — On pick: topic-scoped worktree (ALWAYS — never the shared main checkout)
-Like `/continue`, `/whats-next` **always works in a git worktree**. Do NOT ask worktree-or-main.
+Like `/continue`, `/next` **always works in a git worktree**. Do NOT ask worktree-or-main.
 
 **Key the worktree to the topic, not the slice.** A worktree is stable and long-lived; the
 branch inside it rotates per slice. This keeps one tree per topic instead of one per slice — so
-`wrapup → clear → whats-next` on the same topic stays in the same VS Code tab, and stale trees
+`ship → clear → next` on the same topic stays in the same VS Code tab, and stale trees
 stop piling up.
 
 1. **Derive the topic** from the item's track — the board's **Track**, or equivalently the

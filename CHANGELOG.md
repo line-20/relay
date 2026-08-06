@@ -7,6 +7,62 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.0 — assembled on branch `1.0` (unreleased)
+
+The breaking cut, tagged **once**. Assembled on branch `1.0`; main stays on 0.14.0 until the
+`1.0`→`main` merge. The whole additive 0.x arc (guardrails · budget/tier · `/refine` · `/persist` ·
+`/deploy` · brownfield adopt) now sits under one stable major, with the lifecycle finally reading as
+its verbs. Every additive 0.x feature carries forward unchanged.
+
+**Changed (breaking)**
+- **Command renames** — the lifecycle reads as its verbs; the `relay:` namespace already says "relay",
+  so redundant prefixes/plumbing names are gone: `relay-init`→`init`, `whats-next`→`next`,
+  `review-pr`→`review`, `fix-pr-review`→`fix`, `test-drive`→`test`, `wrapup`→`ship`,
+  `garbage-collect`→`gc`. Unchanged: `explore`, `refine`, `continue`, `deploy`, `persist`,
+  `guardrails`, `handover`, `cross-check`, `watch`, `version`.
+- **Durable-state dir renames** — `pr-reviews/`→`reviews/` and `board-audit/`→`audits/` (the `pr-`/
+  `board-` prefixes were historical). Every reference across commands, agents, and docs swept to match.
+- **`/explore` is now purely context-free (explore→refine split)** — it shapes the idea *in the
+  abstract* and never inspects the project; the pre-build **fit check** and all code-grounding moved to
+  `/refine`. Three clean stages: `/explore` shapes → `/refine` grounds → `/next`/`/continue` builds.
+
+**Added**
+- **Progressive setup — `/init` is now minimal, and adoption is gradual.** Onboarding was too heavy:
+  init front-loaded a budget-tier question, a full dir tree, seeded stubs, and (in 0.14.0) a
+  destructive import of your idea docs. Now `/init` does the *minimum* — a board and the two dirs the
+  first commands write — and **nothing destructive**. On a brownfield repo it surfaces your existing
+  idea/plan docs on the board **by reference** (left in place); on greenfield, an empty board → `/explore`.
+  Everything heavier is **deferred and offered by the phase that needs it**: the budget tier is asked
+  the first time a command fans out (`/review`/`/refine`/`/next`), guardrails is offered when `/refine`
+  or `/review` finds none, and pulling legacy docs *into* Relay happens on touch or on demand (below).
+- **`/adopt [area]` — gradual brownfield migration, with cleanup.** A dedicated, area-scoped command
+  that brings existing material under Relay management: **work-inputs** (ideas/plans/todos) are **moved**
+  into `briefs/` and **actualised** on the way in (cut what shipped, fix drift, tighten); **deliverable
+  knowledge** (design guide, conventions) is **registered** as a guardrails `extends` overlay *in place*
+  and **compacted** by its domain steward (e.g. `ui-ux-designer` trims an accreted design guide). Code
+  is left untouched. Always previews a triage table and STOPs before touching a file; scope narrows the
+  blast radius (`/adopt ui`, `/adopt ideas/finance*`, `/adopt --all`). `/refine` does the same pull-in
+  **on touch** for a single idea, so a brownfield repo becomes pristine as you work; `/adopt` is the
+  bulk fast-forward. (This is where 0.14.0's destructive import moved — from an init default to a
+  deliberate, scoped, non-destructive-by-surprise command.)
+- **Per-path config** — `root` generalises to a uniform `paths` resolver: relocate any single logical
+  path independently (`{ "paths": { "knowledge": "docs" } }`), resolving `paths[name]` else
+  `<root>/<name>`. List only what you move; no config ⇒ everything under `relay/` as before.
+- **Epic modelling** — a slug convention (`track/epic/slice`) + a grouping view in `/next`; no board
+  schema change. `/refine` slices a large item into an epic; `/next` recommends the next unstarted slice.
+- **Reflect loop** — the spiral's return edge, formalised in `/test`, `/ship`, and `/persist`: after a
+  result is seen, re-enter `/explore` (new idea) or `/refine` (same idea, changed) with what you learnt.
+- **Security shift-left, end to end** — `/test` now turns a `/refine` threat model into scenarios that
+  prove each mitigation holds; combined with the always-on security review and `/deploy`'s security
+  gate, a modelled threat is verified, not assumed.
+- **1.0 migration path** — `/init` detects a pre-1.0 layout (`pr-reviews/`/`board-audit/`) and offers
+  to rename it (history-preserving where there's git), the only file-level migration a consumer repo
+  needs.
+
+**Migrating from 0.x:** commands are just what you type — use the new names. In each repo, run
+`/relay:init` once; it offers the dir rename. The destructive brownfield-adopt introduced in 0.14.0
+rides along in this major.
+
 ## 0.14.0
 
 **Changed**

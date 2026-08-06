@@ -19,9 +19,9 @@ open PR or opens one, never a second.
   Use when the work isn't PR-ready, or you only asked for "what to test". No drive, no ask.
 - **`drive`/`run`** — do PR mode, then **drive the plan in the browser** (Step 6) without asking.
 
-This is NOT `/wrapup`. `/wrapup` ships (merges). `/test-drive` **stops at a tested-but-unmerged
+This is NOT `/ship`. `/ship` ships (merges). `/test` **stops at a tested-but-unmerged
 PR** (or a printed checklist) — a human (or Claude, in drive mode) exercises it against the
-preview before anyone merges. Merge later with `/wrapup` or by hand once it passes.
+preview before anyone merges. Merge later with `/ship` or by hand once it passes.
 
 ## Step 1 — Ensure a PR (committed work only; never merge here)
 **`plan-only` mode → skip this whole step.** Don't open, push, or require anything — go straight
@@ -88,6 +88,10 @@ touch. Every step is a concrete action + its expected result, as a `- [ ]` check
    - **Concurrency / staleness** — two tabs, double-submit, edit-then-someone-else-edited, refresh
      mid-operation.
    - **Idempotency** — re-submit / replay where money, state, or external calls are involved.
+   - **Threat-model scenarios** — if the brief was refined and carries a `## Threat model` (from
+     `/refine`), turn each real threat into a test: exercise the attack and prove its **mitigation
+     holds** (it fails closed). This closes the security thread — a threat *modelled* in `/refine` and
+     *gated* in `/deploy` is now *verified* here, not taken on faith.
    Each with a concrete step and the **safe** result you expect (rejected, scoped out, no leak).
 5. **Regression watch** — nearby surfaces this change could dent; quick sanity checks.
 6. **Not covered** — be honest about what this plan does NOT test (perf, browsers, etc.).
@@ -143,3 +147,8 @@ vs local), and a count — *N happy-path steps, M non-happy-path cases across <c
 drove it, add a one-line **pass/fail tally** and the **GIF path**. If a preview URL is live, print
 it so the user can click straight through; if the deploy is still running, say where it'll appear.
 Don't recap the plan itself — it's on the PR (or just above).
+
+**Reflect, if the results warrant it.** If driving surfaced something that changes the plan — a broken
+assumption, a better approach, a scope the brief got wrong — that's a reflect signal: `/relay:refine`
+the brief (or `/relay:explore` a new idea) with what you learnt, rather than forcing the current plan
+through. Testing is allowed to send the work back a stage.
