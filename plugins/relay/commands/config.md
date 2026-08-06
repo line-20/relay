@@ -21,12 +21,18 @@ Read both surfaces: `relay.config.json` (committed) and `relay.config.local.json
 - If `$ARGUMENTS` is **`show`**, print the reference table (bottom) and stop — no questions.
 
 ## Layer 1 — the two cheap prefs (start here; one brief question each)
-These are per-driver, benefit everyone, and cost one question — so always lead with them:
+These are per-driver, benefit everyone, and cost one question — so always lead with them. **Describe
+the options neutrally — say what each does, never who it's for** (see [[conventions]] → *No fabricated
+familiarity*). On a fresh session you don't know the user; present the choices plainly and let them pick.
 1. **Session size** (`small`/`medium`/`large`) — how big a slice `/refine` cuts and how wide `/review`/
-   `/next` fan out. Propose a sensible default from what you can see, in one line, then ask. Write the
-   answer to `relay.config.local.json`. Skip ⇒ unset (full fan-out).
-2. **Verbosity** (`terse`/`normal`/`verbose`). If `CLAUDE.md` signals a landing-reader, propose `terse`.
-   Ask once; write local. Skip ⇒ `normal`.
+   `/next` fan out. Describe them factually: **small** = narrow slices, tighter fan-out; **medium** =
+   balanced; **large** = big slices, wide fan-out (full review panels). You *may* mark one as a
+   suggestion **only from a concrete, current signal**, phrased tentatively — never "fits your … style".
+   Write the answer to `relay.config.local.json`. Skip ⇒ unset (full fan-out).
+2. **Verbosity** (`terse`/`normal`/`verbose`) — how much Relay narrates: **terse** = STOP gates + the
+   landing only; **normal** = today's default; **verbose** = also the reasoning. Same rule — neutral
+   descriptions; suggest `terse` only if something concrete points that way, and as a light suggestion,
+   not a claim about them. Skip ⇒ `normal`.
 
 **Then STOP** — many users are done here. Ask a single line: *"That's the essentials. Want to set up
 project standards or wire in your tooling too? (both optional)"* — only continue to Layer 2 on a yes.

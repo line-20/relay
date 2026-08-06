@@ -102,6 +102,11 @@ VERBOSITY="$(jq -r '.verbosity // "normal"' "$LOCAL" 2>/dev/null || echo normal)
   without `git` archaeology. A freshly-created brief has no such line — so "adopted vs created" is
   answerable at a glance.
 - **Honour `verbosity`** for everything that isn't a table, a STOP gate, or the final landing.
+- **No fabricated familiarity.** Describe options and defaults **neutrally** — say what an option *does*,
+  not who it's for. A recommendation must rest on a **concrete, current** signal and be phrased as a
+  tentative suggestion; never assert the user's preferences, style, or habits as fact, and never address
+  a fresh session as if you already know them ("Fits *your* … style"). `CLAUDE.md` and memory are
+  background context to *serve* the user, not material to characterise them back at themselves.
 
 ## Safety net — never leave a destructive move unrecoverable
 

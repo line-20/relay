@@ -7,6 +7,16 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.8 — no fabricated familiarity
+
+**Fixed**
+- **`/relay:config` no longer characterises the user back at themselves.** On a fresh session it was
+  synthesising a working "style" from the global `CLAUDE.md` and presenting option descriptions as
+  "Fits *your* … style" — presumptuous, and wrong to assert about someone it doesn't know. Option
+  descriptions are now **neutral** (what each does), and any suggested default must rest on a concrete,
+  current signal and be phrased tentatively. Stated as a cross-cutting principle ("No fabricated
+  familiarity") in `conventions.md`, so it binds every command, not just `/config`.
+
 ## 1.0.7 — namespace note on the remaining docs
 
 **Changed**
