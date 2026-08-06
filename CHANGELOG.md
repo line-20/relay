@@ -17,6 +17,12 @@ data and are never touched by an update.
   so a stale cached command shows an old version. (Maintainers bump the string in `plugin.json`,
   `/relay:version`, and the `/relay-init` banner together.)
 
+**Tooling**
+- **Version-sync guard** (`scripts/check-version.sh` + a `version-sync` GitHub Action). Because the
+  version is mirrored across `plugin.json`, `marketplace.json`, and the two command banners, the guard
+  fails the build on any drift — and also if the current version has no CHANGELOG entry. Runs in CI on
+  push/PR; run it locally before a release.
+
 ## 0.12.8
 
 **Fixed**

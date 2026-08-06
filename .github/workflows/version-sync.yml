@@ -1,0 +1,16 @@
+name: version-sync
+
+# Fail the build if any hardcoded version has drifted from plugin.json,
+# or the current version isn't documented in the CHANGELOG.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version sync
+        run: bash scripts/check-version.sh
