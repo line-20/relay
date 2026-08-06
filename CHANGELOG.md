@@ -7,6 +7,39 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.1 — the interaction layer (unreleased, branch `1.0.1`)
+
+Additive polish from dogfooding 1.0 on a real repo — how Relay *talks to you* and *handles your
+files*. New shared contracts live in [docs/conventions.md](docs/conventions.md).
+
+**Added**
+- **Session size replaces the budget tier.** The signal that sizes work isn't "which Claude plan" —
+  it's **context appetite**: slice so a build finishes within the healthy part of a context window
+  (~first half). `tier (free/pro/max)` → **`session (small/medium/large)`**, and it moves out of shared
+  `relay.config.json` into a **gitignored `relay.config.local.json`** (a driver preference, switch-often,
+  never inherited by teammates), with **per-call overrides** on every consumer (`/refine large`,
+  `/next small`). A committed `tier` is still read as a back-compat fallback. `/refine` uses it to size
+  slices; `/review`/`/next` fan-out follows.
+- **Verbosity control.** `verbosity` = `terse | normal | verbose` in the same local prefs file, or a
+  per-call word (`/next terse`). `terse` = banner + STOP gates + the landing, no narration.
+- **`/relay:help`** — an on-demand capability map (lifecycle + every command, one line each), so the
+  command set is discoverable and re-findable.
+- **`/adopt` reconciles the existing `.claude/` setup.** Beyond docs, it triages a repo's existing
+  commands/skills — **keep** (not covered) / **offer-remove** (redundant with Relay) / **keep-and-hook**
+  — and writes an explicit **`hooks`** map so Relay phases dispatch the project's own automation
+  (`{ "hooks": { "test": "test-stack" } }` → `/ship`/`/test` bring the fixture stack up via it).
+- **Safety net for destructive ops.** Adoption/compaction/migration never leave a move unrecoverable:
+  in git, git *is* the backup (commit-first, report the undo path); with no git, the original is copied
+  to `<root>/archive/pre-adopt/` first. Every move is stated explicitly, and adopted briefs carry an
+  `_Adopted from … (moved)_` **provenance line** so "adopted vs created" is answerable at a glance.
+
+**Changed**
+- **Consistent tabular output** — lists (shortlists, findings, plans) always render as GFM tables,
+  never stacked `Field: value` records or ASCII separators (the `/next` shortlist regression), with
+  terse cells + footnotes.
+- **`/init` records nothing switch-often** — session/verbosity are no longer asked or written at init;
+  it just gitignores the local prefs file.
+
 ## 1.0.0 — assembled on branch `1.0` (unreleased)
 
 The breaking cut, tagged **once**. Assembled on branch `1.0`; main stays on 0.14.0 until the

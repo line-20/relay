@@ -16,9 +16,11 @@ ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 
 ## Phase 1 — Test
-Run the project's test suite (discover the command from `CLAUDE.md`/`package.json`/README —
-e.g. `pnpm test`, `npm test`, `cargo test`). If the project has DB-backed integration tests
-behind a fixture stack, bring it up and run them too.
+Run the project's test suite. **If `relay.config.json` has a `hooks.test`** (a project command/skill,
+e.g. `test-stack`), **dispatch that** — it's the project's own way to bring the fixture stack up and
+run tests (see [[conventions]] → Hooks). Otherwise discover the command from
+`CLAUDE.md`/`package.json`/README (e.g. `pnpm test`, `npm test`, `cargo test`) and, if there are
+DB-backed integration tests behind a fixture stack, bring it up and run them too.
 - **If anything fails, STOP.** Report the failing suites and don't touch the PR.
 - If green, continue. (Tear down any throwaway fixture at the very end, after handover.)
 

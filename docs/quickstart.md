@@ -34,7 +34,7 @@ Restart Claude Code if prompted. You should now see `/init`, `/explore`, `/next`
 On a **greenfield** repo it writes an empty board and points you at `/explore`. On a **brownfield**
 repo it also seeds a few real tracks from your code and **references your existing idea/plan docs on
 the board — leaving them exactly where they are** (see the reassurance box below). It never asks for a
-budget tier, never runs guardrails, and never moves a file; those come later, when a phase needs them.
+session size, never runs guardrails, and never moves a file; those come later, when a phase needs them.
 
 Over time the Relay root fills out to this full shape (most sub-dirs are created lazily, by the first
 command that writes them — `/init` itself only makes `board.md`, `briefs/`, and `handover/`):
@@ -118,7 +118,7 @@ deliberately separate. When it's done you have a startable item, not a half-buil
 ```
 
 It reads the actual code, the guardrails (`/guardrails`), and memory; threat-models the change; and
-re-slices the work to your budget tier — updating the brief in place. Skip it for something small and
+re-slices the work to your session size — updating the brief in place. Skip it for something small and
 obvious; reach for it when the idea needs to fit an existing codebase. Then `/next` starts a grounded,
 right-sized slice instead of a raw sketch.
 
@@ -177,7 +177,7 @@ nothing about your last one, and it doesn't need to. That's the point.
 - **Got a rough idea?** `/explore` — shape it into a brief on the board (purely in the abstract).
 - **Unsure if you're reinventing something?** `/cross-check` — see how others solve it first.
 - **Need it grounded before building?** `/refine` — fit the idea to the code + guardrails, threat-model
-  it, and slice it to your budget tier.
+  it, and slice it to your session size.
 - **Starting fresh?** `/next` — pick from the board.
 - **Picking up a thread?** `/continue` — resume from its handover.
 - **Want to try it before merging?** `/test` — a draft PR with a structured test plan (happy path +
