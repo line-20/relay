@@ -7,6 +7,18 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.3 — the config front door (unreleased, branch `1.0.3`)
+
+**Added**
+- **`/relay:config` — guided config, opt-in depth never a gate.** The config principle stated plainly
+  and given a home: you can go from zero to shipping without ever opening a config file (absent keys are
+  defaults), and this command is the *"now I want more"* surface. It **shows what's set vs available**
+  (the discoverability an empty default file can't give), **proposes only what's worth setting for this
+  repo** (not a blank questionnaire), and **walks the agreed ones as Q&A** — delegating the deep parts
+  (`guardrails` → `/guardrails`, `hooks` → `/adopt`). Declining anything is a first-class answer.
+  `/init` now offers it in one line rather than interrogating; `/help` and the README list it. The
+  "opt-in depth, never a gate" rule is now the stated spine of the config system in `conventions.md`.
+
 ## 1.0.2 — the graceful exit (unreleased, branch `1.0.2`)
 
 **Added**

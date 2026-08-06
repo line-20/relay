@@ -29,7 +29,7 @@ sees and the one signal that certifies which command file ran:
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v1.0.2
+  continuity-first SSDLC workbench                          v1.0.3
   by Line20 · @eriklenaerts
 ```
 
@@ -246,11 +246,11 @@ no file-content recaps):
     Don't point at `/relay:next` yet — nothing's on the board.
   - **Populated** → **`/relay:next`** to start something, or **`/relay:refine <slug>`** to ground a
     referenced idea (which also pulls it into Relay).
-- **Deepen when you need it (not now)** — one line: **session size + verbosity** live in a gitignored
-  `relay.config.local.json` (or pass `small`/`large`/`terse` per-call), offered when a command first
-  needs them; **`/relay:guardrails`** sets project standards; **`/relay:adopt [area]`** bulk-pulls your
-  legacy docs into Relay (and reconciles any existing `.claude/` commands/skills). All optional, later.
-  If the repo already has `.claude/commands` or skills, mention `/relay:adopt` reconciles them.
+- **Deepen when you need it (not now)** — **config is opt-in depth, never a gate.** One line: run
+  **`/relay:config`** anytime for a guided pass (it proposes what's worth setting for this repo —
+  session size, guardrails, hooks — and walks it), or just keep working and each phase offers the one
+  knob it needs. Don't set anything up now unless the user asks. (If the repo already has
+  `.claude/commands` or skills, mention `/relay:adopt` reconciles them.)
 - **Write commands with the `/relay:` prefix** (a bare `/explore` tab-completes to the built-in
   `/export`) — show the full `/relay:<name>`; tab-complete after the colon.
 - **The loop, one line** (each a `/relay:` command, optional — invoke what the work needs):

@@ -3,6 +3,12 @@
 The shared contracts every Relay command honours. Two config surfaces, one output style, one
 extension mechanism. Commands reference this doc so behaviour is consistent across the whole set.
 
+> **The config principle: opt-in depth, never a gate.** You can go from zero to shipping without ever
+> opening a config file — absent keys *are* sensible defaults. Config is there the moment you want more,
+> three ways: **just-in-time** (a phase offers the one knob it needs), **`/relay:config`** (a guided
+> pass that proposes what's worth setting for this repo and walks it as Q&A), or **by hand** (the
+> documented schema below). Nothing about configuring is ever in the way of getting to work.
+
 ## Two config surfaces — project vs driver
 
 Relay separates **what the project is** from **how the driver wants to work right now**. They live in
