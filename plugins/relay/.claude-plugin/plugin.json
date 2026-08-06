@@ -1,7 +1,7 @@
 {
   "name": "relay",
   "description": "A continuity-first workflow for Claude Code: a shared board, cold-start handovers, worktree-isolated sessions, and a multi-specialist review fan-out. Run several sessions in parallel and pick work back up cold.",
-  "version": "0.12.8",
+  "version": "0.13.0",
   "author": {
     "name": "Line20"
   },

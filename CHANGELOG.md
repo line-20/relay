@@ -7,6 +7,16 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.13.0
+
+**Added**
+- **`/relay:version` — a CLI-style `--version`.** Prints the Relay banner + version, so you can
+  confirm which plugin version is actually loaded in a session. Like the init banner, the version is
+  hardcoded in the command file (no runtime read is possible — `${CLAUDE_PLUGIN_ROOT}` doesn't expand
+  in command bash), which is the more useful behaviour anyway: it certifies the *loaded* command file,
+  so a stale cached command shows an old version. (Maintainers bump the string in `plugin.json`,
+  `/relay:version`, and the `/relay-init` banner together.)
+
 ## 0.12.8
 
 **Fixed**
