@@ -25,16 +25,24 @@ to it. Absent config ⇒ `<root>` = `relay`.
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 
-## Step 1 — Discover which dimensions are in play (don't ask what you can detect)
-Inspect the repo — `CLAUDE.md`, manifests, and the code layout — and build a **proposed active-set**
-with evidence, rather than interrogating from a blank slate:
-- **`api`** — HTTP endpoints, an OpenAPI/GraphQL schema, a `routes/`/`controllers/` layer? On if so.
-- **`ui`** — a frontend app, design tokens, a component library or design-system package? On if so.
-- **`security`**, **`privacy`** — treat as on by default for anything handling user data (say why).
-- **`testing`** — a test runner/suite present? On if so.
-- Others the repo clearly shows (data/DB, i18n, …).
-A dimension the project plainly lacks (no API surface at all) is **off** — don't invent it. If
-`$ARGUMENTS` names one dimension, scope the whole run to just that one.
+## Step 1 — Sweep the repo for standards evidence (don't ask what you can detect)
+Inspect the repo — `CLAUDE.md`, manifests, code layout, **and existing config/standards files** — and
+build a **proposed active-set with cited evidence**, rather than interrogating from a blank slate. This
+is the brownfield sweep: for each dimension, note the concrete artifact that argues it's in play *and*
+that could seed its baseline/`extends`:
+- **`api`** — HTTP endpoints, an OpenAPI/GraphQL schema, a `routes/`/`controllers/` layer; a **spectral
+  ruleset** or an API-guidelines doc → wire as `extends`.
+- **`ui`** — a frontend app, design tokens, a component library / design-system package; a **design
+  guide / UX doc** → wire as `extends`.
+- **code style** (feeds several dimensions) — `.eslintrc`/`biome`/`.prettierrc`, `tsconfig` strictness,
+  an `.editorconfig` — real, enforced house rules already in the repo.
+- **`security`**, **`privacy`** — on by default for anything handling user data (say why); a
+  `SECURITY.md`, an auth layer, or a privacy/data-handling doc → `extends`.
+- **`testing`** — a test runner/suite, coverage config → on, with the expected kind/coverage.
+- Others the repo clearly shows (data/DB migrations, i18n locale files, …).
+Report the sweep as **evidence, not assumption** — cite the file for each (e.g. "`ui` — found
+`docs/design-guide.md` + `packages/ui`"). A dimension the project plainly lacks is **off** — don't
+invent it. If `$ARGUMENTS` names one dimension, scope the whole run to just that one.
 
 ## Step 2 — For each active dimension, resolve the three layers (discover-then-ask)
 Propose a default for every field so the owner **edits, doesn't author**:

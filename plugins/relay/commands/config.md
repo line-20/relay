@@ -39,9 +39,16 @@ project standards or wire in your tooling too? (both optional)"* — only contin
 
 ## Layer 2 — offer the project knobs (compact, evidence-based, delegated)
 Only if the user opted in above. **Offer only what this repo shows evidence for** — never a blank menu:
-- **Guardrails** — if there's an API surface, a design system, a security-sensitive domain: name the
-  evidence in one line ("Zod-first API + a design-system package → real 'what good means' to encode")
-  and **hand off to `/guardrails`** (its interview is the real thing — don't reimplement it here).
+- **Guardrails — on a brownfield, offer a *sweep*.** If this is an established repo (real code, not
+  greenfield), do a quick scan for existing standards material and **name what you actually found**,
+  then offer: *"Want me to sweep this repo for guardrails? I found &lt;a design guide, an OpenAPI spec,
+  ESLint + Prettier, DB conventions&gt; — I can set up guardrails from what's really here."* Scan for:
+  a design-guide/UX doc or design-system package (`ui`); an OpenAPI/GraphQL schema or `routes/`
+  (`api`); `.eslintrc`/`.prettierrc`/`biome`/`tsconfig` strictness (code style); a spectral ruleset
+  (`api`); a `SECURITY.md`/auth layer (`security`); a privacy/data-handling doc (`privacy`); a test
+  runner/suite (`testing`). On **yes, hand off to `/guardrails`** — its discover-then-ask sweep is the
+  real thing; don't reimplement it. If it's greenfield or you found nothing concrete, say so and skip —
+  **name the repo, never guess the user** (see [[conventions]] → *No fabricated familiarity*).
 - **Hooks** — if there are existing `.claude/commands` or skills (a `test-stack`, a `commit`): name them
   and **hand off to `/adopt`**'s `.claude/` reconciliation (keep / remove-redundant / keep-and-hook),
   which writes the `hooks` map.

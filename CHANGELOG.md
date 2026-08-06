@@ -7,6 +7,19 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.9 — brownfield guardrails sweep
+
+**Added**
+- **`/config` offers a guardrails *sweep* on a brownfield repo.** When it detects an established
+  project, Layer 2 scans for real standards material and **names what it found** — a design guide /
+  design-system package (`ui`), an OpenAPI/GraphQL schema or spectral ruleset (`api`), ESLint/Prettier/
+  tsconfig (code style), a `SECURITY.md`/auth layer (`security`), a test runner (`testing`) — and offers
+  to "sweep this repo for guardrails" from what's actually there, handing off to `/guardrails`.
+- **`/guardrails` discovery is now an explicit repo sweep** — it inventories existing config/standards
+  *files* (lint/format/tsconfig, OpenAPI/spectral, `SECURITY.md`, design guide, test config), not just
+  which dimensions exist, and cites the artifact seeding each dimension's baseline/`extends`. Grounded
+  in real files, evidence-cited — never a guess about the user (per the 1.0.8 principle).
+
 ## 1.0.8 — no fabricated familiarity
 
 **Fixed**
