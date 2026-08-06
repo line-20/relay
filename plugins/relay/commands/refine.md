@@ -50,6 +50,11 @@ of against it. Read, don't assume:
 - The project's **durable knowledge** — `CLAUDE.md`, `<root>/knowledge/` docs, architecture notes,
   and any **AI memory** the harness exposes — for prior decisions that bear on this (a chosen
   pattern, a past mistake, a documented constraint). Don't re-decide what's already decided.
+- The **pre-build fit check** — if the project's `CLAUDE.md` defines a checklist for a new
+  feature/module (packaging, separability, tiering, portability — whatever it requires), run it
+  against the approach now and fold the answers into the brief. (This moved here from `/explore` in
+  1.0: it needs the project, so it belongs in grounding, not in context-free shaping.) If the project
+  defines none, skip it.
 
 **Scale the grounding to the tier** — this is the first budget lever:
 - `free` ⇒ one inline pass; read the obvious files directly.

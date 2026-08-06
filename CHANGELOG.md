@@ -22,8 +22,14 @@ tagged **once**. Building piece by piece — this entry grows as each lands.
   existing adopters comes with #11; the durable-state dir renames `pr-reviews/`→`reviews/` and
   `board-audit/`→`audits/` are part of that per-path work, not this rename.)
 
-**Still to land in 1.0:** explore→refine split, epic modelling, reflect loop, per-path config +
-migration path + docs/quickstart rewrite (and the destructive brownfield adopt from 0.14.0 rides along).
+- **`/explore` is now purely context-free (explore→refine split).** It shapes the idea *in the
+  abstract* and never inspects the project's code, `CLAUDE.md`, or conventions. The pre-build **fit
+  check** (running the project's new-feature checklist) and all code-grounding moved to **`/refine`**,
+  which already owns project context. Three clean stages now: `/explore` shapes → `/refine` grounds →
+  `/next`/`/continue` builds.
+
+**Still to land in 1.0:** epic modelling, reflect loop, per-path config + migration path +
+docs/quickstart rewrite (and the destructive brownfield adopt from 0.14.0 rides along).
 
 ## 0.14.0
 

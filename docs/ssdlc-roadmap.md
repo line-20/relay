@@ -7,9 +7,9 @@ budget-aware) in 0.9.0; #3 (`/refine` — context + guardrails + threat model + 
 0.10.0; #4 (`/persist` — knowledge harvest into the extends overlay + design system + memory) in
 0.11.0; #5 (`/deploy` — orchestrate/verify + security-gate a PR preview) in 0.12.0** — the rest is
 sequenced below. **The 1.0 breaking cut is now in progress on branch `1.0`** (0.14.0 stays on main
-untouched until the cut lands): command renames (#7) done; explore-split (#8), epics (#9), reflect
-loop (#10), and per-path config + migration + docs rewrite (#11) still to do. The tables below still
-use the pre-1.0 names/paths — they get rewritten as part of #11.
+untouched until the cut lands): command renames (#7) and explore-split (#8)
+done; epics (#9), reflect loop (#10), and per-path config + migration + docs rewrite (#11) still to
+do. The tables below still use the pre-1.0 names/paths — they get rewritten as part of #11.
 
 ## Vision
 Turn Relay from a continuity-first *loop* into a continuity-first **Secure SDLC workbench** — one
@@ -182,7 +182,8 @@ quarantined into the final major cut.
    `review-pr`→`review`, `fix-pr-review`→`fix`, `test-drive`→`test`, `wrapup`→`ship`,
    `garbage-collect`→`gc` (files renamed, every cross-reference + docs swept). Dir renames
    (`pr-reviews/`→`reviews/`, `board-audit/`→`audits/`) are part of #11's per-path work, not here.
-8. **Explore split (phase b)** — `/explore` becomes purely context-free; context moves to `/refine`.
+8. **Explore split (phase b)** ✅ *(done on branch `1.0`)* — `/explore` is now purely context-free
+   (never inspects the project); the pre-build fit check and all code-grounding moved to `/refine`.
 9. **Epic modeling (phase d)** — epics grouping slices on the board (board schema change).
 10. **Reflect loop (phase i)** — formalize result → `/refine`/`/explore` re-entry.
 11. **1.0 cut** — general migration path (the configurable-root work is the template) + the one-time

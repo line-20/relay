@@ -5,7 +5,12 @@ argument-hint: "[a rough idea, e.g. 'let users export their data']"
 
 Take a fuzzy idea and shape it into something worth building — or decide it isn't. This is
 the **front of the loop**: it produces a brief and a board item that `/next` can later start.
-It does **not** write code. Shaping the work and doing the work are deliberately separate.
+
+It is **purely context-free** — it shapes the idea *in the abstract* and never inspects the
+project's code, `CLAUDE.md`, or conventions. Grounding the idea against *this* project — the code it
+must fit, the guardrails, the pre-build fit check, budget-sized slices — is **`/refine`'s** job, the
+next step. It does **not** write code either. Shaping, grounding, and building are deliberately three
+separate stages.
 
 > **Relay convention.** Output lands in `<root>/briefs/<slug>.md` and a new row on
 > `<root>/board.md`, so the thing you explored is immediately startable with `/next`.
@@ -35,8 +40,9 @@ Work through these, roughly in order (one message each):
 - **What "good" looks like.** How would you know it worked? The crispest version of done.
 - **What's explicitly OUT.** The scope edge. Naming what this is *not* is as valuable as
   naming what it is — it's what keeps the first slice small.
-- **Constraints.** Deadline, data you already have or don't, anything in the codebase this
-  must fit, anything it must not break.
+- **Constraints the user can name.** Deadline, data they have or don't, a hard requirement or a
+  "must not break" they already know. Take these *from the user* — don't go inspecting the codebase
+  to find them; grounding against the actual code is `/refine`'s job, not this step's.
 
 **Offer a visual just-in-time.** When a question is genuinely easier to answer against a
 picture — a flow, a state machine, a rough screen layout — offer a quick diagram or ASCII
@@ -73,16 +79,11 @@ Once an approach is chosen, **offer to `/cross-check` it** before it hardens int
 this is the cheapest moment to catch a reinvented wheel, a missed standard, or a blind spot
 everyone else in the space has already solved. If the user accepts, run the `/cross-check` flow
 on the chosen approach (build/extend `<root>/reference/<topic>.md`, then report Aligns /
-Diverges / Blind spots / Reinvention) and **fold its findings into the approach** before Step 5.
+Diverges / Blind spots / Reinvention) and **fold its findings into the approach** before Step 4.
 If the user declines, or the idea is small/obvious enough that prior art won't teach you
 anything, skip it — don't force a landscape study onto a two-line change.
 
-## Step 4 — Fit check (only if the project defines one)
-If the project's `CLAUDE.md` has a pre-build checklist for a new feature/module (packaging,
-separability, tiering, portability — whatever it requires), run it against the chosen approach
-now and fold the answers into the brief. If it defines none, skip this step.
-
-## Step 5 — Write the brief and put it on the board
+## Step 4 — Write the brief and put it on the board
 Pick a slug (`<track>/<slug>`) on an existing board track, or propose a new track if none fits.
 Write `<root>/briefs/<slug>.md`:
 
@@ -125,7 +126,7 @@ is fine; if you're on a feature branch, use the temp-index push `/handover` uses
 switch branches. If the push is rejected (main moved, or protected), say so — the files are
 correct locally and the user can commit them.
 
-## Step 5.5 — Self-review the brief before you rely on it
+## Step 4.5 — Self-review the brief before you rely on it
 Re-read what you just wrote as if you were the cold session that has to *build* from it, and
 fix it in place before reporting. Check specifically for:
 - **Placeholders** — any `<...>`, "TBD", or hand-wave left unfilled.
@@ -137,7 +138,7 @@ fix it in place before reporting. Check specifically for:
 A brief that survives its own review is one a stranger can execute. This is the difference
 between a note and a spec.
 
-## Step 6 — STOP and report
+## Step 5 — STOP and report
 **Do not start building.** Report, in plain language:
 - the one-line problem and the approach you landed on,
 - the brief path and the board item (`track/slug` + status),
