@@ -52,4 +52,4 @@ Open with the one-line lifecycle, then the tables:
 | `small` · `medium` · `large` | Session size — how big a slice (`/refine`), how wide the fan-out |
 | `terse` · `verbose` | How much Relay narrates |
 
-_Full details: `docs/conventions.md`, `docs/the-board-model.md`, `docs/quickstart.md`._
+**More** → **github.com/line-20/relay** · [quickstart](https://github.com/line-20/relay/blob/main/docs/quickstart.md) · [the board model](https://github.com/line-20/relay/blob/main/docs/the-board-model.md) · [a day in the loop](https://github.com/line-20/relay/blob/main/docs/a-day-in-the-loop.md) · [conventions](https://github.com/line-20/relay/blob/main/docs/conventions.md) · [CHANGELOG](https://github.com/line-20/relay/blob/main/CHANGELOG.md)

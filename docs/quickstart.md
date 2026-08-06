@@ -194,6 +194,11 @@ nothing about your last one, and it doesn't need to. That's the point.
   system/memory and draft a release note, so the next lap starts smarter.
 - **Cleaning up?** Nothing to run — `/ship` archives old notes and prunes dead worktree entries as
   part of its handover step, and keeps your topic worktrees for their next slice.
+- **Want more control?** `/config` — a guided, layered pass (session/verbosity first, then optionally
+  guardrails/hooks). Opt-in depth, never a gate.
+- **Lost, or forgot a command?** `/help` — the whole capability map on one screen.
+- **Leaving?** `/exit` — cleanly removes Relay and hands your content back (restores adopted docs,
+  exports your briefs), code untouched. No lock-in.
 
 The lifecycle, one line: **`guardrails` → `explore` → `refine` → `next`/`continue` → `test` →
 `deploy` → `review`/`fix` → `ship` → `persist`** — a spiral, each phase optional, results loop back to

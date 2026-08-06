@@ -1,16 +1,14 @@
 # Roadmap — Relay → a Secure SDLC workbench (the 1.0 arc)
 
-**Status:** 🚧 in progress. North-star doc for the next major release (the 1.0 arc). Decisions at
-the end are settled; the increment arc is locked. **Shipped so far: increment #1 (`/guardrails` +
-guardrail-aware review specialists) in 0.8.0; #2 (budget/tier in config, `/review-pr` + `/whats-next`
-budget-aware) in 0.9.0; #3 (`/refine` — context + guardrails + threat model + budget slicing) in
-0.10.0; #4 (`/persist` — knowledge harvest into the extends overlay + design system + memory) in
-0.11.0; #5 (`/deploy` — orchestrate/verify + security-gate a PR preview) in 0.12.0** — the rest is
-sequenced below. **The 1.0 breaking cut is now in progress on branch `1.0`** (0.14.0 stays on main
-untouched until the cut lands): command renames (#7) and explore-split (#8)
-done; #6 security shift-left, #9 epics, #10 reflect loop, and #11 (per-path config, dir renames,
-migration, docs) also done. **All that remains before releasing 1.0 is the one-time castlesERP
-conversion and the `1.0`→`main` merge + tag.** The transition tables below deliberately keep the
+**Status:** ✅ **1.0 shipped, now on 1.0.4.** This doc is the historical north-star for the 1.0 arc;
+**the [CHANGELOG](../CHANGELOG.md) is the authoritative record of what shipped.** The entire additive
+0.x arc (0.8.0–0.14.0: `/guardrails`, budget/tier, `/refine`, `/persist`, `/deploy`, brownfield adopt)
+and the whole breaking cut (**1.0.0**: command renames, dir renames, explore→refine split, epics,
+reflect loop, per-path config + migration, security shift-left) are **done**. 1.0.x then added, from
+dogfooding: **1.0.1** interaction layer (session sizing — which *replaced* the budget/tier idea below —
+verbosity, `/help`, hooks, safety net, provenance), **1.0.2** `/exit`, **1.0.3–1.0.4** the layered
+`/config`. The one remaining planned item is the reach work (R1–R3, "Reach" section) — post-1.0. The
+transition tables below deliberately keep the
 pre-1.0 names/paths to show the mapping.
 
 ## Vision
@@ -141,9 +139,10 @@ Zalando/Microsoft/AIP are adaptations (decided).
 > it to the phase that can actually enforce it — see R1.
 
 ## Cross-cutting concerns
-- **Budget / economy.** A **`tier`** (`free` / `pro` / `max`) in `relay.config.json`, asked once at
-  `/init`, drives: slice size in (c), how many review agents fan out in (e), `/test` depth in (g),
-  whether a workflow fan-out is affordable at all. Ties to Relay's existing token-economics doc.
+- **Budget / economy.** _(Superseded in 1.0.1 — see [conventions.md](conventions.md).)_ Originally a
+  **`tier`** (`free`/`pro`/`max`) asked at `/init`; it shipped as **`session`** (`small`/`medium`/`large`)
+  in the gitignored `relay.config.local.json` (context-appetite, not plan; per-call overridable; never
+  asked at init). Same downstream effect: slice size in (c), review fan-out in (e), depth in (g).
 - **Security.** As above — a thread, not a phase.
 - **Interactivity.** Every phase stays interactive: it asks for direction/approval at the points of
   real choice, and only there (Relay's existing STOP-gate discipline).
@@ -384,6 +383,8 @@ non-cheap gaps; both are addressed by R2/R3. Everything else is a dimension away
 - **Version line.** The breaking cut is **1.0** (first stable major from 0.x). castles runs ahead on
   a **pre-release channel**; the world gets the additive 0.x increments until 1.0 assembles the break.
 
-_Roadmap complete. Increments #1–#5 shipped (0.8.0 → 0.12.0); the additive arc has only **#6 security
-shift-left** left (and it mostly falls out of #1/#3/#4/#5) before the breaking 1.0 cut (#7–#11). Next
-action: prove #1–#5 on castlesERP, then close out #6._
+_This roadmap's arc is **fully delivered**: increments #1–#6 and the breaking cut #7–#11 all shipped
+across 0.8.0 → 1.0.0, and 1.0.x (session/verbosity, `/help`, hooks, safety net, `/exit`, layered
+`/config`) hardened it from dogfooding. See the [CHANGELOG](../CHANGELOG.md) for the shipped record.
+**Live next:** the post-1.0 Reach work (R1–R3 in the "Reach" section) — dimension-library expansion,
+dimension-driven review roster, pluggable test medium._

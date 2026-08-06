@@ -7,6 +7,17 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.5 — docs refresh + `/help` links
+
+**Changed**
+- **`/relay:help` links to the GitHub repo docs** (quickstart, board model, day-in-the-loop,
+  conventions, CHANGELOG) instead of local file paths — so "more info" is one click away.
+- **Full docs pass to 1.0.4.** Swept the last `budget/tier`→`session` leftovers (README, board-model,
+  day-in-the-loop); added `/help` to the README command tables and `/config` · `/help` · `/exit` to the
+  quickstart daily rhythm; and re-based `docs/ssdlc-roadmap.md` from "1.0 in progress" to "1.0 shipped,
+  now on 1.0.x" (its arc is fully delivered — the CHANGELOG is the authoritative record; Reach R1–R3 is
+  the live next). Config's `tier` note marked superseded by `session`.
+
 ## 1.0.4 — layered config
 
 **Changed**
@@ -19,7 +30,7 @@ data and are never touched by an update.
   demand via `/relay:config paths` / `root` for someone who's read the docs. The full current-vs-default
   table is now a reference (`/relay:config show`), not the opening menu.
 
-## 1.0.3 — the config front door (released)
+## 1.0.3 — the config front door
 
 **Added**
 - **`/relay:config` — guided config, opt-in depth never a gate.** The config principle stated plainly
@@ -31,7 +42,7 @@ data and are never touched by an update.
   `/init` now offers it in one line rather than interrogating; `/help` and the README list it. The
   "opt-in depth, never a gate" rule is now the stated spine of the config system in `conventions.md`.
 
-## 1.0.2 — the graceful exit (unreleased, branch `1.0.2`)
+## 1.0.2 — the graceful exit
 
 **Added**
 - **`/relay:exit` — leave cleanly, the round-trip for `/adopt`.** Removes Relay from a repo without
@@ -46,7 +57,7 @@ data and are never touched by an update.
   `relay.config.local.json` schema is now documented in one annotated block, with the default for every
   absent key.
 
-## 1.0.1 — the interaction layer (unreleased, branch `1.0.1`)
+## 1.0.1 — the interaction layer
 
 Additive polish from dogfooding 1.0 on a real repo — how Relay *talks to you* and *handles your
 files*. New shared contracts live in [docs/conventions.md](docs/conventions.md).
@@ -79,7 +90,7 @@ files*. New shared contracts live in [docs/conventions.md](docs/conventions.md).
 - **`/init` records nothing switch-often** — session/verbosity are no longer asked or written at init;
   it just gitignores the local prefs file.
 
-## 1.0.0 — assembled on branch `1.0` (unreleased)
+## 1.0.0
 
 The breaking cut, tagged **once**. Assembled on branch `1.0`; main stays on 0.14.0 until the
 `1.0`→`main` merge. The whole additive 0.x arc (guardrails · budget/tier · `/refine` · `/persist` ·

@@ -35,7 +35,7 @@ it are two separate acts.
 > **On a real codebase, ground it first.** `/explore` shapes the idea in the abstract. If it needs to
 > fit an existing project, run **`/refine throttle-repeated-login-attempts`** before building — it
 > reads the actual code, checks it against your guardrails, threat-models it, and slices it to your
-> budget tier, updating the brief in place. Skip it for something small; reach for it when the idea has
+> session size, updating the brief in place. Skip it for something small; reach for it when the idea has
 > to land in real code. Here we'll keep the walk simple and go straight to picking it up.
 
 ## Morning: pick something

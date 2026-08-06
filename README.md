@@ -51,7 +51,7 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 |---|---|
 | `/init` | Scaffold the **minimal** board + dirs in a repo (run **once**, at setup) — greenfield or brownfield, never destructive |
 | `/explore` | Turn a rough idea into a shaped brief on the board — interrogate it, weigh alternatives, never builds (purely context-free) |
-| `/refine` | Ground a shaped brief against **this** project — code, guardrails, threat model, budget-sized slices; pulls a legacy doc into Relay as it grooms it |
+| `/refine` | Ground a shaped brief against **this** project — code, guardrails, threat model, session-sized slices; pulls a legacy doc into Relay as it grooms it |
 | `/next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
 | `/continue` | Resume an in-flight thread from its handover |
 | `/ship` | End-of-session loop: test → PR + review → fix → merge → handover → (offers `/persist`) |
@@ -91,6 +91,7 @@ needs them:
 | `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
 | `/gc` | Reclaim **orphaned** worktrees left by sessions that skipped the happy path (crashed, or `/clear`ed without a handover). You never need it in normal use — `/ship` cleans up after itself; reach for it only when orphans pile up. |
 | `/config` | The config front door — shows what's set/available and walks a guided setup. Opt-in depth, never a gate: nothing here blocks getting to work. |
+| `/help` | On-demand capability map — the lifecycle and every command, one line each, with links to the docs. The "what can this do again?" surface. |
 | `/version` | Print the Relay banner + version (confirms which plugin version is loaded). |
 
 **Review agents** (dispatched by `/review`): backend, frontend, ui-ux, api-architect,
