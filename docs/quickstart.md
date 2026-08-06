@@ -18,16 +18,19 @@ and handed it off to a fresh session — the full Relay loop, once.
 /plugin install relay
 ```
 
-Restart Claude Code if prompted. You should now see `/init`, `/explore`, `/next`,
-`/continue`, `/ship`, and the rest in your command list.
+Restart Claude Code if prompted. You now have Relay's commands.
 
-> **Command names collide?** If your setup already has a `/continue` or `/next`, Claude Code
-> namespaces plugin commands — invoke them as `/relay:continue`, `/relay:next`, etc.
+> **Type `/relay:help` first** — it prints the whole capability map on one screen. (New users:
+> that's your entry point, not the `/relay` autocomplete list, whose order Claude Code controls.)
+>
+> **Every command is namespaced `/relay:<name>`** — a bare `/init` isn't a Relay command (it may
+> tab-complete to a built-in like `/export`). Tab-complete *after* the colon. The runnable examples
+> in this guide keep the `/relay:` prefix so you can copy them straight; prose drops it for reading.
 
 ## 2. Scaffold the convention
 
 ```
-/init
+/relay:init
 ```
 
 `/init` is deliberately **minimal** — it does the least needed to start and defers everything else.
@@ -99,7 +102,7 @@ guess, not a verdict.
 Give a rough idea and let Relay turn it into a proper board item:
 
 ```
-/explore let users export their account data
+/relay:explore let users export their account data
 ```
 
 `/explore` interrogates the idea one question at a time — the real problem, who it's for,
@@ -129,7 +132,7 @@ right-sized slice instead of a raw sketch.
 ## 4. Start it
 
 ```
-/next
+/relay:next
 ```
 
 Relay reads the board, ranks what's startable, and shows you a short table with a ⭐
@@ -143,7 +146,7 @@ session's work.
 When the slice is done and committed:
 
 ```
-/ship
+/relay:ship
 ```
 
 This runs the whole end-of-session loop in order, stopping at any gate that needs you:
@@ -162,7 +165,7 @@ This runs the whole end-of-session loop in order, stopping at any gate that need
 Run `/clear` to wipe the session's memory. Then, in the fresh session:
 
 ```
-/continue
+/relay:continue
 ```
 
 It fetches the board from `main`, finds the thread you just handed off, tells you in plain

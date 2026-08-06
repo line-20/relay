@@ -7,6 +7,18 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.6 — copy-able docs + new-user nudges
+
+**Changed**
+- **Runnable command examples now carry the `/relay:` prefix** across README, quickstart, and
+  day-in-the-loop — so they're exact copy-paste (a bare `/init` isn't a command and tab-completes to a
+  built-in). Prose keeps the bare names for readability, and each doc now says so up front.
+- **New-user nudges.** Since Claude Code controls the `/relay` autocomplete order (it can surface `/gc`
+  or `/fix` first — not plugin-influenceable), the README and quickstart now point a new user's first
+  keystroke at **`/relay:help`** (the one-screen map) rather than the picker.
+- **`/refine` is now a real beat in the day-in-the-loop walk** (shape → **ground** → build), not a
+  skippable sidebar, and it's in the flow diagram.
+
 ## 1.0.5 — docs refresh + `/help` links
 
 **Changed**

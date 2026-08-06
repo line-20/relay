@@ -112,11 +112,16 @@ Relay is distributed as a Claude Code plugin. From inside Claude Code:
 Then, once, in each repo you want to use it in:
 
 ```
-/init
+/relay:init
 ```
 
 That scaffolds the board and the handover/brief directories, seeded with tracks that fit
-your repo. From there, `/next` picks the first thing to work on.
+your repo. From there, `/relay:next` picks the first thing to work on.
+
+> **New here? Type `/relay:help`** for the one-screen map of everything, or `/relay:init` to set up.
+> **All commands are namespaced `/relay:<name>`** — a bare `/init` isn't a Relay command (and tab
+> after `/relay:`). The command examples in these docs keep the `/relay:` prefix so you can copy them
+> as-is; prose drops it for readability.
 
 > New to it? Read **[docs/quickstart.md](docs/quickstart.md)** (10 minutes to your first loop),
 > then **[docs/the-board-model.md](docs/the-board-model.md)** for the one mental model

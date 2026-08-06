@@ -13,7 +13,7 @@ block** (monospace keeps it aligned) — no preamble, no explanation, no tool ca
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v1.0.5
+  continuity-first SSDLC workbench                          v1.0.6
   by Line20 · @eriklenaerts
   update: /plugin marketplace update line-20 · then reload the window
 ```

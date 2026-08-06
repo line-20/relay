@@ -3,6 +3,9 @@
 One item, walked from a rough idea to a shipped change, annotated. Follow it once and the
 commands stop feeling like separate tricks and start feeling like one motion.
 
+> Commands are namespaced `/relay:<name>` — the runnable examples below keep the prefix so you can
+> copy them as-is (tab-complete after the colon). New to Relay? `/relay:help` prints the whole map.
+
 The example: adding a rate limit to a login endpoint. Track `auth`, slug `auth/rate-limit`.
 
 ---
@@ -13,7 +16,7 @@ It starts as a one-liner — "we should throttle repeated login attempts." Befor
 anyone's session, you shape it:
 
 ```
-/explore throttle repeated login attempts
+/relay:explore throttle repeated login attempts
 ```
 
 Relay doesn't jump to a design. It interrogates the idea one theme at a time, stopping for
@@ -32,11 +35,24 @@ it are two separate acts.
 > before any code exists. `/explore` is where a wrong assumption costs a sentence, not a
 > rewrite.
 
-> **On a real codebase, ground it first.** `/explore` shapes the idea in the abstract. If it needs to
-> fit an existing project, run **`/refine throttle-repeated-login-attempts`** before building — it
-> reads the actual code, checks it against your guardrails, threat-models it, and slices it to your
-> session size, updating the brief in place. Skip it for something small; reach for it when the idea has
-> to land in real code. Here we'll keep the walk simple and go straight to picking it up.
+## Still the day before: ground it against the code
+
+`/explore` shaped the idea *in the abstract*. Because `auth/rate-limit` has to land in a real
+codebase, you ground it before anyone builds:
+
+```
+/relay:refine auth/rate-limit
+```
+
+Relay reads the actual code the change will touch (where auth lives, what a rate limiter would sit
+beside, what it must not break), checks it against your guardrails, runs a quick threat model — this
+*is* a security feature — and re-slices the work to your **session size**, writing all of it back into
+the brief. Now the brief isn't just a shaped idea; it's a grounded, right-sized plan a cold session can
+build without re-deriving the context.
+
+> **When to skip it.** A small, obvious change can go straight from `/explore` to `/next` — but a
+> security-sensitive endpoint isn't one of them. Shape → **ground** → build are three separate acts,
+> and this is the middle one.
 
 ## Morning: pick something
 
@@ -44,7 +60,7 @@ Next day, fresh session, no memory of yesterday's `/explore` — but the brief i
 You've no idea what's most worth doing, so you ask:
 
 ```
-/next
+/relay:next
 ```
 
 Relay fetches the board from `main`, filters to what's actually startable (skipping anything
@@ -73,7 +89,7 @@ You get pulled away before the slice is finished — but it's at a natural pause
 lose the thread, hand it off:
 
 ```
-/handover
+/relay:handover
 ```
 
 Relay writes `relay/handover/next-2026-08-04-1330.md`: what you were doing, what's committed,
@@ -92,7 +108,7 @@ Then `/clear`. The session's memory is gone. The thread is not — it's on `main
 New session, hours later, no memory of the morning:
 
 ```
-/continue
+/relay:continue
 ```
 
 Relay fetches the board, sees `auth/rate-limit` waiting with a handover, enters its worktree,
@@ -108,7 +124,7 @@ You confirm, it finishes the slice, commits.
 Not ready to merge on trust? Before `/ship`, hand the change to a test pass:
 
 ```
-/test
+/relay:test
 ```
 
 Relay opens a draft PR and writes a **structured test plan** into it — preconditions, the happy
@@ -121,7 +137,7 @@ to local-run steps.)
 ## Evening: ship it
 
 ```
-/ship
+/relay:ship
 ```
 
 The end-of-session loop, in order, stopping at any gate that needs you:
@@ -163,7 +179,7 @@ The ship path is three commands — explore the idea, start it, wrap it up (`/sh
 the review, the merge, the handover, **and the tidy-up** for you at the end):
 
 ```
-/explore ──► /next ──► build in worktree ──► /ship ──► merged, handed off & tidied
+/explore ──► /refine ──► /next ──► build in worktree ──► /ship ──► merged, handed off & tidied
    idea →                                        test → review → merge → handover → archive
    brief on board
 ```
