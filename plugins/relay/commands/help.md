@@ -30,6 +30,7 @@ Open with the one-line lifecycle, then the tables:
 | `/relay:init` | Minimal scaffold — board + dirs; greenfield or brownfield, never destructive |
 | `/relay:guardrails` | Establish per-dimension project standards (API/UI/security/…) |
 | `/relay:adopt` | Bulk-adopt a brownfield area: pull idea docs in, register + compact convention docs, reconcile `.claude/` |
+| `/relay:exit` | Cleanly remove Relay: restore adopted content to where it came from, export your briefs, un-wire config. Code untouched |
 | `/relay:persist` | After a lap: harvest lessons into guardrails/design-system/memory + release notes |
 | `/relay:deploy` | Orchestrate + security-gate a PR preview via your own CI |
 

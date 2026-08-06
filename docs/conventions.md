@@ -18,6 +18,32 @@ different files because they have different owners and lifetimes.
 A teammate on a different Claude plan, or in a different mood about session size, must not inherit
 yours — so those signals are **local, never committed**.
 
+### The full schema (for reference — you never write this by hand)
+No key is scaffolded at `/init`; **absent = default**, and each key is added by the command that owns it
+when you use that feature. A fully-configured repo *could* look like this — but a minimal repo has no
+config file at all:
+```jsonc
+// relay.config.json  (committed — project truth; written incrementally, never all at once)
+{
+  "root": "relay",                                   // /init, only if non-default (else absent)
+  "paths": { "knowledge": "docs",                    // /guardrails, /adopt — per-path overrides
+             "design-system": "packages/ui/DESIGN.md" },
+  "guardrails": {                                     // /guardrails, /adopt — per-dimension bars
+    "api": { "baseline": "vendor-neutral-rest", "extends": ["docs/api-house.md"] },
+    "ui":  { "baseline": "tokens-a11y", "extends": ["packages/ui/DESIGN.md"] }
+  },
+  "hooks": { "test": "test-stack", "commit": "commit" }  // /adopt — dispatch project automation
+}
+```
+```jsonc
+// relay.config.local.json  (gitignored — driver preferences; or set per-call)
+{ "session": "large", "verbosity": "terse" }
+```
+**Defaults when a key is absent:** `root` → `relay`; no `paths` overrides; no `guardrails` (reviewers
+use their built-in defaults); no `hooks` (commands use their built-in discovery); `session` → unset (no
+shaping, full fan-out); `verbosity` → `normal`. A committed `tier` is still read where `session` is
+absent (back-compat).
+
 ### `session` — how big a bite per slice
 `small | medium | large`. This is **context-appetite, not plan**: it sizes the work so building a
 slice completes within the *healthy* part of a session's context window (the rule of thumb: finish

@@ -7,6 +7,21 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.0.2 — the graceful exit (unreleased, branch `1.0.2`)
+
+**Added**
+- **`/relay:exit` — leave cleanly, the round-trip for `/adopt`.** Removes Relay from a repo without
+  trapping anything: it **restores each adopted brief to where it came from** (the 1.0.1 provenance line
+  records the origin), **exports** your Relay-created briefs (default `ideas/`), **discards** Relay's own
+  bookkeeping (board, handovers, reviews, audits — all in git history), and **removes** config +
+  the `.gitignore` line — leaving your **code and deliverable docs untouched**. Previews the full plan
+  and STOPs before touching a file (`--dry-run` to preview only); lands as one `git revert`-able commit;
+  refuses to proceed on uncommitted/in-flight work. So adoption is fully reversible — no lock-in.
+- **Complete config reference in `docs/conventions.md`.** Because `/init` scaffolds no placeholder
+  config (absent = default, each key added by the command that owns it), the full `relay.config.json` /
+  `relay.config.local.json` schema is now documented in one annotated block, with the default for every
+  absent key.
+
 ## 1.0.1 — the interaction layer (unreleased, branch `1.0.1`)
 
 Additive polish from dogfooding 1.0 on a real repo — how Relay *talks to you* and *handles your
