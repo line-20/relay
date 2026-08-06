@@ -28,6 +28,7 @@ Open with the one-line lifecycle, then the tables:
 | Command | What it does |
 |---|---|
 | `/relay:init` | Minimal scaffold — board + dirs; greenfield or brownfield, never destructive |
+| `/relay:config` | Guided config front door — shows/sets optional config; opt-in depth, never a gate |
 | `/relay:guardrails` | Establish per-dimension project standards (API/UI/security/…) |
 | `/relay:adopt` | Bulk-adopt a brownfield area: pull idea docs in, register + compact convention docs, reconcile `.claude/` |
 | `/relay:exit` | Cleanly remove Relay: restore adopted content to where it came from, export your briefs, un-wire config. Code untouched |

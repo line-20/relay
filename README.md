@@ -90,6 +90,7 @@ needs them:
 | `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/explore`. |
 | `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
 | `/gc` | Reclaim **orphaned** worktrees left by sessions that skipped the happy path (crashed, or `/clear`ed without a handover). You never need it in normal use — `/ship` cleans up after itself; reach for it only when orphans pile up. |
+| `/config` | The config front door — shows what's set/available and walks a guided setup. Opt-in depth, never a gate: nothing here blocks getting to work. |
 | `/version` | Print the Relay banner + version (confirms which plugin version is loaded). |
 
 **Review agents** (dispatched by `/review`): backend, frontend, ui-ux, api-architect,
