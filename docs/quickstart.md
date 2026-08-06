@@ -89,6 +89,10 @@ guess, not a verdict.
 >
 > Net: start Relay on a messy real project today, keep working, and it cleans up *as a side effect of
 > the work* — never as a big scary migration.
+> - **And you can leave just as cleanly.** `/relay:exit` is the round-trip: it restores every adopted
+>   doc to where it came from (the provenance line records that), exports your Relay-made briefs,
+>   removes Relay's config + bookkeeping, and leaves your code and deliverable docs untouched — as one
+>   `git revert`-able commit. `/adopt` pulls in; `/exit` hands back. No lock-in.
 
 ## 3. Shape your first piece of work with `/explore`
 

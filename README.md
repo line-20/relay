@@ -80,6 +80,7 @@ needs them:
 | `/deploy` | Orchestrate + **security-gate** the PR preview your own CI produces, then hand a verified URL to `/test`. Never owns deployment |
 | `/persist` | After a lap, **harvest what it taught** — into guardrails, the design system, AI memory — and draft human-readable **release notes**. The step that makes the spiral compound |
 | `/adopt` | **Bulk-adopt a brownfield area**: move its idea docs into Relay (tidying them) and register + compact its convention docs in place. The fast-forward for what `/refine`/`/guardrails` do gradually |
+| `/exit` | **Leave cleanly** — the round-trip for `/adopt`: restore adopted content to where it came from, export your briefs, un-wire config; your code untouched, one `git revert` away. No lock-in |
 
 **Also handy:**
 
