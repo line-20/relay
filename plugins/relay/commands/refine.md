@@ -3,6 +3,8 @@ description: Groom a shaped idea against THIS project — its code, guardrails, 
 argument-hint: "[track/slug of a brief to refine; omit to pick from the board]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Take a brief that `/explore` shaped **in the abstract** and groom it **against this project** —
 its existing code, its guardrails, its accumulated memory, and the driver's **session size** — so
 what reaches the builder is grounded, security is designed in, and every slice is sized to the

@@ -3,6 +3,8 @@ description: Orchestrate and verify the PR preview the project's OWN CI produces
 argument-hint: "[pr-number — omit to use the current branch's PR]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Make a PR's **preview** ready and trustworthy to test against. This is phase (h): it sits between
 build/review and `/test`, and its whole value is turning "there might be a preview building
 somewhere" into "here is a verified, security-gated URL, click through it." It is deliberately

@@ -3,6 +3,8 @@ description: Bring a brownfield repo's existing material under Relay management,
 argument-hint: "[area/track, a path glob, or --all; omit to preview the whole repo]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Fast-forward a repo's adoption into Relay. Relay adopts **progressively by default** — `/init`
 *references* existing docs, `/refine` *pulls a work-input in* the moment it's touched, `/guardrails`
 *registers* context when a dimension first matters. `/adopt` is the **bulk button** for when you'd

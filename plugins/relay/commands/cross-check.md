@@ -3,6 +3,8 @@ description: Build or consult a reference frame — how other systems, products,
 argument-hint: "[a topic, a brief slug, or a design decision to check]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Sanity-check your thinking against the world before you commit to it. This command builds a
 durable **reference frame** — a curated picture of how *others* handle a problem (competitor
 products, established prior art, standards and patterns, known expert approaches, and the

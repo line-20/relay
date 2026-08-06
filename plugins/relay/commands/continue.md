@@ -3,6 +3,8 @@ description: Continue the next phase from a handover (prefers the shared copy on
 argument-hint: "[optional item slug or handover path; defaults to the thread matching this branch]"
 ---
 
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+
 Continue the next phase of work from a handover file and carry it out.
 
 > **Relay convention.** This command reads durable state from `<root>/board.md`
