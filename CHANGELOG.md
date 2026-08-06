@@ -27,6 +27,24 @@ its verbs. Every additive 0.x feature carries forward unchanged.
   `/refine`. Three clean stages: `/explore` shapes → `/refine` grounds → `/next`/`/continue` builds.
 
 **Added**
+- **Progressive setup — `/init` is now minimal, and adoption is gradual.** Onboarding was too heavy:
+  init front-loaded a budget-tier question, a full dir tree, seeded stubs, and (in 0.14.0) a
+  destructive import of your idea docs. Now `/init` does the *minimum* — a board and the two dirs the
+  first commands write — and **nothing destructive**. On a brownfield repo it surfaces your existing
+  idea/plan docs on the board **by reference** (left in place); on greenfield, an empty board → `/explore`.
+  Everything heavier is **deferred and offered by the phase that needs it**: the budget tier is asked
+  the first time a command fans out (`/review`/`/refine`/`/next`), guardrails is offered when `/refine`
+  or `/review` finds none, and pulling legacy docs *into* Relay happens on touch or on demand (below).
+- **`/adopt [area]` — gradual brownfield migration, with cleanup.** A dedicated, area-scoped command
+  that brings existing material under Relay management: **work-inputs** (ideas/plans/todos) are **moved**
+  into `briefs/` and **actualised** on the way in (cut what shipped, fix drift, tighten); **deliverable
+  knowledge** (design guide, conventions) is **registered** as a guardrails `extends` overlay *in place*
+  and **compacted** by its domain steward (e.g. `ui-ux-designer` trims an accreted design guide). Code
+  is left untouched. Always previews a triage table and STOPs before touching a file; scope narrows the
+  blast radius (`/adopt ui`, `/adopt ideas/finance*`, `/adopt --all`). `/refine` does the same pull-in
+  **on touch** for a single idea, so a brownfield repo becomes pristine as you work; `/adopt` is the
+  bulk fast-forward. (This is where 0.14.0's destructive import moved — from an init default to a
+  deliberate, scoped, non-destructive-by-surprise command.)
 - **Per-path config** — `root` generalises to a uniform `paths` resolver: relocate any single logical
   path independently (`{ "paths": { "knowledge": "docs" } }`), resolving `paths[name]` else
   `<root>/<name>`. List only what you move; no config ⇒ everything under `relay/` as before.

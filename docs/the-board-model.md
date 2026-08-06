@@ -114,6 +114,11 @@ reports and waits rather than deleting.
   alternatives, and adds a brief + a board row (🔜/💡) — the front of the loop that feeds everything.
 - `/refine` **grooms** an item's brief against the project (code, guardrails, threat model, budget-
   sized slices) — the bridge from a shaped idea to a buildable one; may slice a large item into an epic.
+  On a brownfield repo it also **pulls a referenced legacy doc into `briefs/`** as it grooms it
+  (adopt-on-touch), so the board row flips from "referenced outside `relay/`" to Relay-owned.
+- `/adopt [area]` **bulk-adopts** a brownfield area: moves its work-inputs into `briefs/` (tidying
+  them) and registers + compacts its deliverable docs in place. The fast-forward for what `/refine`
+  and `/guardrails` otherwise do gradually; scoped, and never touches a file without approval.
 - `/cross-check` **writes** a reference frame under `relay/reference/` (how others solve the
   problem) and checks an approach against it — offered at the end of `/explore`, or on its own.
 - `/next` **reads** Open threads, filters to what's startable (🔜/⏸/💡, no live owner),

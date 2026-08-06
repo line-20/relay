@@ -19,8 +19,10 @@ everywhere `$PR` appears below).
 > report below is written under `<root>/reviews/`.
 >
 > **Resolve the budget tier too:** `TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"`.
-> It caps how many specialists fan out (Step 1.5). **`unset` ⇒ no cap** — every applicable
-> specialist runs, exactly as before; budget shaping is opt-in via `/init`.
+> It caps how many specialists fan out (Step 1.5). **`unset` ⇒ no cap** — every applicable specialist
+> runs. This is the classic **fan-out moment**, so if `TIER` is unset, run at full **and mention once**
+> that setting a budget tier (`free`/`pro`/`max`) would right-size this to the driver's Claude plan —
+> write it to `relay.config.json` if the user picks one. Never block the review on it.
 
 ## Step 1 — Classify the diff
 Get a diffstat before invoking any subagent:

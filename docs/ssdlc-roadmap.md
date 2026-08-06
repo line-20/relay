@@ -334,12 +334,25 @@ non-cheap gaps; both are addressed by R2/R3. Everything else is a dimension away
 
 ## Decisions — 🔒 closed
 - **Command names.** `init`, `explore`, `refine`, `next`, `continue`, `review`, `fix`, `test`,
-  `deploy`, `persist`, `ship`, `guardrails`, `gc` — plus unchanged `handover`, `cross-check`,
-  `watch`. `persist` (over harvest/capture/learn) and **`ship` stays** as the composite
-  review→fix→merge→persist→handover tail (not dissolved). Default root stays `relay/`.
-- **Budget signal.** A **`tier`** — `free` / `pro` / `max` — in `relay.config.json`, **asked once at
-  `/init`**. Drives slice size in `/refine`, agent fan-out in `/review`, depth in `/test`. (A
-  power-user per-lap token target can layer on later; not 1.0-critical.)
+  `deploy`, `persist`, `ship`, `guardrails`, `gc`, **`adopt`** — plus unchanged `handover`,
+  `cross-check`, `watch`, `version`. `persist` (over harvest/capture/learn) and **`ship` stays** as the
+  composite review→fix→merge→persist→handover tail (not dissolved). Default root stays `relay/`.
+- **Progressive setup (revised — supersedes "tier asked at `/init`").** Onboarding is progressive:
+  `/init` does the **minimum** (a board + the dirs the first commands write) and **nothing destructive
+  or speculative** — greenfield → empty board → `/explore`; brownfield → tracks from code + existing
+  idea docs surfaced **by reference** (never moved). Everything else is **offered just-in-time** by the
+  phase that needs it. The budget tier is **not asked at init** — it's offered the first time a command
+  actually fans out (`/review`/`/refine`/`/next`), absent ⇒ full. Guardrails is offered when
+  `/refine`/`/review` finds none. This makes phases genuinely emergent/optional, as the top principle
+  demands.
+- **Gradual adoption + `/adopt`.** A brownfield repo becomes Relay-managed **as you work**: `/refine`
+  pulls a referenced legacy work-input into `briefs/` (and actualises it) the moment it's groomed, so
+  the source empties over time. The dedicated **`/adopt [area]`** command is the scoped bulk
+  fast-forward — moves+actualises work-inputs, and **registers + compacts** deliverable docs in place
+  via their steward (the accreted-design-guide case). Two adoption verbs by lifetime: **work-inputs
+  move** (transient, Relay-owned); **deliverable knowledge is registered in place** (durable, lives
+  with the code) — both get an actualise/compact cleanup pass on adoption. `/adopt` STOPs before
+  touching anything and doesn't assume git.
 - **Guardrails default stance.** Shipped default is **`vendor-neutral-rest`**; Zalando / Microsoft /
   Google-AIP are **selectable adaptations**, not the default — Relay stays portable, castles opts in.
   Bundled library stays **thin at first** (neutral + `tokens-a11y`) + "bring your own ruleset path";

@@ -30,8 +30,14 @@ Restart Claude Code if prompted. You should now see `/init`, `/explore`, `/next`
 /init
 ```
 
-This inspects your repo and creates **one folder — the Relay root** — holding every durable file
-the workflow reads and writes. This is the exact structure every command builds and looks for:
+`/init` is deliberately **minimal** — it does the least needed to start and defers everything else.
+On a **greenfield** repo it writes an empty board and points you at `/explore`. On a **brownfield**
+repo it also seeds a few real tracks from your code and **references your existing idea/plan docs on
+the board — leaving them exactly where they are** (see the reassurance box below). It never asks for a
+budget tier, never runs guardrails, and never moves a file; those come later, when a phase needs them.
+
+Over time the Relay root fills out to this full shape (most sub-dirs are created lazily, by the first
+command that writes them — `/init` itself only makes `board.md`, `briefs/`, and `handover/`):
 
 ```
 relay/                ← the Relay root (default name; see "point it elsewhere" below)
@@ -60,6 +66,29 @@ at a glance and it stays cleanly separated from the rest of your repo.
 It commits these but does **not** push — review the seeded tracks, edit them to match how
 you actually think about the work, then push when you're happy. The tracks are a starting
 guess, not a verdict.
+
+> ### Pointing Relay at an existing project — what happens, and what doesn't
+> Relay is built to move **into** a repo that already has history, docs, and half-formed plans —
+> greenfield and brownfield are both first-class. The worry is always "will it rearrange my stuff?"
+> The answer is **no, not without you asking**:
+> - **`/init` moves nothing.** Your `ideas/`, `docs/`, RFCs, notes stay exactly where they are. Init
+>   only *references* your idea/plan docs on the board (a row whose `Detail` points at the original
+>   file) so none of them is invisible — nothing is copied, moved, or rewritten.
+> - **Adoption is progressive and opt-in.** A doc is only ever *pulled into* Relay when you choose to
+>   work it: `/refine <slug>` moves that one idea into `briefs/` as it grooms it, and — because it's
+>   reconciling against your current code anyway — **tidies it on the way in** (cuts what already
+>   shipped, fixes what drifted). Over time, as you work, `ideas/` empties and the repo becomes fully
+>   Relay-managed. The board's `Detail` column shows the progress: rows still pointing *outside* the
+>   root are the not-yet-adopted tail.
+> - **Want to sweep an area at once?** `/adopt [area]` is the bulk button — it pulls a whole area's
+>   work-inputs in (and can register + **compact** an existing design guide or convention doc in place,
+>   via its steward). Scoped, and it always shows a plan and STOPs before touching anything.
+> - **Your durable docs stay with your code.** A design guide, DB conventions, architecture notes are
+>   never moved into Relay — they're *registered* (pointed at) by `/guardrails` so reviews check
+>   against them, and they keep living where they belong.
+>
+> Net: start Relay on a messy real project today, keep working, and it cleans up *as a side effect of
+> the work* — never as a big scary migration.
 
 ## 3. Shape your first piece of work with `/explore`
 
@@ -142,6 +171,9 @@ nothing about your last one, and it doesn't need to. That's the point.
 
 - **Setting "what good means" for the project?** `/guardrails` — establish the layered guardrails
   (API/UI/security/…) that `/refine` and the review specialists then check against.
+- **Moving in on a repo full of legacy notes?** `/adopt [area]` — pull an area's idea docs into Relay
+  (tidied on the way in) and register + compact its convention docs. The bulk version of what `/refine`
+  does per-idea; scoped, and always asks first.
 - **Got a rough idea?** `/explore` — shape it into a brief on the board (purely in the abstract).
 - **Unsure if you're reinventing something?** `/cross-check` — see how others solve it first.
 - **Need it grounded before building?** `/refine` — fit the idea to the code + guardrails, threat-model

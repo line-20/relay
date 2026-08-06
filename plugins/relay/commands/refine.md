@@ -23,7 +23,9 @@ TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"
 GUARDRAILS="$(jq -r '.guardrails // empty | keys | join(",")' relay.config.json 2>/dev/null)"
 ```
 `TIER` drives the slice size and how wide `/refine` fans out (Steps 2, 5); `unset` ⇒ no budget
-shaping — slice by natural seams, exactly as an unconfigured repo would. `GUARDRAILS` is the active
+shaping — slice by natural seams. This is a **fan-out moment**, so if `TIER` is unset, proceed at full
+and **offer once** to set a budget tier (it right-sizes slicing + fan-out to your Claude plan) — if the
+user picks one, write it to `relay.config.json`; never block on it. `GUARDRAILS` is the active
 dimensions (from `/guardrails`); **empty ⇒ no guardrails configured**, and every guardrail step below
 falls back gracefully (Steps 3, 4) — a repo that never ran `/guardrails` still refines, just without
 that layer.
@@ -41,6 +43,27 @@ Read the brief from main: `git show FETCH_HEAD:<root>/briefs/<slug>.md`.
   shaped idea I'm about to ground in the project" — and confirm you've got the right target before
   spending the run. If the brief already has a `## Project grounding` / `## Threat model` section,
   this is a **re-refine** — update in place rather than duplicating.
+
+## Step 1.5 — Pull a referenced legacy input in (adopt-on-touch)
+If the item's board **`Detail` points outside `<root>/`** (e.g. `ideas/foo.md`) — or the "brief" you
+were handed is a legacy doc still living in its original spot — this refine **adopts it into Relay**
+as it grooms it. This is how a brownfield repo gets pristine gradually: each idea moves in the moment
+someone actually works it. On approval (say what you're about to do):
+- **Move it** into `<root>/briefs/<slug>.md` — history-preserving where there's git, plain move
+  otherwise (not every project is a git repo):
+  ```bash
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git ls-files --error-unmatch "<src>" >/dev/null 2>&1
+  then git mv "<src>" "<root>/briefs/<slug>.md"; else mkdir -p "<root>/briefs" && mv "<src>" "<root>/briefs/<slug>.md"; fi
+  ```
+- **Rewrite path references** to it (`CLAUDE.md`, cross-links); name-based `[[wikilinks]]` survive.
+- **Repoint the board row** `Detail` to `<root>/briefs/<slug>.md`. The legacy spot is now empty — the
+  board no longer shows this item as "outside `relay/`".
+- **Actualise as you groom** (Steps 2 & 7): don't preserve a fossil. Because you're grounding against
+  current code anyway, reconcile the doc with reality — cut what's already shipped, correct drifted
+  assumptions, tighten. Import the *actualised* version.
+
+If the brief already lives under `<root>/briefs/`, skip this — it's already adopted; just refine it.
+(To pull in a whole area at once instead of one-at-a-time, that's `/adopt [area]`.)
 
 ## Step 2 — Ground it in the actual project (context — the part `/explore` skipped)
 Find out what the codebase already says about this work, so the plan builds *with* the grain instead
@@ -75,6 +98,11 @@ design-system doc) and turn it into an **explicit requirement** the slices must 
 - `testing` ⇒ the coverage/kind expected for this change.
 **No guardrails configured (or dimension off)** ⇒ skip that requirement and note it — don't invent a
 bar. These requirements become acceptance criteria attached to the relevant slices, not vague hopes.
+
+**No guardrails at all?** Proceed with sensible defaults, but **offer once**: this project has no
+guardrails, and `/guardrails` establishes them so `/refine` and the review specialists check against
+*your* standards instead of generic defaults — especially worth it if there's an existing design guide
+or API doc `/adopt`/`/guardrails` could register. Non-blocking; refine still finishes without it.
 
 ## Step 4 — Threat model (security, designed in — content-gated)
 Do this whenever the change has a **security or privacy surface** — it touches auth/authZ, handles

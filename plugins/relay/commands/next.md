@@ -20,9 +20,11 @@ ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"
 ```
 `TIER` caps how wide the verify/audit levels fan out research agents (Steps 2.9A / 2.9B). **`unset`
-⇒ no cap** — the levels run at their full width, exactly as before; budget shaping is opt-in via
-`/init`. It never changes the *default* level (Quick stays the default at every tier) — only
-how wide a level goes once chosen.
+⇒ no cap** — the levels run at their full width. It never changes the *default* level (Quick stays the
+default at every tier) — only how wide a level goes once chosen. If you're about to run a **verify or
+audit** level with `TIER` unset, **offer once** to set a budget tier (it right-sizes the research
+fan-out); write it to `relay.config.json` if the user picks one, and never block. (Quick doesn't
+fan out, so it never needs to ask.)
 **Soft check:** if the resolved `<root>/board.md` is nowhere to be found (not on `origin/main`, not
 local), STOP and say so plainly — e.g. *"root `docs` configured but `docs/board.md` missing — run
 `/init`?"* — rather than failing deep in a later step.
