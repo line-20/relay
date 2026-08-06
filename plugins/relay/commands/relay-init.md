@@ -98,7 +98,9 @@ POPULATED="$( { git ls-files; git ls-files --others --exclude-standard; } 2>/dev
 ```
 - **Populated** (`POPULATED` non-empty, or there's obvious source/config on disk) — there's a real
   codebase to describe, so inspect it (`CLAUDE.md`, packages/apps, README) and seed **2–4 real
-  tracks** (Step 3) with a roadmap narrative and one brief stub (Step 4).
+  tracks** (Step 3) with a roadmap narrative and one brief stub (Step 4). **Also scan for
+  pre-existing idea/plan docs and surface them on the board (Step 3.5)** — a real repo often already
+  has intended work written down, and dropping it is the failure mode to avoid.
 - **Greenfield** (empty repo, or nothing but the folder name and maybe a README) — **seed nothing
   speculative.** A folder called `todo-app` is not a spec; guessing tracks from the name just makes
   work the user has to delete. Scaffold the **structure only**: an **empty board**, a **roadmap
@@ -141,6 +143,27 @@ Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · �
 - 🔜 `<track>/<slug>` — <one-line summary>
 - ✅ Done: <slug>, <slug>
 ```
+
+## Step 3.5 — Populated only: surface pre-existing idea/plan docs (NEVER drop them)
+A real repo often already collects intended work as docs — the code tells you what *exists*, but
+these tell you what the user *means to build*, and inspecting only the code misses them entirely.
+**Discover them** (don't assume a folder name — look for anything that reads as "a thing we intend to
+build"): an `ideas/`, `briefs/`, `rfcs/`, `proposals/`, `docs/*-project.md` / `*-baseline.md`, a
+`HANDOFF.md`, and similar. Skip pure reference/convention docs (a design guide, DB conventions, an
+architecture doc that's context, not a work item).
+
+For **each** intended-work doc found, add a board **Open threads** row:
+- **Status 💡** by default (icebox — it's captured, not committed), or **🔜** if the doc plainly says
+  it's next/active.
+- `Owner` = —, `Latest handover` = —, and **`Detail` = the doc's existing path** — point at it **in
+  place**. Do **not** move, copy, or rewrite the user's docs into `<root>/briefs/`; Relay **adopts**,
+  never migrates.
+- Slot each under the best-fitting seeded track; add a track only if a cluster of ideas needs one.
+
+**Completeness beats tidiness:** list every intended-work doc, even a dozen 💡 rows. A board that
+silently omits work the user already wrote down is worse than a long one — the whole point of the
+board is that nothing in flight or intended is invisible. In the report (Step 6), say **how many** you
+surfaced and from where.
 
 ## Step 4 — Write the roadmap (and, only if populated, a first brief stub)
 Write `<root>/roadmap.md` — the narrative behind each board item (the board stays terse; the
@@ -209,6 +232,9 @@ Do NOT push automatically — let the user review first. Then give **one compact
 no file-content recaps):
 - **What was created** — the `<root>/` structure, in one line; and the **tier** recorded (or "none —
   full fan-out").
+- **Populated only** — the tracks you seeded (a guess to edit) and **how many pre-existing idea/plan
+  docs you surfaced** as 💡 items, and from where (e.g. "6 ideas from `ideas/` added as icebox items").
+  So the user can see nothing they'd written down was dropped.
 - **The next move** — the important part, and it differs by what you found in Step 2.5:
   - **Greenfield** → the board is intentionally **empty**. Next: **`/relay:explore <your first idea>`**
     to shape the first feature into a brief. Do NOT tell them to run `/relay:whats-next` yet — there's

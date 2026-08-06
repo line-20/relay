@@ -7,6 +7,17 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 0.12.8
+
+**Fixed**
+- **`/relay-init` (populated repo) now surfaces pre-existing idea/plan docs on the board.** It seeded
+  tracks from the *code* but ignored docs where the user had already written down intended work — on
+  a real brownfield repo (an `ideas/` folder of project baselines) that silently dropped every one of
+  them from the board. Init now scans for intended-work docs (`ideas/`, `briefs/`, `rfcs/`,
+  `docs/*-project.md`, `HANDOFF.md`, …), adds each as a 💡 icebox item whose `Detail` **points at the
+  doc in place** (adopt, never move/rewrite), and reports how many it surfaced. Pure reference/
+  convention docs (design guide, DB conventions) are correctly left off the board.
+
 ## 0.12.7
 
 **Fixed**
