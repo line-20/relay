@@ -40,11 +40,11 @@ relay/                ← the Relay root (default name; see "point it elsewhere"
   briefs/             ← one brief per unit of pending work (what /explore writes, /next starts from)
   handover/           ← cold-start handovers (next-*.md); what /handover writes and /continue resumes from
     archive/          ← superseded handovers, moved here by housekeeping (never deleted)
-  pr-reviews/         ← one merged review report per PR (what /review + /ship write)
+  reviews/            ← one merged review report per PR (what /review + /ship write)
     archive/          ← review reports past the newest 20, moved here by housekeeping
   reference/          ← reference frames from /cross-check (how others solve a problem)
   archive/            ← shipped briefs, moved here when the board is compacted
-  board-audit/        ← dated whole-board reconciliation reports from /next audit
+  audits/             ← dated whole-board reconciliation reports from /next audit
   README.md           ← a short note explaining the convention to teammates
 ```
 
@@ -80,6 +80,19 @@ deliberately separate. When it's done you have a startable item, not a half-buil
 > threads**, and drop a one-paragraph brief in `relay/briefs/` by hand. `/explore` is the
 > assisted path, not the only one.
 
+## 3.5 (optional) Ground it with `/refine`
+
+`/explore` shapes the idea in the abstract. On a real project, `/refine` grounds it before you build:
+
+```
+/relay:refine <track/slug>
+```
+
+It reads the actual code, the guardrails (`/guardrails`), and memory; threat-models the change; and
+re-slices the work to your budget tier — updating the brief in place. Skip it for something small and
+obvious; reach for it when the idea needs to fit an existing codebase. Then `/next` starts a grounded,
+right-sized slice instead of a raw sketch.
+
 ## 4. Start it
 
 ```
@@ -105,7 +118,7 @@ This runs the whole end-of-session loop in order, stopping at any gate that need
 1. **Test** — runs your suite; stops if anything's red.
 2. **PR** — opens a draft PR for the branch.
 3. **Review** — fans out the applicable specialists (security always runs), merged into one
-   report in `relay/pr-reviews/`.
+   report in `relay/reviews/`.
 4. **Fix** — re-verifies each finding and fixes the real ones.
 5. **Merge** — only on a clean green path (no blockers, checks passing, no conflicts).
 6. **Handover** — writes a cold-start note to `relay/handover/`, updates the board, commits
@@ -127,17 +140,28 @@ nothing about your last one, and it doesn't need to. That's the point.
 
 ## The daily rhythm, once you're going
 
-- **Got a rough idea?** `/explore` — shape it into a brief on the board before you build.
+- **Setting "what good means" for the project?** `/guardrails` — establish the layered guardrails
+  (API/UI/security/…) that `/refine` and the review specialists then check against.
+- **Got a rough idea?** `/explore` — shape it into a brief on the board (purely in the abstract).
 - **Unsure if you're reinventing something?** `/cross-check` — see how others solve it first.
+- **Need it grounded before building?** `/refine` — fit the idea to the code + guardrails, threat-model
+  it, and slice it to your budget tier.
 - **Starting fresh?** `/next` — pick from the board.
 - **Picking up a thread?** `/continue` — resume from its handover.
-- **Want to try it before merging?** `/test` — a draft PR with a structured test plan
-  (happy path + the edge/error/tenant-isolation cases); add `drive` to run the happy path in the
-  browser. Never merges.
+- **Want to try it before merging?** `/test` — a draft PR with a structured test plan (happy path +
+  edge/error/tenant-isolation + threat-model cases); add `drive` to run it in the browser. Never merges.
+- **Need the PR preview ready to test?** `/deploy` — orchestrate + security-gate the PR preview via
+  your own CI, then hand a verified URL to `/test`.
 - **Blocked on a sibling session's unlanded work?** `/watch` — park it, auto-resume when it lands.
 - **Done for now?** `/ship` (to ship) or `/handover` (to hand off mid-thread).
-- **Cleaning up?** Nothing to run — `/ship` archives old notes and prunes dead worktree entries
-  as part of its handover step, and keeps your topic worktrees for their next slice.
+- **Just shipped something worth keeping?** `/persist` — harvest the lesson into guardrails/design
+  system/memory and draft a release note, so the next lap starts smarter.
+- **Cleaning up?** Nothing to run — `/ship` archives old notes and prunes dead worktree entries as
+  part of its handover step, and keeps your topic worktrees for their next slice.
+
+The lifecycle, one line: **`guardrails` → `explore` → `refine` → `next`/`continue` → `test` →
+`deploy` → `review`/`fix` → `ship` → `persist`** — a spiral, each phase optional, results loop back to
+`explore`/`refine`.
 
 Next: **[the-board-model.md](the-board-model.md)** — the one mental model that makes all of
 this hang together.

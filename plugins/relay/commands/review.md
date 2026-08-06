@@ -16,7 +16,7 @@ everywhere `$PR` appears below).
 > **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
 > `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
 > `ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"` — the merged
-> report below is written under `<root>/pr-reviews/`.
+> report below is written under `<root>/reviews/`.
 >
 > **Resolve the budget tier too:** `TIER="$(jq -r '.tier // "unset"' relay.config.json 2>/dev/null || echo unset)"`.
 > It caps how many specialists fan out (Step 1.5). **`unset` ⇒ no cap** — every applicable
@@ -30,7 +30,7 @@ Get a diffstat before invoking any subagent:
 **Docs-only short-circuit**: if every changed file is a non-code file (`*.md`, `*.mdx`,
 `docs/**`, `LICENSE`, `CHANGELOG*`, and similar), stop here — don't launch any specialist.
 Say directly that the diff is docs-only and no specialist review was needed; don't write a
-`<root>/pr-reviews/` file for it. This is a content fact, not a size guess.
+`<root>/reviews/` file for it. This is a content fact, not a size guess.
 
 From the file list, note which side(s) are touched. **Discover the repo's own layout** (from
 `CLAUDE.md`, the workspace config, or the directory structure) rather than assuming fixed
@@ -127,8 +127,8 @@ is always auditable, never silent.
 ## Step 3 — Merge into ONE report, in EXACTLY this structure
 The report must look the same every time, no matter which specialists ran or how many findings
 they raised — a reader (and `/fix`) should be able to scan any Relay review report
-without relearning its shape. `mkdir -p <root>/pr-reviews`, then write
-`<root>/pr-reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md` using this template verbatim — same
+without relearning its shape. `mkdir -p <root>/reviews`, then write
+`<root>/reviews/pr-<NUMBER-or-branch>-<YYYY-MM-DD>.md` using this template verbatim — same
 frontmatter fields, same sections, same order, every time:
 
 ```markdown

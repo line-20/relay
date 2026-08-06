@@ -36,7 +36,7 @@ gh pr view --json number,state,reviewDecision,url 2>/dev/null
 
 - **No PR** (command empty/errors) → fine: a planning handover, or the work is already merged into main. Proceed.
 - **state MERGED** → loop closed. Proceed.
-- **state OPEN** → the loop isn't finished. Check `<root>/pr-reviews/` for a report on this PR; if none, it's also unreviewed. WARN and STOP:
+- **state OPEN** → the loop isn't finished. Check `<root>/reviews/` for a report on this PR; if none, it's also unreviewed. WARN and STOP:
   `⚠ Handing over with PR #<n> still open (<reviewed | UNREVIEWED>): <url>. The flow expects it merged first.`
   Ask to either finish the loop (`/fix`, then merge) or reply "handover anyway" to continue. Wait for the answer.
 - **state CLOSED (not merged)** → note it and ask the same way.
@@ -146,7 +146,7 @@ propagates; that's expected.
 
 ## Step 4.5 — Tidy the record (archive superseded notes)
 `/handover` and `/review` mint a new file every session, so `<root>/handover/` and
-`<root>/pr-reviews/` grow without bound. Since you've just synced with `main` and are already
+`<root>/reviews/` grow without bound. Since you've just synced with `main` and are already
 committing there, sweep the **superseded** files into `archive/` in the same breath — nothing
 is deleted, git keeps full history, so this is always safe and reversible. **Skip this step if
 Step 4's push FAILED** (you're not synced with main; don't touch the record).
@@ -156,11 +156,11 @@ The rule is "keep only what's still live":
   `<root>/handover/next-*.md` on main whose basename is **not** linked from `<root>/board.md`
   (the one you just wrote IS linked, so it stays). Keep the ones the board still points at.
 - **PR reviews** — a review doc is consumed at merge time. Keep the **20 most recent**
-  `<root>/pr-reviews/*.md` and archive the rest.
+  `<root>/reviews/*.md` and archive the rest.
 
 Do it on `main` with the same temp-index pattern as Step 4 (no branch switch). Refresh from
 main, compute the moves, and commit them as one archival commit — `git read-tree FETCH_HEAD`,
-stage the renames into `<root>/handover/archive/` and `<root>/pr-reviews/archive/` in the temp
+stage the renames into `<root>/handover/archive/` and `<root>/reviews/archive/` in the temp
 index, `write-tree`, `commit-tree -p FETCH_HEAD`, push to `main`. If nothing qualifies, skip
 the commit. Report a one-line count (e.g. "archived 3 handovers, 5 reviews") or say "nothing
 to archive".

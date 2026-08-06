@@ -6,7 +6,7 @@ allowed-tools: Bash(ls:*), Bash(cat:*), Bash(gh pr diff:*), Bash(git:*), Bash(pn
 > **Run by the loop.** `/ship` calls this for you (Phase 4). Invoke it standalone only when
 > you're working an existing review report outside a full ship.
 
-Work through the PR review report and fix what's real. Target: $ARGUMENTS (a report filename, or empty = use the most recent file in <root>/pr-reviews/).
+Work through the PR review report and fix what's real. Target: $ARGUMENTS (a report filename, or empty = use the most recent file in <root>/reviews/).
 
 > **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
 > `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
@@ -14,7 +14,7 @@ Work through the PR review report and fix what's real. Target: $ARGUMENTS (a rep
 > `<root>/…` path below relative to it.
 
 ## Step 1 — Load
-1. If no file given, run `ls -t <root>/pr-reviews/*.md | head -1` and use that.
+1. If no file given, run `ls -t <root>/reviews/*.md | head -1` and use that.
 2. Read the report. Parse the frontmatter (pr, areas, blockers) and the unchecked `- [ ]` findings.
 3. Get current state: `gh pr diff` (or the diff for the PR number in frontmatter) plus the actual files referenced.
 

@@ -8,8 +8,10 @@ budget-aware) in 0.9.0; #3 (`/refine` — context + guardrails + threat model + 
 0.11.0; #5 (`/deploy` — orchestrate/verify + security-gate a PR preview) in 0.12.0** — the rest is
 sequenced below. **The 1.0 breaking cut is now in progress on branch `1.0`** (0.14.0 stays on main
 untouched until the cut lands): command renames (#7) and explore-split (#8)
-done; epics (#9), reflect loop (#10), and per-path config + migration + docs rewrite (#11) still to
-do. The tables below still use the pre-1.0 names/paths — they get rewritten as part of #11.
+done; #6 security shift-left, #9 epics, #10 reflect loop, and #11 (per-path config, dir renames,
+migration, docs) also done. **All that remains before releasing 1.0 is the one-time castlesERP
+conversion and the `1.0`→`main` merge + tag.** The transition tables below deliberately keep the
+pre-1.0 names/paths to show the mapping.
 
 ## Vision
 Turn Relay from a continuity-first *loop* into a continuity-first **Secure SDLC workbench** — one
@@ -174,8 +176,10 @@ quarantined into the final major cut.
 5. **`/deploy` (phase h)** ✅ *(increment #5 — shipped 0.12.0)* — orchestrate/verify + security-gate
    a PR preview via the project's own pipeline (stay out of owning deploys); hands a verified URL to
    `/test-drive`. No preview mechanism ⇒ it stops, never invents one.
-6. **Security shift-left** — threat model in (c), security scenarios in (g), gate in (h); mostly
-   falls out of 1/3/4 once they exist.
+6. **Security shift-left** ✅ *(done on branch `1.0`)* — the thread is wired end to end: threat model
+   in `/refine` (c), always-on security review (e), threat-model→scenarios in `/test` (g), security
+   gate in `/deploy` (h), security lessons in `/persist` (j). A modelled threat is now verified, not
+   assumed.
 
 **Breaking (assemble into the major cut — 1.0):**
 7. **Command renames** ✅ *(done on branch `1.0`)* — `relay-init`→`init`, `whats-next`→`next`,
@@ -184,10 +188,15 @@ quarantined into the final major cut.
    (`pr-reviews/`→`reviews/`, `board-audit/`→`audits/`) are part of #11's per-path work, not here.
 8. **Explore split (phase b)** ✅ *(done on branch `1.0`)* — `/explore` is now purely context-free
    (never inspects the project); the pre-build fit check and all code-grounding moved to `/refine`.
-9. **Epic modeling (phase d)** — epics grouping slices on the board (board schema change).
-10. **Reflect loop (phase i)** — formalize result → `/refine`/`/explore` re-entry.
-11. **1.0 cut** — general migration path (the configurable-root work is the template) + the one-time
-    **castlesERP conversion** + docs/quickstart/board-model rewritten around the spiral.
+9. **Epic modeling (phase d)** ✅ *(done on branch `1.0`)* — a pure slug convention (`track/epic/slice`)
+   + a grouping view in `/next`; no board schema change (kept weightless, as decided).
+10. **Reflect loop (phase i)** ✅ *(done on branch `1.0`)* — formalized as a loop edge in `/test`,
+    `/ship`, and `/persist`: re-enter `/explore` (new idea) or `/refine` (same idea, changed).
+11. **1.0 cut** ✅ *(mechanics done on branch `1.0`)* — per-path config generalization (uniform
+    `paths` resolver), dir renames (`pr-reviews/`→`reviews/`, `board-audit/`→`audits/`), a migration
+    path folded into `/init` (detects a pre-1.0 layout, offers to rename), and docs updated to 1.0.
+    **Remaining before release: the one-time castlesERP conversion** — a real-world action run when
+    1.0 lands, using `/init`'s migration path — and the final merge of `1.0` → `main` + tag.
 
 ## Clean break — naming & structure (1.0)
 A major release is the one chance to drop historical baggage. **Rule: rename only where it earns

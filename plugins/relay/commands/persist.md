@@ -39,7 +39,7 @@ relocatable via a `paths["release-notes"]` override (e.g. a product docs site ou
 (`git log --merges -1` / `gh pr list --state merged --limit 1`). Gather everything the lap produced,
 because the lessons live in the gap between what was planned and what actually shipped:
 - The **diff** — what really changed (`gh pr diff <n>` or `git diff` for the merged range).
-- The **review report** — `<root>/pr-reviews/pr-<n>-*.md`: its findings are the richest lesson source
+- The **review report** — `<root>/reviews/pr-<n>-*.md`: its findings are the richest lesson source
   (a 🔴 that recurred, a fix pattern applied more than once).
 - The **brief** — `<root>/briefs/<slug>.md`: its **Threat model**, the **alternatives it beat**, and
   any decision recorded mid-flight.
@@ -141,3 +141,8 @@ lesson is enforced from here on. If a lap taught no durable lesson **and** shipp
 user-visible, say so plainly: **"nothing to persist — no durable lesson, no user-visible change"** is
 a valid, sprawl-respecting outcome, not a failure. (A common case: a user-visible lap that taught
 nothing still gets a release note but no lesson — that's correct, not a half-result.)
+
+**Reflect — the loop edge.** Persist doesn't end the loop; it feeds the next lap. Seeing this result
+may spark a next move — surface it: if it's a **new** idea, `/relay:explore` it; if it **changes this**
+idea, `/relay:refine` it again with the result as input. Re-entering `/explore` (new) or `/refine`
+(changed) is how the spiral turns — name the reflect move rather than letting the thread just stop.

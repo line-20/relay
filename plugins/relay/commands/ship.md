@@ -39,7 +39,7 @@ playbook in that command exactly:
    mode (findings only, no per-agent report, no per-agent verdict). Which ones apply is
    decided by `/review` Step 2. security-specialist is **always** launched.
 3. **Merge** every specialist's findings into ONE report at
-   `<root>/pr-reviews/pr-<N>-<YYYY-MM-DD>.md` (🔴/🟡/🟢, blocker-first, each finding keeping its
+   `<root>/reviews/pr-<N>-<YYYY-MM-DD>.md` (🔴/🟡/🟢, blocker-first, each finding keeping its
    file path). Verdict is `request-changes` if ANY specialist raised a 🔴, else `approve`;
    `blockers` = the total 🔴 count.
 
@@ -98,3 +98,7 @@ archives superseded handovers + old PR reviews, and its Step 6 exits this thread
 (keeping it on disk for the topic's next slice) and prunes dead worktree entries. There is no
 separate cleanup command; this is it. Then tear down any throwaway test fixture. That closes the
 session.
+
+**Reflect (loop edge).** Shipping is a lap's end, not the loop's. If this lap surfaced a new idea or
+changed your mind about the work, say so and re-enter: `/relay:explore` (a genuinely new idea) or
+`/relay:refine` (this idea, changed) — with the result as input. That re-entry is the spiral.

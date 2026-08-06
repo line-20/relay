@@ -1,5 +1,5 @@
 ---
-description: Scaffold the Relay convention in this repo — pick the root and budget tier, then the board, handover/roadmap/brief dirs, and pr-reviews — so /continue, /next, /handover and /ship work on turn one
+description: Scaffold the Relay convention in this repo — pick the root and budget tier, then the board, handover/roadmap/brief dirs, and reviews — so /continue, /next, /handover and /ship work on turn one
 argument-hint: "[--root <dir>  (where durable state lives; default 'relay')] [--tier free|pro|max]"
 ---
 
@@ -74,17 +74,33 @@ fi
    structure is now wired to the `relay:*` commands. This is the zero-migration path for a repo with
    a bespoke predecessor.
 
-## Step 1 — Check what already exists
+## Step 1 — Check what already exists (and migrate a pre-1.0 layout)
 ```bash
 ls <root>/board.md <root>/roadmap.md 2>/dev/null
-ls -d <root>/handover <root>/briefs <root>/archive <root>/pr-reviews 2>/dev/null
+ls -d <root>/handover <root>/briefs <root>/archive <root>/reviews 2>/dev/null
+ls -d <root>/pr-reviews <root>/board-audit 2>/dev/null   # pre-1.0 dir names
 ```
-If `<root>/board.md` already exists, **do not overwrite it** — report that Relay is already
-set up and stop (unless the user explicitly asks to re-scaffold). Otherwise continue.
+If `<root>/board.md` already exists, **do not overwrite it** — report that Relay is already set up and
+stop (unless the user asks to re-scaffold) — **except** for the migration below.
+
+**Migrate a pre-1.0 layout.** If `<root>/pr-reviews/` or `<root>/board-audit/` exists, this repo was
+set up before the 1.0 dir renames. **Offer to migrate** (the only file-level 1.0 migration): rename
+`pr-reviews/`→`reviews/` and `board-audit/`→`audits/`, and fix references in the repo's own
+`<root>/*.md` (board, README). Nothing else in a consumer repo changes — the command renames are just
+what you type, not stored. Use a history-preserving move where there's git, plain `mv` otherwise:
+```bash
+mig() { [ -d "$1" ] || return 0
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git ls-files --error-unmatch "$1" >/dev/null 2>&1
+  then git mv "$1" "$2"; else mv "$1" "$2"; fi; }
+mig <root>/pr-reviews <root>/reviews
+mig <root>/board-audit <root>/audits
+# then: perl -pi -e 's/\bpr-reviews\b/reviews/g; s/\bboard-audit\b/audits/g' <root>/*.md
+```
+**STOP for approval before migrating** (it moves files), then report what was renamed. Otherwise continue.
 
 ## Step 2 — Create the directories
 ```bash
-mkdir -p <root>/handover/archive <root>/briefs <root>/reference <root>/archive <root>/board-audit <root>/pr-reviews/archive
+mkdir -p <root>/handover/archive <root>/briefs <root>/reference <root>/archive <root>/audits <root>/reviews/archive
 ```
 (`<root>/reference/` holds reference frames from `/cross-check` — how other systems and standards
 solve a problem. It starts empty; `/cross-check` and `/explore` fill it over time.)
@@ -143,6 +159,10 @@ Status glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · �
 - 🔜 `<track>/<slug>` — <one-line summary>
 - ✅ Done: <slug>, <slug>
 ```
+
+> **Epics** (optional grouping): work too big for one session is an epic — a slug convention, not a
+> schema. Its slices share a stem `track/epic/slice` and list together under the epic. Don't create
+> epics at scaffold time; they emerge when `/refine` slices something large.
 
 ## Step 3.5 — Populated only: adopt existing work (triage → import → board)
 A real repo usually already holds work written down — and it comes in **two kinds that belong in
@@ -249,7 +269,7 @@ understands the convention:
 - **`handover/`** — cold-start handovers; `/continue` resumes from the handover the board links
   for a thread (not "newest wins").
 - **`reference/`** — reference frames from `/cross-check` (how others solve a problem).
-- **`pr-reviews/`** — one merged review report per PR.
+- **`reviews/`** — one merged review report per PR.
 
 Commands: `/explore` (shape an idea) · `/next` (what to work on) · `/continue` (resume a
 thread) · `/cross-check` (check against prior art) · `/test` (draft PR + structured test

@@ -124,7 +124,7 @@ The end-of-session loop, in order, stopping at any gate that needs you:
 2. **PR** — opens a draft PR for the branch.
 3. **Review** — the diff touches backend + a security-sensitive path, so it fans out
    **backend-developer**, **security-specialist** (always on), and **test-engineer** in
-   parallel, merged into one report at `relay/pr-reviews/pr-142-2026-08-04.md`. One 🔴: the limit
+   parallel, merged into one report at `relay/reviews/pr-142-2026-08-04.md`. One 🔴: the limit
    is per-process, not shared across instances.
 4. **Fix** — Relay re-verifies that finding against the code (real), fixes it, keeps the
    typecheck green, ticks the box.
