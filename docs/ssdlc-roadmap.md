@@ -66,7 +66,7 @@ pipeline**:
 | g | Test | `/test-drive` (scenarios, AI-driven, preview-aware ✓) | **exists** (just shipped) |
 | h | Deploy preview | `/deploy` ✅ | **shipped 0.12.0** — orchestrate/verify + security-gate a PR preview, don't own deployment |
 | i | Reflect | *(no command — a loop edge)* | **NEW behaviour** — re-enter `/explore` or `/refine` with the result as input |
-| j | Persist | `/persist` ✅ | **shipped 0.11.0** — harvest into guardrails overlay + design system + memory + human-readable release notes (arch/ADR/ops/manual deferred) |
+| j | Persist | `/persist` ✅ | **shipped 0.11.0; extended 1.1.0** — harvest into guardrails overlay + design system + memory + release notes; **1.1.0** un-defers ADRs/procedures/how-tos (config-driven `persist.level`) and routes durable output **outside `<root>/`**. `/tidy` (1.1.0) keeps the volatile layer lean |
 
 Backbone that isn't a phase but everything leans on: **`/groundwork`** (the guardrails/tech-context
 doc — already shaped in [[tech-context]]). It's (c)'s input and (j)'s output — the two ends of one
@@ -248,16 +248,17 @@ folder. So the config generalizes from one `root` to **per-path overrides**: def
   archive/
 ```
 
-**2. Deliverable knowledge — real project artifacts, each individually configurable.** Default
-under `<root>/knowledge/`, but pointable at the project's own home for each:
+**2. Deliverable knowledge — real project artifacts, each individually configurable.** As of **1.1.0**
+the default lives **outside `<root>/`** in the project's own docs tree (durable output outlives Relay),
+each pointable via `paths.*`; legacy repos keep `<root>/knowledge/` until `/init` offers to externalise:
 
 ```text
-<root>/knowledge/           (the persist (j) targets — the compounding layer)
-  guardrails.md       secure-by-default + NFRs (what /guardrails writes; /refine reads)
-  design-system.md    UI/UX system (ui-ux-designer's steward target)
-  architecture/       diagrams + ADRs + boundary rules
-  operations.md       runbook / maintenance
-  manual/             user-facing docs
+docs/                       (the persist (j) targets — the compounding layer, OUTSIDE <root>)
+  guardrails/         secure-by-default + NFRs (what /guardrails writes; /refine reads)
+  design.md           UI/UX design system (ui-ux-designer's steward target)
+  decisions/          ADRs — date-slug, no counter (1.1.0)
+  procedures/         how WE work · how-tos/ how to operate (1.1.0)
+  release-notes.md    human-readable, user-facing
 ```
 
 **Config shape** (generalizes configurable-root — one resolver, list only what you move):
