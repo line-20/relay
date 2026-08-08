@@ -14,6 +14,9 @@ everywhere `$PR` appears below).
 > **Relay ships ten review specialists** as subagents (backend, frontend, ui-ux, api,
 > dbms, test, security, privacy, i18n, solution-architect). This command decides which to
 > launch from the diff, runs them in parallel, and merges their findings into one report.
+> A project can **declare its own review agents** in `relay.config.json` (`review.agents`);
+> they flow through the same gate → cap → merge machinery as the built-ins (see Step 1/1.5/2
+> and [[conventions]] → Custom review agents).
 
 > **Resolve the root first:** durable state lives under the per-repo root (default `relay/`; a
 > `relay.config.json` `{ "root": "docs" }` at the repo root overrides). Resolve once —
@@ -26,6 +29,12 @@ everywhere `$PR` appears below).
 > fan out (Step 1.5). **Empty ⇒ no cap** — every applicable specialist runs. This is the classic
 > **fan-out moment**, so if `SESSION` is empty, run at full **and mention once** that setting a session
 > size (in `relay.config.local.json`, or per-call) right-sizes it — never block the review on it.
+>
+> **Resolve the project's declared review agents** (if any):
+> `AGENTS="$(jq -c '.review.agents // []' relay.config.json 2>/dev/null || echo '[]')"`
+> — each entry is `{ name, gate, tier, scope, priority }` (see [[conventions]] → Custom review
+> agents). Empty ⇒ just the built-in ten. These are folded into Steps 1, 1.5 and 2 alongside the
+> shipped specialists — same gate, same cap, same merged report.
 
 ## Step 1 — Classify the diff
 Get a diffstat before invoking any subagent:
@@ -56,6 +65,13 @@ content judgments, not size judgments — the question is never "is this diff sm
   user-facing string (label, button, heading, placeholder, toast, empty-state, validation
   message). False only if it changes no user-facing text anywhere.
 
+**Custom review agents** (`$AGENTS`, if any): evaluate each declared agent's `gate` the same way.
+A `gate` is either the **name of a built-in signal** (`frontend`, `backend`, `privacy-relevant`,
+`architecture-relevant`, `copy-relevant`) — fires when that signal is true — **or** a
+`{ "paths": [glob, …] }` object, which fires when any changed file matches a glob. A gate that
+fires puts its agent in the content-selected set; one that doesn't goes to *Skipped specialists*
+with the reason `content gate did not fire`. No `gate` ⇒ treat as always-fires (unconditional).
+
 ## Step 1.5 — Apply the session size to the fan-out
 Step 1 gives the **content-selected set** — the specialists whose gate fired for this diff. The
 session size decides how many of them actually launch. Never trade away safety for budget:
@@ -68,6 +84,10 @@ session size decides how many of them actually launch. Never trade away safety f
   Fill the budget from this set up to the cap, **prioritised by risk to the primary changed area**
   (the domain developer for the side with the most changed files first, then `privacy-specialist`
   if gated on, then the rest by relevance).
+- **Custom agents** join whichever tier they declare: `tier: "safety"` runs uncapped alongside the
+  safety core; `tier: "cappable"` (the default) joins the cappable pool, ordered *after* the
+  built-ins by descending `priority` (default `0`). A deferred custom agent is logged in *Skipped
+  specialists* with the same `deferred — session=<s> budget cap` reason as any built-in.
 
 | `SESSION` | Fan-out |
 |---|---|
@@ -119,6 +139,13 @@ In a single message, launch whichever of these apply **after the Step 1.5 cap** 
    and any vendor-portability commitments the project's `CLAUDE.md`/architecture docs declare
    (e.g. a vendor SDK required to stay behind an adapter). It has no built-in opinion about what
    the boundaries should be — it discovers them from the project. Content gate, not a size gate.
+
+11. **Custom review agents** (`$AGENTS`) whose gate fired and the cap admitted — launch each via
+   its declared subagent type (`agentType: "<name>"`), target $PR, path-scoped per its `scope`
+   (`frontend`/`backend`/`full`, default `full`), in the same **contributor mode** (findings only,
+   no file write, no verdict). They must return findings in the standard shape (severity-graded,
+   each with a `file:line`) — a declared agent that writes its own report or emits a verdict breaks
+   the Step 3 merge (see [[conventions]] → Custom review agents for the contract).
 
 **security-specialist stays unconditional** — its surface is too broad for a content
 pre-filter to safely narrow (a one-line render change can still be an XSS vector).

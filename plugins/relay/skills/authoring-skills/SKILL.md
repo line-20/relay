@@ -43,7 +43,11 @@ with the ones already there.
 
 Relay's review agents all follow one contract, and a new one should too:
 - **Findings only.** In a fan-out (`/review`), an agent returns findings — no report file,
-  no verdict. The command merges them. Say this in the agent's own description.
+  no verdict. The command merges them. Say this in the agent's own description. This is also the
+  contract for a **project-declared review agent**: ship it as a `.claude/agents/*.md`, then register
+  it in `relay.config.json` under `review.agents` (`{ name, gate, tier, scope, priority }`) and
+  `/review` folds it into the fan-out alongside the built-ins (see [[conventions]] → Custom review
+  agents). A declared agent that writes its own report or emits a verdict breaks the merge.
 - **Severity-graded**: 🔴 blocker · 🟡 should-fix · 🟢 nit. Each finding carries a `file:line`.
 - **Stack-agnostic**: discover the actual stack/conventions from the project's `CLAUDE.md` and
   code rather than hardcoding a framework. This is why Relay's agents port cleanly between repos.

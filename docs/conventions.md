@@ -21,7 +21,7 @@ different files because they have different owners and lifetimes.
 | | `relay.config.json` (committed) | `relay.config.local.json` (gitignored) |
 |---|---|---|
 | Owns | project truth — shared by everyone | the driver's here-and-now preferences |
-| Holds | `root`, `paths`, `guardrails`, `hooks`, `persist`, `tidy` | `session`, `verbosity` |
+| Holds | `root`, `paths`, `guardrails`, `hooks`, `review`, `persist`, `tidy` | `session`, `verbosity` |
 | Lifetime | stable; changes rarely | switch-often; personal, per-machine |
 | Committed? | yes | **no** (`/init` adds it to `.gitignore`) |
 
@@ -56,7 +56,16 @@ config file at all:
     "ops": { "prune": true, "trim": true, "merge": "report" },
     "retention": { "reviews": 20, "handovers": "board-linked" }
   },
-  "hooks": { "test": "test-stack", "commit": "commit" }  // /adopt — dispatch project automation
+  "hooks": { "test": "test-stack", "commit": "commit" },  // /adopt — dispatch project automation
+  "review": {                                          // /adopt, /config — project-declared review agents
+    "agents": [
+      { "name": "a11y-auditor",                        //   a .claude/agents/*.md the project ships
+        "gate": "copy-relevant",                       //   built-in signal, or { "paths": ["packages/ui/**"] }
+        "tier": "cappable",                            //   safety (uncapped) | cappable (fills budget) — default cappable
+        "scope": "frontend",                           //   frontend | backend | full — default full
+        "priority": 50 }                               //   tie-break within the cappable pool — default 0
+    ]
+  }
 }
 ```
 ```jsonc
@@ -64,7 +73,8 @@ config file at all:
 { "session": "large", "verbosity": "terse" }
 ```
 **Defaults when a key is absent:** `root` → `relay`; no `paths` overrides; no `guardrails` (reviewers
-use their built-in defaults); no `hooks` (commands use their built-in discovery); `persist` → `cadence:
+use their built-in defaults); no `hooks` (commands use their built-in discovery); no `review.agents`
+(just the built-in ten specialists); `persist` → `cadence:
 ask`, `level: standard` (today's harvest); `tidy` → `level: standard`; `session` → unset (no shaping,
 full fan-out); `verbosity` → `normal`. A committed `tier` is still read where `session` is absent
 (back-compat), and a flat `persist: "ask"|"always"|"never"` is still read as `persist.cadence`
@@ -226,3 +236,28 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
   and `/ship` bring the fixture stack up via the `test` hook; `/ship`/`/handover` commit via `commit`).
 - No hook ⇒ the command's built-in behaviour (discover the test command from `CLAUDE.md`, etc.).
 - `/adopt` populates this map when it reconciles an existing `.claude/` setup (keep-and-hook).
+
+## Custom review agents — extend the `/review` fan-out with your own
+
+Where the `hooks` map plugs the project's *commands* into a phase, `review.agents` plugs the
+project's *review agents* into `/review`. A declared agent is a `.claude/agents/*.md` the project
+ships; `/review` folds it into the exact same machinery as the built-in ten — gate → session cap →
+merged report — so it needs no new step, just a config entry:
+```json
+{ "review": { "agents": [
+  { "name": "a11y-auditor", "gate": "copy-relevant", "tier": "cappable", "scope": "frontend", "priority": 50 }
+] } }
+```
+- **`gate`** decides whether it runs for a given diff — either a built-in signal name (`frontend`,
+  `backend`, `privacy-relevant`, `architecture-relevant`, `copy-relevant`) or a `{ "paths": [glob…] }`
+  object matched against the changed files. Absent ⇒ always runs.
+- **`tier`** decides whether the session-size cap applies: `safety` runs uncapped (like security /
+  test / dbms); `cappable` (default) fills the budget after the built-ins, ordered by `priority`.
+- **`scope`** (`frontend` | `backend` | `full`, default `full`) is the path scope handed to it.
+- **The contract:** a declared agent MUST be a **findings-only reviewer** — severity-graded findings,
+  each with a `file:line`, and nothing else. No report file, no verdict, no merge to main (the same
+  "one specialist among several" contract every shipped agent honours). An agent that writes its own
+  report or emits a pass/fail verdict breaks `/review`'s merge. The `authoring-skills` skill authors
+  to this contract.
+- `/adopt` populates this list when it reconciles an existing `.claude/agents/` (register-as-review-agent).
+  Otherwise it's a small hand-edit — one entry per agent, project truth, committed.
