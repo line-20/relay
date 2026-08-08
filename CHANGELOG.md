@@ -7,6 +7,36 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.1.0 — knowledge persistence + housekeeping
+
+Generalises two disciplines proven by hand on a multi-year ERP into config-driven, size-tunable
+capabilities. Additive and back-compatible: unset config keeps today's behaviour, and existing repos
+are unaffected until they accept an offered migration.
+
+**Added**
+- **`/persist` is now a config-driven distiller.** A `persist.level` preset — `none` (codebase only) ·
+  `lean` (memory + release notes) · `standard` (today's harvest) · `full` (+ **ADRs**, procedures,
+  how-tos) — tunes how much a lap harvests, with a per-kind `persist.kinds` override. ADRs use a
+  parallel-worktree-native **date-slug, no-counter** convention (`YYYY-MM-DD-<slug>.md`, supersede
+  never delete).
+- **Durable knowledge lives OUTSIDE `<root>/` by default** — ADRs → `docs/decisions`, procedures →
+  `docs/procedures`, how-tos → `docs/how-tos`, guardrails → `docs/guardrails`, all overridable via new
+  `paths.*` pointers — so durable output outlives Relay. `/init` **offers** to externalise a legacy
+  `<root>/knowledge/` (never forced); `/exit` now preserves external durable docs instead of discarding
+  them.
+- **New `/relay:tidy`** — recurring, idempotent housekeeping for the **volatile** layer: prune spent
+  handovers/reviews, trim done rows off the board, merge same-unit briefs. Parallel-worktree-safe
+  (temp-index commit with a retry-replay loop), with a hard broken-link gate and a **Distilled-marker**
+  invariant so it never prunes un-distilled knowledge. `tidy.level` / `tidy.ops` / `tidy.retention`
+  tune it; `/handover`'s per-ship archival is its per-lap subset.
+- **`/persist` stamps a `**Distilled:**` marker** on each harvested brief — the contract `/tidy` reads
+  before pruning.
+- **`/config` gains `persist` and `tidy` jump-areas**, and `paths` covers the new durable destinations.
+
+**Changed**
+- `persist` config is now a nested block (`persist.cadence` + `persist.level` + `persist.kinds`); the
+  flat `persist: "ask"|"always"|"never"` is still read as `persist.cadence` (back-compat).
+
 ## 1.0.9 — brownfield guardrails sweep
 
 **Added**

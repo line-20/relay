@@ -153,6 +153,11 @@ committing there, sweep the **superseded** files into `archive/` in the same bre
 is deleted, git keeps full history, so this is always safe and reversible. **Skip this step if
 Step 4's push FAILED** (you're not synced with main; don't touch the record).
 
+> This is the **per-lap subset** of `/tidy`'s PRUNE op — the same rule and the same worktree-safe
+> commit. `/tidy` is the fuller, recurring housekeeper (it also trims done rows and merges briefs,
+> honouring the Distilled invariant); run it on demand or on a schedule when the record needs more than
+> this per-ship sweep.
+
 The rule is "keep only what's still live":
 - **Handovers** — the board's *Open threads* table is the source of truth. Archive every
   `<root>/handover/next-*.md` on main whose basename is **not** linked from `<root>/board.md`

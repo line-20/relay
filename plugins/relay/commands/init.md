@@ -29,7 +29,7 @@ sees and the one signal that certifies which command file ran:
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v1.0.9
+  continuity-first SSDLC workbench                          v1.1.0
   by Line20 · @eriklenaerts
 ```
 
@@ -94,12 +94,30 @@ mig <root>/board-audit <root>/audits
 ```
 **STOP for approval before migrating** (it moves files), then report what was renamed. Otherwise continue.
 
+**Offer to externalise durable knowledge.** Durable output now lives **outside `<root>/`** by default
+([[conventions]] → *Persistence*) so it outlives Relay. If this repo still keeps it under
+`<root>/knowledge/` (design system, guardrails house-rules, release notes), **offer** to move it out and
+repoint — never forced, decline ⇒ it stays put and keeps working:
+- `git mv` (history-preserving) `<root>/knowledge/release-notes.md` → `docs/release-notes.md`, the
+  design-system doc → its `paths["design-system"]` target (default under `docs/`), and each
+  `<dim>-house.md` → `docs/guardrails/`.
+- **Repoint surgically** in `relay.config.json`: set the matching `paths.*` and rewrite each moved
+  file's path in its `guardrails.<dim>.extends` array — **preserve every other key**. Rewrite inbound
+  path links (board, `CLAUDE.md`); name-based `[[wikilinks]]` survive.
+- **STOP for approval** (it moves files); report the moves and the config repoint, and the undo path.
+
 ## Step 2 — Create the minimal directories
 Create only what the first commands write — the rest (`reference/`, `reviews/`, `audits/`, `archive/`)
 are made lazily by the command that first needs them, so init stays light:
 ```bash
 mkdir -p <root>/briefs <root>/handover/archive
 ```
+**Durable-output destinations are NOT scaffolded here** — they live outside `<root>/` and are created
+on demand by `/persist` (which makes `docs/decisions/` etc. with a README + ADR template the first time
+it writes one). **Only** if this repo already sets `persist.level: full` (a re-run after `/config`) do
+you scaffold the enabled ones now — `mkdir -p` each configured `paths.adr`/`paths.procedures`/
+`paths["how-tos"]` with a short README and, for ADRs, the `YYYY-MM-DD-<slug>.md` date-slug template
+([[conventions]] → *Persistence*). Greenfield at the default `standard` level scaffolds nothing extra.
 
 ## Step 2.5 — Greenfield or populated? (never invent work from a folder name)
 Whether to seed real tracks depends on whether there's actually a project here yet:
@@ -214,9 +232,10 @@ understands the convention:
 The loop: `/explore` (shape an idea) → `/refine` (ground it against the code + guardrails) →
 `/next` / `/continue` (build) → `/test` (draft PR + test plan; can drive it) → `/deploy` (verify +
 security-gate a PR preview) → `/review` → `/ship` (test→review→merge→handover) → `/persist` (harvest
-lessons + release notes). Setup/support: `/guardrails` (project standards), `/adopt` (pull legacy docs
-into Relay, by area), `/cross-check` (prior art), `/watch` (park on a dependency), `/handover`,
-`/gc` (reclaim orphaned worktrees), `/version`. Each is optional — invoke what the work needs.
+lessons, ADRs + release notes — durable output lands **outside `<root>/`**, in your docs tree).
+Setup/support: `/guardrails` (project standards), `/adopt` (pull legacy docs into Relay, by area),
+`/cross-check` (prior art), `/watch` (park on a dependency), `/handover`, `/tidy` (keep the volatile
+layer lean), `/gc` (reclaim orphaned worktrees), `/version`. Each is optional — invoke what the work needs.
 ```
 
 ## Step 6 — Commit and report (compact)

@@ -21,7 +21,7 @@ Open with the one-line lifecycle, then the tables:
 | `/relay:next` | build | Ranked shortlist from the board → start a pick in a worktree |
 | `/relay:continue` | build | Resume an in-flight thread from its handover |
 | `/relay:test` | verify | Draft PR + structured test plan; can drive it in the browser |
-| `/relay:ship` | ship | test → review → fix → merge → handover → (offers persist) |
+| `/relay:ship` | ship | test → review → fix → merge → handover → (persist, per `persist` policy) |
 
 ## Setup & knowledge (occasional)
 
@@ -32,7 +32,7 @@ Open with the one-line lifecycle, then the tables:
 | `/relay:guardrails` | Establish per-dimension project standards (API/UI/security/…) |
 | `/relay:adopt` | Bulk-adopt a brownfield area: pull idea docs in, register + compact convention docs, reconcile `.claude/` |
 | `/relay:exit` | Cleanly remove Relay: restore adopted content to where it came from, export your briefs, un-wire config. Code untouched |
-| `/relay:persist` | After a lap: harvest lessons into guardrails/design-system/memory + release notes |
+| `/relay:persist` | After a lap: harvest lessons into guardrails/design-system/memory + ADRs + release notes — durable output lands outside `<root>/` (config-driven: `none`→`full`) |
 | `/relay:deploy` | Orchestrate + security-gate a PR preview via your own CI |
 
 ## Support (as needed)
@@ -42,7 +42,8 @@ Open with the one-line lifecycle, then the tables:
 | `/relay:cross-check` | Check an approach against prior art / standards |
 | `/relay:watch` | Park on a dependency, auto-resume when it lands |
 | `/relay:review` · `/relay:fix` · `/relay:handover` | The pieces `/ship` composes — run standalone when needed |
-| `/relay:gc` | Reclaim orphaned worktrees |
+| `/relay:tidy` | Keep the volatile layer lean — prune spent handovers/reviews, trim done rows, merge briefs (content) |
+| `/relay:gc` | Reclaim orphaned worktrees (git worktrees, not content) |
 | `/relay:help` · `/relay:version` | This overview · the version banner |
 
 ## Tuning (per-call or in `relay.config.local.json`)
