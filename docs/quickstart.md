@@ -199,8 +199,8 @@ nothing about your last one, and it doesn't need to. That's the point.
 - **Cleaning up?** Usually nothing to run — `/ship` archives old notes and prunes dead worktree entries
   as part of its handover step, and keeps your topic worktrees for their next slice. When the volatile
   layer needs a deeper sweep (spent briefs, done rows), `/tidy` does it — recurring and safe.
-- **Want more control?** `/config` — a guided, layered pass (session/verbosity first, then optionally
-  guardrails/hooks). Opt-in depth, never a gate.
+- **Want more control?** `/config` — a guided, layered pass (session/verbosity/audience first, then
+  optionally guardrails/hooks). Opt-in depth, never a gate.
 - **Lost, or forgot a command?** `/help` — the whole capability map on one screen.
 - **Leaving?** `/exit` — cleanly removes Relay and hands your content back (restores adopted docs,
   exports your briefs), code untouched. No lock-in.

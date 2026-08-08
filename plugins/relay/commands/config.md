@@ -1,9 +1,9 @@
 ---
-description: Set Relay's optional config, layered gentlest-first — lead with session + verbosity, then a compact offer for guardrails/hooks, with root/paths on demand only. Opt-in depth, never a gate.
-argument-hint: "[jump to one area: session|verbosity|persist|tidy|guardrails|hooks|paths|root|show; omit for the layered pass]"
+description: Set Relay's optional config, layered gentlest-first — lead with session + verbosity + audience, then a compact offer for guardrails/hooks, with root/paths on demand only. Opt-in depth, never a gate.
+argument-hint: "[jump to one area: session|verbosity|audience|persist|tidy|guardrails|hooks|paths|root|show; omit for the layered pass]"
 ---
 
-> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — the technical register of your prose: `plain` = non-technical, no jargon; `informed` = architecture, trade-offs and named patterns, no code/syntax/flags unless they are the point or asked; `expert` = full implementation depth; unset ⇒ today’s default (no register shaping). Render every list as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
 
 The config front door — **opt-in depth, never a gate** ([[conventions]]). It is **layered
 gentlest-first** so it never dumps "here's everything, have a pick": it leads with the two cheap driver
@@ -16,11 +16,11 @@ first two questions.
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 Read both surfaces: `relay.config.json` (committed) and `relay.config.local.json` (gitignored).
-- If `$ARGUMENTS` names **one area** (`session`/`verbosity`/`persist`/`tidy`/`guardrails`/`hooks`/`paths`/`root`),
+- If `$ARGUMENTS` names **one area** (`session`/`verbosity`/`audience`/`persist`/`tidy`/`guardrails`/`hooks`/`paths`/`root`),
   skip the layering and go straight to that area's step.
 - If `$ARGUMENTS` is **`show`**, print the reference table (bottom) and stop — no questions.
 
-## Layer 1 — the two cheap prefs (start here; one brief question each)
+## Layer 1 — the cheap driver prefs (start here; one brief question each)
 These are per-driver, benefit everyone, and cost one question — so always lead with them. **Describe
 the options neutrally — say what each does, never who it's for** (see [[conventions]] → *No fabricated
 familiarity*). On a fresh session you don't know the user; present the choices plainly and let them pick.
@@ -33,6 +33,11 @@ familiarity*). On a fresh session you don't know the user; present the choices p
    landing only; **normal** = today's default; **verbose** = also the reasoning. Same rule — neutral
    descriptions; suggest `terse` only if something concrete points that way, and as a light suggestion,
    not a claim about them. Skip ⇒ `normal`.
+3. **Audience** (`plain`/`informed`/`expert`) — the technical register of Relay's prose (orthogonal to
+   verbosity): **plain** = non-technical, no jargon; **informed** = architecture, trade-offs and named
+   patterns, no code/syntax/flags unless they're the point or asked; **expert** = full implementation
+   depth. Same rule — neutral descriptions, no claim about who they are. Write to
+   `relay.config.local.json`. Skip ⇒ unset (no register shaping — today's prose).
 
 **Then STOP** — many users are done here. Ask a single line: *"That's the essentials. Want to set up
 project standards or wire in your tooling too? (both optional)"* — only continue to Layer 2 on a yes.
