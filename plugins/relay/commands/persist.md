@@ -17,24 +17,42 @@ starts smarter — and so a human can see what shipped. This is phase (j), the c
   in user-benefit language. **This is NOT filtered by the non-obvious test** — every change a user
   would *notice* earns a note, even one that taught nothing. Gated instead on "would a user notice?"
 
-> **What it writes, and what it never writes.** Target surfaces are **guardrails**, the **design
-> system**, **AI memory**, and **release notes**. For guardrails it only ever writes the **`extends`
-> overlay** (the project's house rules) — **never a shipped baseline**. Architecture diagrams / ADRs
-> / ops / manual are **later persist slices**: capture them as deferred, don't write them yet.
-> Establishing guardrails from scratch is `/guardrails`' job; `/persist` only grows the overlay.
+> **What it writes, and what it never writes.** Target surfaces are the **guardrails** overlay, the
+> **design system**, **AI memory**, **release notes**, and — when the level enables them — **ADRs**,
+> **procedures**, and **how-tos**. For guardrails it only ever writes the **`extends` overlay** (the
+> project's house rules) — **never a shipped baseline**. Establishing guardrails from scratch is
+> `/guardrails`' job; `/persist` only grows the overlay. **Durable output lives OUTSIDE `<root>/`** (see
+> [[conventions]] → *Persistence*) — `/persist` writes it to the project's docs tree via `paths.*`, so
+> it outlives Relay.
 
-## Step 0 — Resolve the root and the knowledge targets
+## Step 0 — Resolve the root, the level, and the knowledge targets
 ```bash
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 GUARDRAILS="$(jq -r '.guardrails // empty | keys | join(",")' relay.config.json 2>/dev/null)"
-RELEASE_NOTES="$(jq -r '.paths["release-notes"] // empty' relay.config.json 2>/dev/null)"
-: "${RELEASE_NOTES:=$ROOT/knowledge/release-notes.md}"
+LEVEL="$(jq -r 'if (.persist|type)=="object" then .persist.level else null end // "standard"' relay.config.json 2>/dev/null || echo standard)"
+# durable destinations — new kinds default OUTSIDE root; legacy kinds keep their <root>/knowledge default
+RELEASE_NOTES="$(jq -r '.paths["release-notes"] // empty' relay.config.json 2>/dev/null)"; : "${RELEASE_NOTES:=$ROOT/knowledge/release-notes.md}"
+ADR_DIR="$(jq -r '.paths.adr // "docs/decisions"' relay.config.json 2>/dev/null)"
+PROC_DIR="$(jq -r '.paths.procedures // "docs/procedures"' relay.config.json 2>/dev/null)"
+HOWTO_DIR="$(jq -r '.paths["how-tos"] // "docs/how-tos"' relay.config.json 2>/dev/null)"
 ```
 `GUARDRAILS` is the active dimensions whose overlays `/persist` may grow. **Empty ⇒ no guardrails
 configured**: `/persist` can still write AI memory and release notes and can *offer* to seed a first
 overlay, but it points at `/guardrails` for establishing a dimension — it won't invent one.
-`RELEASE_NOTES` is where the human-readable notes live — default `<root>/knowledge/release-notes.md`,
-relocatable via a `paths["release-notes"]` override (e.g. a product docs site outside `relay/`).
+
+**`LEVEL` gates what this run is allowed to harvest** — the preset (a per-kind `persist.kinds` override
+wins over it, e.g. `kinds.adr:false` at `full`):
+
+| level | harvests |
+|---|---|
+| `none` | nothing — the codebase is the only deliverable (report and stop) |
+| `lean` | AI memory + release notes only |
+| `standard` (default) | guardrails overlay + design system + memory + release notes (today's harvest) |
+| `full` | standard **+ ADRs + procedures + how-tos** |
+
+Destinations: `RELEASE_NOTES` and the design-system/guardrails overlays keep their `<root>/knowledge/`
+default when no `paths.*` relocates them (back-compat); the **new** kinds — ADRs (`ADR_DIR`), procedures
+(`PROC_DIR`), how-tos (`HOWTO_DIR`) — default **outside** `<root>` in the project's docs tree.
 
 ## Step 1 — Identify the lap and gather the evidence
 `$ARGUMENTS` names the lap — a PR number or a `track/slug`. If empty, take the **most recent merge**
@@ -56,7 +74,10 @@ layer; a doc nobody trusts because it's bloated is worse than no doc. Look for:
 - **A design pattern / component / token** the change introduced that belongs in the design system —
   generalising what `ui-ux-designer` already does for one design guide.
 - **A security lesson** from the threat model or a security finding → the `security`/`privacy` overlay.
-- **An architectural decision** worth recording (ADR-worthy) — **defer** (later slice), but capture it.
+- **An architectural decision** worth recording (ADR-worthy) — at `level: full` this is a **first-class
+  target** (write an ADR, Step 6); below `full`, **capture it as deferred** (list it, don't write it).
+- **A process or operating lesson** — how *we* work (→ a **procedure**) or how to run/operate something
+  (→ a **how-to**) — also **first-class at `full`**, deferred below it.
 - **A non-obvious gotcha** for **AI memory** — the decision and its *why*, one fact each.
 
 Each candidate carries its **evidence** (finding ID, `file:line`, PR#) — persist cited facts, not
@@ -87,10 +108,13 @@ When it applies, draft **1–3 lines in the user's language**, not the committer
 | Design pattern / token / component | the design-system doc | Step 5 |
 | Non-obvious decision + why | AI memory | Step 5 |
 | **User-visible change (from Step 2.5)** | **the release notes (`$RELEASE_NOTES`)** | **Step 5** |
-| ADR / architecture diagram / ops / manual | **deferred** | list it, don't write it |
+| Architectural decision (ADR-worthy) | **at `full`:** `$ADR_DIR/<date>-<slug>.md` · **below:** deferred | Step 5/6 |
+| Process lesson (→ procedure) / operating steps (→ how-to) | **at `full`:** `$PROC_DIR` / `$HOWTO_DIR` · **below:** deferred | Step 5/6 |
+| Architecture diagram / manual | **deferred** | list it, don't write it |
 
-List the deferred ones explicitly so nothing is lost — they're the backlog for a later persist slice,
-not a silent drop.
+Gate each row by `LEVEL` (Step 0): `none` routes nothing; `lean` only memory + release notes;
+`standard` the first four rows; `full` all of them. List every **deferred** item explicitly so nothing
+is lost — it's the backlog for a later persist slice (or a level bump), not a silent drop.
 
 ## Step 4 — Dedupe against what's already written
 Before proposing any write, read the target doc and confirm it doesn't already say this. If it does,
@@ -108,9 +132,10 @@ Show a compact table and **wait for approval**:
 > | **Release note** | **release notes (`knowledge/release-notes.md`)** | **New — "Export a workspace to CSV from its ⋯ menu."** | **pr-471** |
 
 Show the **drafted release note verbatim** (it's user-facing copy — the user should approve the exact
-words), list the **deferred** lessons under the table, and note if there's **no release note** (an
-internal-only lap). **STOP for the go-ahead** — the user may cut a lesson, reword the note, or
-redirect a target.
+words), name any **ADR / procedure / how-to** to be written (at `full`) with its destination path, note
+which briefs will get the **Distilled** marker, list the **deferred** lessons under the table, and note
+if there's **no release note** (an internal-only lap). **STOP for the go-ahead** — the user may cut a
+lesson, reword the note, or redirect a target.
 
 ## Step 6 — Write the approved harvest
 On approval, write **surgically and idempotently** — update in place, never clobber hand-authored content:
@@ -129,11 +154,24 @@ On approval, write **surgically and idempotently** — update in place, never cl
   release cuts. Newest release on top; within a release, group by **New / Improved / Fixed** if the
   project does. **Idempotent** — re-running `/persist` on the same lap must **update, not double**: if
   this change already has a note, refine it in place rather than adding a second.
+- **ADR (`full` only):** write one file per decision to `$ADR_DIR/<YYYY-MM-DD>-<slug>.md` using the
+  **date-slug, no-counter** convention ([[conventions]] → *Persistence*) — no sequential number
+  (concurrent worktrees would race over it), referred to by slug. Include a `Status: Accepted` line;
+  to reverse or replace an earlier ADR, add `Superseded-by-<slug>` / `Reversed` to the **old** file and
+  **never delete it**. Create `$ADR_DIR` (and its README/template) if absent.
+- **Procedures / how-tos (`full` only):** append or create the doc under `$PROC_DIR` (how *we* work) or
+  `$HOWTO_DIR` (how to operate/run), in the doc's Relay-managed section — same surgical, idempotent
+  discipline as the design system.
+- **Stamp the Distilled marker on each harvested brief.** Add (or update) a line
+  `**Distilled:** <date> · pr-<n>` under the brief's status — or `**Distilled:** <date> · nothing-durable`
+  when the lap taught nothing durable. This is the contract `/tidy` reads before it may prune a spent
+  brief ([[conventions]] → *Persistence*); without it, tidy keeps the brief and defers to `/persist`.
 
-Commit the knowledge docs — guardrails overlay, design system, **release notes** (`$RELEASE_NOTES`)
-— plus any `extends` config pointer, back onto `main`; main-owned, so edit from main's copy and push
-surgically (the temp-index pattern `/handover` uses if you're on a feature branch). AI memory is
-written through the harness, not necessarily via this commit.
+Commit the durable docs — guardrails overlay, design system, **release notes** (`$RELEASE_NOTES`),
+and any **ADRs/procedures/how-tos** written above — plus any `extends` config pointer and the brief's
+Distilled marker, back onto `main`; main-owned, so edit from main's copy and push surgically (the
+temp-index pattern `/handover` uses if you're on a feature branch). AI memory is written through the
+harness, not necessarily via this commit.
 
 ## Step 7 — Report
 State, outcome-first: **what was harvested and where** (each lesson → its surface), the **release

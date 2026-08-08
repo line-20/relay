@@ -1,6 +1,6 @@
 ---
 description: Set Relay's optional config, layered gentlest-first — lead with session + verbosity, then a compact offer for guardrails/hooks, with root/paths on demand only. Opt-in depth, never a gate.
-argument-hint: "[jump to one area: session|verbosity|guardrails|hooks|paths|root|show; omit for the layered pass]"
+argument-hint: "[jump to one area: session|verbosity|persist|tidy|guardrails|hooks|paths|root|show; omit for the layered pass]"
 ---
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
@@ -16,8 +16,8 @@ first two questions.
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 Read both surfaces: `relay.config.json` (committed) and `relay.config.local.json` (gitignored).
-- If `$ARGUMENTS` names **one area** (`session`/`verbosity`/`guardrails`/`hooks`/`paths`/`root`), skip
-  the layering and go straight to that area's step.
+- If `$ARGUMENTS` names **one area** (`session`/`verbosity`/`persist`/`tidy`/`guardrails`/`hooks`/`paths`/`root`),
+  skip the layering and go straight to that area's step.
 - If `$ARGUMENTS` is **`show`**, print the reference table (bottom) and stop — no questions.
 
 ## Layer 1 — the two cheap prefs (start here; one brief question each)
@@ -54,11 +54,40 @@ Only if the user opted in above. **Offer only what this repo shows evidence for*
   which writes the `hooks` map.
 If the repo shows **no** evidence for either, say so plainly and skip — don't manufacture an offer.
 
+## Persist policy (jump-only: `/relay:config persist`, NOT in the layered pass)
+A **project-wide** block in `relay.config.json` (committed), with two independent knobs — describe both
+neutrally, presets factually:
+- **`cadence`** (`ask`/`always`/`never`, default `ask`) — what `/ship`'s persist phase does **once it
+  has decided the lap taught something durable** (the gate always runs first): **ask** = offer
+  `/persist`, run on a yes; **always** = run without asking; **never** = skip the offer.
+- **`level`** (`none`/`lean`/`standard`/`full`, default `standard`) — how much `/persist` harvests:
+  **none** = nothing (the codebase is the only deliverable); **lean** = AI memory + release notes;
+  **standard** = today's harvest (guardrails overlay + design system + memory + release notes);
+  **full** = also ADRs + procedures + how-tos. A per-kind `kinds` map (e.g. `{ "adr": true }`) overrides
+  the preset for one kind.
+
+A flat `persist: "ask"` from an earlier version is still read as `persist.cadence` (back-compat). Skip ⇒
+`cadence: ask`, `level: standard`. Remember durable output lands **outside `<root>/`** via `paths.*`
+(below) — see [[conventions]] → *Persistence*.
+
+## Tidy policy (jump-only: `/relay:config tidy`, NOT in the layered pass)
+Also project-wide in `relay.config.json` — how `/tidy` keeps the volatile layer lean:
+- **`level`** (`none`/`lean`/`standard`/`full`, default `standard`) — **none** = off; **lean** = prune
+  only; **standard** = prune + trim, merge report-only; **full** = also auto-apply merges.
+- **`ops`** — per-op override: `prune`/`trim` (`true`/`false`), `merge` (`report`/`auto`/`false`).
+- **`retention`** — `reviews` (keep newest N, default 20), `handovers` (`board-linked` — keep those the
+  board still points at). Describe factually; a bigger project runs `/tidy` more aggressively, a tiny
+  one barely at all. Recurring runs are wired via the harness scheduler, not here (`/tidy` can't
+  schedule itself). Skip ⇒ `level: standard`.
+
 ## Advanced — root & paths (on demand only, NOT in the layered pass)
 **Do not surface these in the guided flow.** They're structural, for someone who's read the docs, and
 reached only via an explicit arg:
-- `/relay:config paths` — relocate a logical path (e.g. `knowledge` → `docs/`) so `/persist`/`/guardrails`
-  write where your deliverable docs actually live. Confirm the target, merge surgically.
+- `/relay:config paths` — relocate a logical path so `/persist`/`/guardrails` write where your durable
+  docs actually live. Covers `knowledge`, `design-system`, `release-notes`, and the durable-output
+  destinations `adr` (default `docs/decisions`), `procedures` (`docs/procedures`), `how-tos`
+  (`docs/how-tos`), `guardrails` (`docs/guardrails`) — all **outside `<root>/`** by default. Confirm the
+  target, merge surgically.
 - `/relay:config root` — move where all durable state lives (a real move — safety net, see
   [[conventions]]).
 In the layered pass, mention them at most as **one closing line**: *"Advanced: `root`/`paths` on demand

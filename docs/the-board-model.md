@@ -73,6 +73,11 @@ free. This is what keeps parallel sessions from colliding: `/next` and `/continu
 anything a live owner holds, and `/handover` sets `Owner = —` when it relinquishes a thread
 so a cold session can pick it up.
 
+A shipped item **leaves Open threads** and collapses to a one-line `✅ Done: <slug>` on its
+track — `/tidy` does this trimming in bulk. A shipped item with **one loose end** stays an
+Open-threads row (🔜/⏸) linking back to its brief: the board *is* the residue tracker, so
+near-done tails live here, never in a separate file.
+
 ### 3. The handover (`relay/handover/next-*.md`)
 
 When a session ends or hands off, it writes a **cold-start handover**: a self-contained

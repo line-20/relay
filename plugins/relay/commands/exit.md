@@ -18,9 +18,15 @@ provenance line (written by `/adopt` / `/refine`), so `/exit` knows exactly wher
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 List what Relay put here: `<root>/` (board, roadmap, briefs, handover, reviews, audits, reference,
-archive, knowledge), `relay.config.json`, `relay.config.local.json`, the `.gitignore` line, and any
-Relay-created git worktrees (`git worktree list`). If there's no `<root>/board.md`, there's nothing to
-exit — say so and stop.
+archive, and — in legacy repos — `knowledge`), `relay.config.json`, `relay.config.local.json`, the
+`.gitignore` line, and any Relay-created git worktrees (`git worktree list`). If there's no
+`<root>/board.md`, there's nothing to exit — say so and stop.
+
+**Note where durable output lives.** Durable knowledge — ADRs, procedures, how-tos, guardrails
+house-rules, the design system, release notes — lives **outside `<root>/`** by default (in your docs
+tree, via `paths.*`); those are **your deliverables and stay put**. Only a legacy repo still holds them
+under `<root>/knowledge/` — read `paths.*` to tell which surfaces are external (preserve) vs internal
+(discard with the rest of the bookkeeping, they're in git history).
 
 ## Step 1 — Classify every brief (this is what protects your content)
 For each `<root>/briefs/*.md`, decide where it goes on the way out:
@@ -39,7 +45,9 @@ Show exactly what will happen and **wait for approval before touching anything**
 > | `relay/briefs/catalogue.md` (created) | → export to `ideas/catalogue.md` |
 > | `relay/board.md`, roadmap, handover, reviews, audits, reference | discard (Relay bookkeeping; in git history) |
 > | `relay.config.json`, `relay.config.local.json`, `.gitignore` line | remove (un-wire Relay) |
+> | ADRs / procedures / how-tos / guardrails / release notes (outside `<root>/`) | **left in place** — your deliverables, never moved |
 > | design guide / conventions docs | **left in place** — yours, never moved |
+> | legacy `<root>/knowledge/` (if any) | discard (in git history) — offer to externalise first |
 > | your code | **untouched** |
 > | Relay worktrees (clean) | remove |
 
@@ -60,7 +68,12 @@ live Relay worktree with unmerged commits → STOP and surface it, never discard
    rewrote (best-effort — point them back at the restored path).
 2. **Export Relay-created briefs** to the chosen folder (default `ideas/`), same move mechanics.
 3. **Discard Relay's bookkeeping** — remove the rest of `<root>/` (board, roadmap, handover, reviews,
-   audits, reference, archive, knowledge). It's all in git history; nothing durable is lost.
+   audits, reference, archive). It's all in git history; nothing durable is lost. **Durable output
+   already lives outside `<root>/`** (ADRs, procedures, how-tos, guardrails, design system, release
+   notes via `paths.*`) — leave it exactly where it is. A **legacy** `<root>/knowledge/` is the one
+   exception: it's inside the discard bucket, but **offer to externalise it first** (move it to your
+   docs tree, as `/init`'s migration does) so the knowledge survives outside git history too; only
+   discard it if the user declines.
 4. **Un-wire config** — delete `relay.config.json` and `relay.config.local.json`, and drop the
    `relay.config.local.json` line from `.gitignore`. Removing config leaves the **deliverable docs it
    pointed at exactly where they are** — only the Relay wiring goes.

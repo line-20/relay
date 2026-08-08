@@ -10,8 +10,9 @@ The garbage collector. **On the happy path you never need this** — every `/shi
 releasing its own thread's worktree and pruning dead entries, so a session that runs to
 completion cleans up after itself. This command exists for the times it *doesn't*: a session
 `/clear`ed without a handover, one that crashed, or a worktree abandoned mid-experiment. It
-sweeps those orphans from the **main checkout**. Archival of old handovers/reviews is NOT here
-— that happens in `/handover`; this is worktrees only.
+sweeps those orphans from the **main checkout**. Archival of old handovers/reviews and other
+**content** housekeeping is NOT here — that's `/tidy` (per-ship, `/handover` does a subset); this
+is git **worktrees** only.
 
 ## The one hard rule
 **Multiple sessions share this one checkout, each may own a live worktree with uncommitted
