@@ -7,7 +7,7 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
-## Unreleased
+## 1.2.0 — audience register
 
 **Added**
 - **New `audience` driver preference** — tunes the *technical register* of Relay's prose, orthogonal to
