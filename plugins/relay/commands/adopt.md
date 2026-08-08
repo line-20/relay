@@ -108,6 +108,12 @@ A brownfield repo often already has its own `.claude/commands/` and `.claude/ski
   Then `/test`/`/ship` bring the fixture stack up via the `test` hook, `/ship`/`/handover` commit via
   `commit`, etc. (see [[conventions]] → Hooks). `test-stack` is the poster child: the test phase
   *should* call your fixture skill, not reinvent it.
+- **A project review agent → register into `/review`.** A `.claude/agents/*.md` that reviews code
+  (a findings-only reviewer) is registered in `relay.config.json` under `review.agents`
+  (`{ name, gate, tier, scope, priority }`) so `/review` fans it in alongside the built-in
+  specialists — same gate/cap/merge (see [[conventions]] → Custom review agents). Confirm it honours
+  the findings-only contract first; if it writes its own report or emits a verdict, keep it standalone
+  rather than registering it.
    If a dimension has no steward agent, register it but skip compaction (note it).
 
 ## Step 5 — Commit and report
