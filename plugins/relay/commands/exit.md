@@ -3,7 +3,7 @@ description: Cleanly remove Relay from a repo — restore adopted content to whe
 argument-hint: "[--dry-run to preview only; omit to preview then confirm]"
 ---
 
-> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — the technical register of your prose: `plain` = non-technical, no jargon; `informed` = architecture, trade-offs and named patterns, no code/syntax/flags unless they are the point or asked; `expert` = full implementation depth; unset ⇒ today’s default (no register shaping). Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
 
 Remove Relay from this repo **without trapping anything you brought or made.** This is the counterpart
 to `/adopt`: adoption pulled content *in*; `/exit` puts it *back* and takes Relay out of the way. The

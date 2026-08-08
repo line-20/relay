@@ -21,7 +21,7 @@ different files because they have different owners and lifetimes.
 | | `relay.config.json` (committed) | `relay.config.local.json` (gitignored) |
 |---|---|---|
 | Owns | project truth — shared by everyone | the driver's here-and-now preferences |
-| Holds | `root`, `paths`, `guardrails`, `hooks`, `review`, `persist`, `tidy` | `session`, `verbosity` |
+| Holds | `root`, `paths`, `guardrails`, `hooks`, `review`, `persist`, `tidy` | `session`, `verbosity`, `audience` |
 | Lifetime | stable; changes rarely | switch-often; personal, per-machine |
 | Committed? | yes | **no** (`/init` adds it to `.gitignore`) |
 
@@ -70,13 +70,14 @@ config file at all:
 ```
 ```jsonc
 // relay.config.local.json  (gitignored — driver preferences; or set per-call)
-{ "session": "large", "verbosity": "terse" }
+{ "session": "large", "verbosity": "terse", "audience": "informed" }
 ```
 **Defaults when a key is absent:** `root` → `relay`; no `paths` overrides; no `guardrails` (reviewers
 use their built-in defaults); no `hooks` (commands use their built-in discovery); no `review.agents`
 (just the built-in ten specialists); `persist` → `cadence:
 ask`, `level: standard` (today's harvest); `tidy` → `level: standard`; `session` → unset (no shaping,
-full fan-out); `verbosity` → `normal`. A committed `tier` is still read where `session` is absent
+full fan-out); `verbosity` → `normal`; `audience` → unset (no register shaping — today's prose). A
+committed `tier` is still read where `session` is absent
 (back-compat), and a flat `persist: "ask"|"always"|"never"` is still read as `persist.cadence`
 (back-compat).
 
@@ -98,10 +99,25 @@ before ~50% of the window is used, then start fresh). Bigger window ⇒ `large` 
 - **normal** — today's behaviour.
 - **verbose** — also show the reasoning and intermediate findings as they happen.
 
+### `audience` — how technical Relay's prose is
+`plain | informed | expert` (absent ⇒ no register shaping — today's prose). Orthogonal to `verbosity`:
+`verbosity` sets *how much* Relay says, `audience` sets *at what technical register*. Shapes the
+narrative prose only — never the code, config, or command snippets a step must show literally, and
+never a table, STOP-gate, or the final landing's substance.
+- **plain** — for a non-technical reader: everyday language, no jargon (or explain it), analogies over
+  internals.
+- **informed** — assume deep, broad IT literacy but not current hands-on coding. Explain at the level
+  of architecture, trade-offs, and named patterns/technologies; lead with the decision and the *why*.
+  Keep code, exact syntax, flags, and file-level specifics out **unless they are the point or the
+  driver asks**.
+- **expert** — full implementation depth: code, commands, signatures, config, file paths.
+- **absent** — no shaping; today's behaviour. Fully back-compatible.
+
 ### Per-call overrides (the "case by case")
 Any command accepts these words in its arguments and they win over the files, for that one run:
-`small` / `medium` / `large` (session) and `terse` / `quiet` / `verbose` (verbosity). E.g.
-`/refine large`, `/next small terse`, `/review verbose`.
+`small` / `medium` / `large` (session), `terse` / `quiet` / `verbose` (verbosity), and
+`plain` / `informed` / `expert` (audience). E.g. `/refine large informed`, `/next small terse`,
+`/review verbose`.
 
 **Resolution order (both signals):** per-call word → `relay.config.local.json` → (`relay.config.json`
 `tier`, back-compat only) → default. Resolve once at a command's Step 0:
@@ -109,7 +125,8 @@ Any command accepts these words in its arguments and they win over the files, fo
 LOCAL=relay.config.local.json
 SESSION="$(jq -r '.session // empty' "$LOCAL" 2>/dev/null)"; : "${SESSION:=$(jq -r '.tier // empty' relay.config.json 2>/dev/null)}"
 VERBOSITY="$(jq -r '.verbosity // "normal"' "$LOCAL" 2>/dev/null || echo normal)"
-# then let any per-call word in $ARGUMENTS override SESSION / VERBOSITY
+AUDIENCE="$(jq -r '.audience // empty' "$LOCAL" 2>/dev/null)"   # empty ⇒ no register shaping
+# then let any per-call word in $ARGUMENTS override SESSION / VERBOSITY / AUDIENCE
 ```
 > **Migration note:** `session` supersedes the old `tier` (`free`/`pro`/`max`). A committed `tier` is
 > still read as a fallback so nothing breaks; new setups write `session` to the local file instead.
@@ -171,6 +188,9 @@ un-distilled knowledge" is a data invariant, not a matter of running order.
   without `git` archaeology. A freshly-created brief has no such line — so "adopted vs created" is
   answerable at a glance.
 - **Honour `verbosity`** for everything that isn't a table, a STOP gate, or the final landing.
+- **Honour `audience`** — the technical register of your prose (`plain` / `informed` / `expert`;
+  absent ⇒ no shaping). It reshapes *how* something is explained, never *what* a step does; it never
+  drops a required code/command snippet, a STOP-gate, or substance from the final landing.
 - **No fabricated familiarity.** Describe options and defaults **neutrally** — say what an option *does*,
   not who it's for. A recommendation must rest on a **concrete, current** signal and be phrased as a
   tentative suggestion; never assert the user's preferences, style, or habits as fact, and never address

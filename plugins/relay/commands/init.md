@@ -5,7 +5,7 @@ argument-hint: "[--root <dir>  (where durable state lives; default 'relay')]"
 
 Get a repo ready to run the Relay loop **with the least possible ceremony**. This does the *minimum*
 to start — a board and the dirs the first commands write — and **nothing else up front**. Everything
-heavier (session size, verbosity, guardrails, pulling legacy docs into Relay) is **deferred** and
+heavier (session size, verbosity, audience, guardrails, pulling legacy docs into Relay) is **deferred** and
 offered by the phase that needs it, so onboarding is a few seconds, not a setup wizard. It's
 **idempotent** (safe to
 re-run) and **never destructive** — it never moves your files or overwrites an existing board.
@@ -48,7 +48,7 @@ Relay keeps its durable state under one **root** folder (default `relay/`).
 1. Use `relay` unless `$ARGUMENTS` passes `--root <dir>`, or the repo already keeps this kind of state
    somewhere (a `docs/board.md`, an existing handover convention) — then propose that dir so nothing
    has to move. Set `ROOT` to the chosen dir (`<root>` below = this value).
-2. **Ask for nothing else here.** Session size and verbosity are **driver preferences**, not project
+2. **Ask for nothing else here.** Session size, verbosity, and audience are **driver preferences**, not project
    config — they live in a gitignored `relay.config.local.json` and are offered just-in-time by the
    phase that needs them (see [[conventions]]). Don't interrogate them at init.
 

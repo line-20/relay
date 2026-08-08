@@ -7,6 +7,18 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## Unreleased
+
+**Added**
+- **New `audience` driver preference** — tunes the *technical register* of Relay's prose, orthogonal to
+  `verbosity` (which tunes *how much* it says). Three levels: `plain` (non-technical, no jargon),
+  `informed` (architecture, trade-offs and named patterns; no code/syntax/flags unless they're the
+  point or you ask), `expert` (full implementation depth). Lives in the gitignored
+  `relay.config.local.json` like `verbosity`/`session`, accepts the same per-call override words
+  (`/refine informed`), and shapes narrative prose only — never a required code snippet, a STOP-gate,
+  or the substance of a table or the final landing. **Absent ⇒ no shaping (today's behaviour)** —
+  additive and fully back-compatible.
+
 ## 1.1.0 — knowledge persistence + housekeeping
 
 Generalises two disciplines proven by hand on a multi-year ERP into config-driven, size-tunable
