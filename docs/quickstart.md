@@ -194,9 +194,11 @@ nothing about your last one, and it doesn't need to. That's the point.
 - **Blocked on a sibling session's unlanded work?** `/watch` — park it, auto-resume when it lands.
 - **Done for now?** `/ship` (to ship) or `/handover` (to hand off mid-thread).
 - **Just shipped something worth keeping?** `/persist` — harvest the lesson into guardrails/design
-  system/memory and draft a release note, so the next lap starts smarter.
-- **Cleaning up?** Nothing to run — `/ship` archives old notes and prunes dead worktree entries as
-  part of its handover step, and keeps your topic worktrees for their next slice.
+  system/memory (+ ADRs at `persist.level: full`) and draft a release note, so the next lap starts
+  smarter. Durable output lands in your docs tree, **outside `relay/`**.
+- **Cleaning up?** Usually nothing to run — `/ship` archives old notes and prunes dead worktree entries
+  as part of its handover step, and keeps your topic worktrees for their next slice. When the volatile
+  layer needs a deeper sweep (spent briefs, done rows), `/tidy` does it — recurring and safe.
 - **Want more control?** `/config` — a guided, layered pass (session/verbosity first, then optionally
   guardrails/hooks). Opt-in depth, never a gate.
 - **Lost, or forgot a command?** `/help` — the whole capability map on one screen.

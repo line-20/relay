@@ -54,7 +54,7 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 | `/refine` | Ground a shaped brief against **this** project — code, guardrails, threat model, session-sized slices; pulls a legacy doc into Relay as it grooms it |
 | `/next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
 | `/continue` | Resume an in-flight thread from its handover |
-| `/ship` | End-of-session loop: test → PR + review → fix → merge → handover → (offers `/persist`) |
+| `/ship` | End-of-session loop: test → PR + review → fix → merge → handover → persist (per `persist.cadence` policy) |
 
 **Run by the loop** — `/ship` composes these for you. You *can* call them standalone, but in
 the normal flow you don't:
@@ -65,10 +65,10 @@ the normal flow you don't:
 | `/fix` | `/ship` Phase 4 | you're working an existing review report |
 | `/handover` | `/ship` Phase 6 | you're handing off **mid-thread**, without shipping |
 
-> `/ship` also does the end-of-session housekeeping (archiving superseded handovers and old
-> reviews, pruning dead worktree entries) as part of its handover step — there's no separate
-> cleanup command to remember. It **keeps** the topic's worktree for the next slice (removed only
-> when the topic itself is done).
+> `/ship` does the routine end-of-session housekeeping (archiving superseded handovers and old
+> reviews, pruning dead worktree entries) as part of its handover step — you don't run it by hand.
+> It **keeps** the topic's worktree for the next slice (removed only when the topic itself is done).
+> For a deeper, recurring sweep of the volatile layer — spent briefs, done rows — reach for `/tidy`.
 
 **The SSDLC spiral** — Relay is a **Secure-SDLC workbench**, not just a ship loop. These extend the
 loop into a spiral where quality and security *compound* each lap. All optional, invoked when the work
@@ -78,7 +78,7 @@ needs them:
 |---|---|
 | `/guardrails` | Establish **what "good" means** for the project — layered, per-dimension (API/UI/security/privacy/testing…), that `/refine` and the review agents check against |
 | `/deploy` | Orchestrate + **security-gate** the PR preview your own CI produces, then hand a verified URL to `/test`. Never owns deployment |
-| `/persist` | After a lap, **harvest what it taught** — into guardrails, the design system, AI memory — and draft human-readable **release notes**. The step that makes the spiral compound |
+| `/persist` | After a lap, **harvest what it taught** — into guardrails, the design system, AI memory, **ADRs**, and human-readable **release notes**. Config-driven (`persist.level` `none`→`full`), and durable output lands **outside `<root>/`** in your docs tree, so it outlives Relay. The step that makes the spiral compound |
 | `/adopt` | **Bulk-adopt a brownfield area**: move its idea docs into Relay (tidying them) and register + compact its convention docs in place. The fast-forward for what `/refine`/`/guardrails` do gradually |
 | `/exit` | **Leave cleanly** — the round-trip for `/adopt`: restore adopted content to where it came from, export your briefs, un-wire config; your code untouched, one `git revert` away. No lock-in |
 
@@ -89,6 +89,7 @@ needs them:
 | `/test` | After a chunk of work, open (or reuse) a PR and write a **consistent, structured test plan** into it — preconditions, happy path, and the edge/error/tenant-isolation + threat-model cases an LLM skips by default. Can then **drive the happy path in the browser** against the preview and report pass/fail with a GIF. Stops at a **draft** PR (never merges); `plan-only` prints the checklist without a PR. |
 | `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/explore`. |
 | `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
+| `/tidy` | Keep the **volatile** layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs. Recurring, idempotent, parallel-worktree-safe; config-driven (`tidy.level`/`retention`). The **content** housekeeper (`/gc` does worktrees). |
 | `/gc` | Reclaim **orphaned** worktrees left by sessions that skipped the happy path (crashed, or `/clear`ed without a handover). You never need it in normal use — `/ship` cleans up after itself; reach for it only when orphans pile up. |
 | `/config` | The config front door — shows what's set/available and walks a guided setup. Opt-in depth, never a gate: nothing here blocks getting to work. |
 | `/help` | On-demand capability map — the lifecycle and every command, one line each, with links to the docs. The "what can this do again?" surface. |
