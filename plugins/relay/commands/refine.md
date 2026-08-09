@@ -3,7 +3,7 @@ description: Groom a shaped idea against THIS project — its code, guardrails, 
 argument-hint: "[track/slug of a brief to refine; omit to pick from the board]"
 ---
 
-> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — the technical register of your prose: `plain` = non-technical, no jargon; `informed` = architecture, trade-offs and named patterns, no code/syntax/flags unless they are the point or asked; `expert` = full implementation depth; unset ⇒ today’s default (no register shaping). Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
 
 Take a brief that `/explore` shaped **in the abstract** and groom it **against this project** —
 its existing code, its guardrails, its accumulated memory, and the driver's **session size** — so
@@ -152,6 +152,16 @@ Show a compact summary and **wait for approval before writing anything**:
 - **Slice plan** — the session-sized slices with their acceptance criteria, and the session size they are sized for.
 Note anything the grounding **changed** versus `/explore`'s approach (a reuse that shrinks it, a
 constraint that reshapes it). **STOP for the go-ahead**, a redirect, or a re-slice.
+
+**Scale this STOP-gate to `audience` — terminal only; Step 7 writes the full brief regardless, so no
+grounding is lost** ([[conventions]]):
+- `expert` / unset ⇒ the full tables above.
+- `informed` ⇒ lead with what the grounding **changed** and the decisions; show only the corrections
+  and the open questions/threats that need the driver's call; **don't** paste the exhaustive
+  `file:line` grounding table — say the full grounding lands in the brief. The open decisions still
+  appear in full: they're the landing.
+- `plain` ⇒ the decisions, the reshape in a sentence or two, and any open question — everything else
+  is in the brief.
 
 ## Step 7 — Write the refined brief back (main-owned)
 On approval, extend the existing `<root>/briefs/<slug>.md` **in place** — keep `/explore`'s sections,

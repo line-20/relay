@@ -3,13 +3,13 @@ description: Set Relay's optional config, layered gentlest-first — lead with s
 argument-hint: "[jump to one area: session|verbosity|audience|persist|tidy|guardrails|hooks|paths|root|show; omit for the layered pass]"
 ---
 
-> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — the technical register of your prose: `plain` = non-technical, no jargon; `informed` = architecture, trade-offs and named patterns, no code/syntax/flags unless they are the point or asked; `expert` = full implementation depth; unset ⇒ today’s default (no register shaping). Render every list as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
+> **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
 
 The config front door — **opt-in depth, never a gate** ([[conventions]]). It is **layered
-gentlest-first** so it never dumps "here's everything, have a pick": it leads with the two cheap driver
+gentlest-first** so it never dumps "here's everything, have a pick": it leads with the cheap driver
 prefs, then *compactly* offers the project knobs only if they're relevant, and keeps the structural ones
 out of the way unless you ask for them. Decline anything and defaults stand — you can stop after the
-first two questions.
+first few questions.
 
 ## Step 0 — Resolve state (and honour a jump)
 ```bash
@@ -33,11 +33,11 @@ familiarity*). On a fresh session you don't know the user; present the choices p
    landing only; **normal** = today's default; **verbose** = also the reasoning. Same rule — neutral
    descriptions; suggest `terse` only if something concrete points that way, and as a light suggestion,
    not a claim about them. Skip ⇒ `normal`.
-3. **Audience** (`plain`/`informed`/`expert`) — the technical register of Relay's prose (orthogonal to
-   verbosity): **plain** = non-technical, no jargon; **informed** = architecture, trade-offs and named
-   patterns, no code/syntax/flags unless they're the point or asked; **expert** = full implementation
-   depth. Same rule — neutral descriptions, no claim about who they are. Write to
-   `relay.config.local.json`. Skip ⇒ unset (no register shaping — today's prose).
+3. **Audience** (`plain`/`informed`/`expert`) — how much depth Relay surfaces **in the terminal** (a
+   written brief/report always keeps full depth): **plain** = executive summary; **informed** =
+   decisions + what changed + what needs you, exhaustive evidence deferred to the artifact; **expert**
+   = full depth. Same rule — neutral descriptions, no claim about who they are. Write to
+   `relay.config.local.json`. Skip ⇒ unset (no shaping — today's output).
 
 **Then STOP** — many users are done here. Ask a single line: *"That's the essentials. Want to set up
 project standards or wire in your tooling too? (both optional)"* — only continue to Layer 2 on a yes.

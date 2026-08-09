@@ -99,19 +99,22 @@ before ~50% of the window is used, then start fresh). Bigger window ⇒ `large` 
 - **normal** — today's behaviour.
 - **verbose** — also show the reasoning and intermediate findings as they happen.
 
-### `audience` — how technical Relay's prose is
-`plain | informed | expert` (absent ⇒ no register shaping — today's prose). Orthogonal to `verbosity`:
-`verbosity` sets *how much* Relay says, `audience` sets *at what technical register*. Shapes the
-narrative prose only — never the code, config, or command snippets a step must show literally, and
-never a table, STOP-gate, or the final landing's substance.
-- **plain** — for a non-technical reader: everyday language, no jargon (or explain it), analogies over
-  internals.
-- **informed** — assume deep, broad IT literacy but not current hands-on coding. Explain at the level
-  of architecture, trade-offs, and named patterns/technologies; lead with the decision and the *why*.
-  Keep code, exact syntax, flags, and file-level specifics out **unless they are the point or the
-  driver asks**.
-- **expert** — full implementation depth: code, commands, signatures, config, file paths.
+### `audience` — how much depth Relay surfaces (terminal only)
+`plain | informed | expert` (absent ⇒ no shaping — today's output). Governs two things at once — the
+**technical register** of the prose *and* **how much supporting detail surfaces in the terminal**. The
+invariant that makes it safe: it shapes **terminal output only**. A **written artifact** — a brief, a
+review report, an ADR, a handover — always carries full depth, whatever the audience. So dropping to
+`informed` doesn't lose the grounding; it moves it out of the chat into the file where it belongs.
+- **plain** — executive summary: the decisions and what's needed from the driver, minimal jargon.
+  Supporting evidence lives in the artifact, not the terminal.
+- **informed** — assume deep, broad IT literacy but not current hands-on coding. Lead with the
+  decisions and *what changed*; keep the corrections and open questions that need the driver's
+  judgement; defer exhaustive evidence, `file:line` tables, and step-by-step detail to the artifact.
+- **expert** — full depth in the terminal too: the complete tables, evidence, and implementation
+  specifics (today's behaviour).
 - **absent** — no shaping; today's behaviour. Fully back-compatible.
+
+Never drops a STOP-gate question or the decision itself — those are the landing, at every level.
 
 ### Per-call overrides (the "case by case")
 Any command accepts these words in its arguments and they win over the files, for that one run:
@@ -188,9 +191,11 @@ un-distilled knowledge" is a data invariant, not a matter of running order.
   without `git` archaeology. A freshly-created brief has no such line — so "adopted vs created" is
   answerable at a glance.
 - **Honour `verbosity`** for everything that isn't a table, a STOP gate, or the final landing.
-- **Honour `audience`** — the technical register of your prose (`plain` / `informed` / `expert`;
-  absent ⇒ no shaping). It reshapes *how* something is explained, never *what* a step does; it never
-  drops a required code/command snippet, a STOP-gate, or substance from the final landing.
+- **Honour `audience`** (`plain` / `informed` / `expert`; absent ⇒ no shaping) — how much depth
+  surfaces in the **terminal**: `plain` = executive summary; `informed` = decisions + what changed +
+  what needs the driver, with exhaustive evidence deferred to the artifact; `expert` = full depth. It
+  **never thins a written artifact** (brief, report, ADR, handover) and never drops a STOP-gate
+  question or the decision itself.
 - **No fabricated familiarity.** Describe options and defaults **neutrally** — say what an option *does*,
   not who it's for. A recommendation must rest on a **concrete, current** signal and be phrased as a
   tentative suggestion; never assert the user's preferences, style, or habits as fact, and never address

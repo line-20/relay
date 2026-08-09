@@ -7,6 +7,17 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.2.1 — audience governs terminal altitude
+
+**Changed**
+- **`audience` now shapes how much depth surfaces in the terminal, not just prose register.** At
+  `informed`/`plain`, Relay leads with the decisions and what changed and defers exhaustive evidence
+  (`file:line` grounding tables, full acceptance detail) to the **written artifact**, which always
+  keeps full depth — no grounding is lost, it just stops being dumped in chat. `expert`/unset keep
+  today's full-detail terminal output. Applied first to `/refine`'s STOP-gate (its Step 7 already
+  writes the complete brief), and generalised via the shared Output convention to the other
+  report-heavy commands. Still additive: absent ⇒ no shaping.
+
 ## 1.2.0 — audience register
 
 **Added**
