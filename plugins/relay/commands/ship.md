@@ -1,6 +1,6 @@
 ---
-description: End-of-session orchestrator — test → open PR + review → fix → merge to main → handover. Runs the whole loop; merges only on a clean green path.
-argument-hint: "(no arguments)"
+description: End-of-session orchestrator — test → open PR → verify gate → review → fix → merge to main → handover. Runs the whole loop; merges only on a clean green path, and won't spend the review fan-out on work nobody has exercised.
+argument-hint: "['no-verify' — skip the Phase 2.5 verify gate and go straight to review]"
 ---
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
@@ -17,7 +17,7 @@ loop composes — `/review`, `/handover` — resolve it themselves too.)
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 
-## Phase 1 — Test
+## Phase 1 — Test (the automated suite)
 Run the project's test suite. **If `relay.config.json` has a `hooks.test`** (a project command/skill,
 e.g. `test-stack`), **dispatch that** — it's the project's own way to bring the fixture stack up and
 run tests (see [[conventions]] → Hooks). Otherwise discover the command from
@@ -28,10 +28,32 @@ DB-backed integration tests behind a fixture stack, bring it up and run them too
 
 ## Phase 2 — Ensure a PR (committed work only)
 1. `git branch --show-current`. If it's `main`/`master`/the default branch, **STOP**.
-2. `gh pr view --json number,url,state` — if an OPEN PR exists for this branch, use it and go to Phase 3.
+2. `gh pr view --json number,url,state` — if an OPEN PR exists for this branch, use it and go to Phase 2.5.
 3. No PR:
    a. `git status`. **If the tree is dirty, STOP** — committing is the user's call. Ask them to commit (or stash), then re-run.
    b. Clean tree: push committed work if needed (`git push -u origin <branch>`), then `gh pr create --fill --draft`.
+
+## Phase 2.5 — Verify gate (has anyone actually exercised this?)
+A green suite is not the same as *someone clicked through it*. The review fan-out in Phase 3 is the
+most expensive thing this loop does, and spending it on a change nobody has exercised is the waste
+this gate exists to prevent. So before the fan-out, look for **evidence of a hands-on pass** — cheap,
+from the PR:
+- a `## 🧪 Test drive` section in the PR body with **ticked** `- [x]` boxes, or
+- a `/test` **results comment** on the PR (`gh pr view <n> --json body,comments`) with a pass tally.
+
+**Evidence found ⇒ say so in one line and continue to Phase 3.**
+
+**No evidence ⇒ ask once and STOP for the answer:**
+> *PR #<n> hasn't been exercised yet — no test-drive results on it. Review is the expensive phase;
+> spending it on unverified work is usually the waste. **Run `/test` first**, or review anyway?*
+
+- **Run `/test`** → run `/relay:test <n>` end to end (it picks the verify target — preview via
+  `/deploy`, or local via `hooks.env.up` — writes the plan and, on a `drive`, exercises it). Then
+  re-enter this phase. If driving turns something red, **STOP** — that's a fix, not a ship.
+- **Review anyway** → note the choice and continue; the answer holds for the rest of this run, so
+  the gate asks at most once.
+- **Skip the gate entirely, no question asked**, when it would only be noise: a **docs-only** diff
+  (Phase 3 short-circuits those anyway), or the caller already said `no-verify` / already answered.
 
 ## Phase 3 — Review (multi-specialist fan-out)
 Review the PR with the **`/review` fan-out**, not a single reviewer — follow the
@@ -112,8 +134,16 @@ its Step 0 guard passes (PR is MERGED), it generates the cold-start handover, co
 main, prints the compact summary, **and does the end-of-session housekeeping** — its Step 4.5
 archives superseded handovers + old PR reviews, and its Step 6 exits this thread's topic worktree
 (keeping it on disk for the topic's next slice) and prunes dead worktree entries. There is no
-separate cleanup command; this is it. Then tear down any throwaway test fixture. That closes the
-session.
+separate cleanup command; this is it.
+
+Then tear down what **this session** brought up, and only that:
+- any throwaway test fixture Phase 1 started;
+- the local test environment, **if this session started it** — dispatch `hooks.env.down`, the
+  project's own stack command. **If Relay didn't bring it up here, leave it alone.** A local stack
+  is routinely shared with a sibling session, and killing one out from under a live thread is
+  exactly the damage this rule prevents. No `hooks.env.down` declared ⇒ nothing to do.
+
+That closes the session.
 
 **Reflect (loop edge).** Shipping is a lap's end, not the loop's. If this lap surfaced a new idea or
 changed your mind about the work, say so and re-enter: `/relay:explore` (a genuinely new idea) or

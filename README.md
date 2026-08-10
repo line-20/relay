@@ -18,10 +18,10 @@ can pick up where another left off** — because the state that matters lives in
 ┌────────────────────── the loop · every session cycles through it ────────────────────────┐
 │                                                                                          │
 ▼                                                                                          │
-relay/board.md  ──▶ /next   ──▶   ┌ worktree A ┐   ──▶  /ship    ──▶    /handover  ┘
-shared · on main    or /continue        │            │        test → review →   writes back
-what's in flight                        ├ worktree B ┤        merge → ship      to the board
-                                        │            │ 
+relay/board.md  ──▶ /next   ──▶   ┌ worktree A ┐  ──▶ /test ──▶ /ship  ──▶  /handover  ┘
+shared · on main    or /continue        │            │    PR +      review →    writes back
+what's in flight                        ├ worktree B ┤    test plan  merge      to the board
+                                        │            │    driven
                                         └ worktree C ┘        
 
       ↑  many sessions run this loop at once — each in its own worktree,
@@ -54,7 +54,8 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 | `/refine` | Ground a shaped brief against **this** project — code, guardrails, threat model, session-sized slices; pulls a legacy doc into Relay as it grooms it |
 | `/next` | "What should I work on?" — a ranked shortlist from the board, then starts it in a worktree |
 | `/continue` | Resume an in-flight thread from its handover |
-| `/ship` | End-of-session loop: test → PR + review → fix → merge → handover → persist (per `persist.cadence` policy) |
+| `/test` | **Verify before you ship** — open (or reuse) a draft PR and write a consistent, structured test plan into it (preconditions, happy path, and the edge/error/tenant-isolation + threat-model cases an LLM skips by default). Add `drive` and it clicks the happy path through the browser and reports pass/fail with a GIF. Runs against a **PR preview** or a **local stack**, whichever the project provides — Relay dispatches your command, it never owns the environment. Never merges; `plan-only` prints the checklist without a PR |
+| `/ship` | End-of-session loop: test → PR → **verify gate** → review → fix → merge → handover → persist (per `persist.cadence` policy). The verify gate asks once before spending the review fan-out on a change nobody has exercised |
 
 **Run by the loop** — `/ship` composes these for you. You *can* call them standalone, but in
 the normal flow you don't:
@@ -86,7 +87,6 @@ needs them:
 
 | Command | What it does |
 |---|---|
-| `/test` | After a chunk of work, open (or reuse) a PR and write a **consistent, structured test plan** into it — preconditions, happy path, and the edge/error/tenant-isolation + threat-model cases an LLM skips by default. Can then **drive the happy path in the browser** against the preview and report pass/fail with a GIF. Stops at a **draft** PR (never merges); `plan-only` prints the checklist without a PR. |
 | `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/explore`. |
 | `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
 | `/tidy` | Keep the **volatile** layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs. Recurring, idempotent, parallel-worktree-safe; config-driven (`tidy.level`/`retention`). The **content** housekeeper (`/gc` does worktrees). |

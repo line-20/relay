@@ -266,3 +266,9 @@ The item has no handover yet — work from its **brief / roadmap detail**.
 ## Step 6 — Report
 State the **board item** (`track/slug`) you started, the worktree/branch you're in, and the
 first slice you're building.
+
+**When the slice is built, point at verify — not at ship.** The next step after a build is
+**`/relay:test`**: it opens the draft PR and writes the test plan, and (with `drive`) exercises it
+against the project's preview or local environment. Shipping straight from a build spends the
+review fan-out — the loop's most expensive phase — on something nobody has clicked through yet.
+`/ship` still owns the merge and picks the verified PR up from there.

@@ -119,9 +119,11 @@ cheapest to catch.
 
 You confirm, it finishes the slice, commits.
 
-## Late afternoon: kick the tyres (optional)
+## Late afternoon: verify it
 
-Not ready to merge on trust? Before `/ship`, hand the change to a test pass:
+The step between building and shipping — not an optional flourish. `/ship`'s review fan-out is the
+most expensive thing in the loop, and spending it on a change nobody has clicked through is the
+classic waste. So:
 
 ```
 /relay:test
@@ -129,10 +131,24 @@ Not ready to merge on trust? Before `/ship`, hand the change to a test pass:
 
 Relay opens a draft PR and writes a **structured test plan** into it — preconditions, the happy
 path, and the cases an LLM skips by default: invalid input, wrong-role, tenant-isolation. Add
-`drive` and it clicks through the happy path in the browser against the preview and posts pass/fail
-with a GIF. It **never merges** — it stops at a tested-but-unmerged PR; `/ship` still owns the
-merge. (On a project with per-PR preview deploys this is where it shines; without one it falls back
-to local-run steps.)
+`drive` and it clicks through the happy path in the browser and posts pass/fail with a GIF. It
+**never merges** — it stops at a tested-but-unmerged PR; `/ship` still owns the merge.
+
+**What it drives against is the project's call, not Relay's.** Two targets:
+
+- **A preview** — the PR-triggered environment your own CI already builds. `/relay:deploy` waits
+  for it, smoke-checks it and security-gates it, then hands back a URL worth trusting.
+- **A local stack** — brought up through your project's own command, declared as
+  `hooks.env.up`/`hooks.env.down` in `relay.config.json`.
+
+Relay never starts or kills a stack by hand. A local stack is routinely shared with one of your
+other sessions, and only your project's command knows whether tearing it down is safe — so `/ship`
+takes down only what *this* session brought up, and your `down` command gets to refuse. Haven't got
+those commands? `/test` offers once to draft them and wire them in. That's the help: Relay names
+the phase, you own the environment.
+
+Then `/ship` picks the verified PR up. If you type `/ship` without having verified, it notices —
+it asks once, before it spends the review, whether to run `/test` first or review anyway.
 
 ## Evening: ship it
 
@@ -144,6 +160,9 @@ The end-of-session loop, in order, stopping at any gate that needs you:
 
 1. **Test** — runs your suite. Green, so it continues. (Red would stop here.)
 2. **PR** — opens a draft PR for the branch.
+2.5. **Verify gate** — the PR carries the ticked test plan from this afternoon, so it says so in
+   one line and moves on. (Had you skipped `/test`, this is where it would ask once — run it now,
+   or review anyway — rather than quietly spending step 3 on unexercised work.)
 3. **Review** — the diff touches backend + a security-sensitive path, so it fans out
    **backend-developer**, **security-specialist** (always on), and **test-engineer** in
    parallel, merged into one report at `relay/reviews/pr-142-2026-08-04.md`. One 🔴: the limit
@@ -175,13 +194,13 @@ cleanup command to remember.
 
 ## The shape of it
 
-The ship path is three commands — explore the idea, start it, wrap it up (`/ship` runs
+The ship path is four commands — explore the idea, start it, verify it, wrap it up (`/ship` runs
 the review, the merge, the handover, **and the tidy-up** for you at the end):
 
 ```
-/explore ──► /refine ──► /next ──► build in worktree ──► /ship ──► merged, handed off & tidied
-   idea →                                        test → review → merge → handover → archive
-   brief on board
+/explore ──► /refine ──► /next ──► build in worktree ──► /test ──► /ship ──► merged, handed off & tidied
+   idea →                                     PR + plan, driven →  review → merge → handover → archive
+   brief on board                             (preview or local)
 ```
 
 `/handover` and `/continue` are the **mid-thread pair** — you only reach for them when you
@@ -193,7 +212,7 @@ build ──► /handover ──► /clear     (pause: hand the thread off unfin
    (cold session, later)
               │
               ▼
-        /continue ──► build ──► /ship   (resume, then ship)
+        /continue ──► build ──► /test ──► /ship   (resume, verify, then ship)
 ```
 
 Every arrow that crosses a session boundary crosses through a file on `main`. That's the

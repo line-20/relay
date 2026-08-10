@@ -25,17 +25,28 @@ number,url,state,headRefName`). A preview is a **PR artefact**, so:
 - A merged/closed PR ⇒ note it; a preview may no longer exist. Ask before proceeding.
 
 ## Step 1 — Discover the preview mechanism (the project overlay — don't assume a vendor)
-Find out **how this project previews a PR**, from the project itself:
+Find out **how this project previews a PR**, from the project itself. **A declared hook wins** —
+if `relay.config.json` has a `hooks.deploy` (a project command/skill, see [[conventions]] → Hooks),
+that IS the project's answer; dispatch it rather than re-deriving one from CI config:
+```bash
+DEPLOY_HOOK="$(jq -r '.hooks.deploy // empty' relay.config.json 2>/dev/null)"
+```
+Otherwise discover it:
 - `CLAUDE.md`/README for a documented **preview-URL pattern + how to authenticate to it**.
 - `gh pr checks <n>` for a **deploy/preview check** that builds and publishes a URL.
 - the CI config (`.github/workflows`, or whatever the repo uses) for a preview/deploy job and how
   it's triggered (automatic on PR, a label, a `workflow_dispatch`, a comment command).
 
-**No preview mechanism found ⇒ STOP** and say so plainly: this project has no PR preview, so there's
-nothing for `/deploy` to verify — testing falls back to a **local run** (`/test` handles that
-path). Don't fabricate a deploy. This is the honest edge, not a failure.
+**No preview mechanism found ⇒ don't fabricate one.** Say so plainly — this project has no PR
+preview, so there's nothing for `/deploy` to verify. Then **offer once**, and STOP for the answer:
+*"No preview mechanism and no `hooks.deploy`. Want me to draft one for this project and wire it
+in?"* On a yes, use the `authoring-skills` skill to draft the command against how this repo
+actually deploys, and add `{ "hooks": { "deploy": "<name>" } }`. On a no, testing falls back to a
+**local run** — `/test local` handles that path. This is the honest edge, not a failure.
 
 ## Step 2 — Ensure the preview build is running (through the project's own trigger only)
+- **`hooks.deploy` declared:** dispatch it and let it do the triggering. It's the project's own
+  command; don't second-guess it or bypass it with a hand-rolled `gh` call.
 - **Auto-triggered on PR (the common case):** confirm the preview job actually started for this
   PR's head SHA (`gh pr checks <n>` shows it queued/in-progress/done). If it's there, go to Step 3.
 - **Not started, but the project exposes a manual trigger** you discovered in Step 1 (a

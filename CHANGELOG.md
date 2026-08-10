@@ -7,6 +7,46 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.3.0 — verify is a step in the loop
+
+The loop was **build → ship**, with `/test` sitting to one side as an optional "kick the tyres". That
+put the review fan-out — the most expensive phase Relay runs — on changes nobody had exercised. Verify
+is now a named step on the main line: **build → test → ship**.
+
+**Added**
+- **`hooks.env` (`{ up, down }`) — the project owns the local test environment.** `/test`'s local
+  target brings an environment up *only* by dispatching the project's own command, and `/ship` calls
+  `down` **only for an environment this session started** — never one it found already running. A local
+  stack is routinely shared with a sibling session, and the project's own `down` command is the right
+  place to be sibling-safe (to refuse, or no-op, when something else is still using it). Relay names
+  the phase and sequences it; it never starts or kills a stack by hand.
+- **`hooks.deploy` is now actually dispatched.** It was in the config schema and consumed by nothing.
+  `/deploy` now treats a declared hook as the project's answer for how a PR preview is triggered, ahead
+  of re-deriving one from CI config.
+- **`test.target` (`preview` | `local` | `ask`)** — which environment `/test` verifies against.
+  Absent ⇒ auto: preview if the project has one, else local. A per-call `preview`/`local` word wins.
+- **No hook? Relay offers to write one.** `/test` (local) and `/deploy` (preview) each offer **once** to
+  draft the project's command via the `authoring-skills` skill and wire it into `hooks`. Decline and
+  they fall back to printing the run command from `CLAUDE.md` as a manual precondition — never to
+  starting things themselves. This is the help Relay gives on an environment it deliberately doesn't own.
+
+**Changed**
+- **`/ship` gained a verify gate (Phase 2.5)** — between "ensure a PR" and the review fan-out. It looks
+  for evidence the change has been exercised (a ticked `## 🧪 Test drive` section, or a `/test` results
+  comment on the PR). Found ⇒ one line and carry on. Not found ⇒ **asks once**: run `/test` first, or
+  review anyway. The answer holds for the rest of the run, and the gate stays silent on docs-only diffs.
+- **`/next` and `/continue` now point at `/test` when a slice is built**, not at `/ship`.
+- **`/test` picks its target explicitly** (Step 3, rewritten) instead of falling back to "local run" as
+  an afterthought, and reports which target it used and whether it brought the environment up.
+- **Docs re-shaped around the four-command path** — `/explore → /refine → /next → /test → /ship`.
+  README's loop picture, the quickstart's numbered walk, and "a day in the loop" all carry the verify
+  step now; `/help` moves `/deploy` into the loop table alongside `/test`.
+
+**Fixed**
+- **A live drift in `conventions.md`:** it claimed `/test` brings the fixture stack up via `hooks.test`,
+  but `/test` never mentioned hooks at all. The hooks section now carries a table of every hook, who
+  dispatches it, and what it's for.
+
 ## 1.2.2 — `/refine` executive summary actually compresses
 
 **Changed**

@@ -63,7 +63,7 @@ pipeline**:
 | d | Build | `/whats-next`, `/continue` (topic-worktrees ✓) | **exists** — add *epic* grouping |
 | e | Review | `/review-pr` (the coordinator + fan-out ✓, budget-aware ✓) | **exists** — still to formalize the "review coordinator" role |
 | f | Fix | `/fix-pr-review` (↔ e loop ✓) | **exists** |
-| g | Test | `/test-drive` (scenarios, AI-driven, preview-aware ✓) | **exists** (just shipped) |
+| g | Test | `/test` ✅ | **shipped; promoted 1.3.0** — now a step on the main line (`/next`→`/test`→`/ship`, with a verify gate in `/ship` before the review spend). Picks its target — preview (via h) or **local** — and dispatches the project's own `hooks.env` command; Relay never owns the environment |
 | h | Deploy preview | `/deploy` ✅ | **shipped 0.12.0** — orchestrate/verify + security-gate a PR preview, don't own deployment |
 | i | Reflect | *(no command — a loop edge)* | **NEW behaviour** — re-enter `/explore` or `/refine` with the result as input |
 | j | Persist | `/persist` ✅ | **shipped 0.11.0; extended 1.1.0** — harvest into guardrails overlay + design system + memory + release notes; **1.1.0** un-defers ADRs/procedures/how-tos (config-driven `persist.level`) and routes durable output **outside `<root>/`**. `/tidy` (1.1.0) keeps the volatile layer lean |

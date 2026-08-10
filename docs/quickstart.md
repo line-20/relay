@@ -141,9 +141,23 @@ topic's first slice, otherwise reused and re-baselined off `main` — and cuts a
 the slice. You're now working in an isolated directory, without touching `main` or any other
 session's work.
 
-## 5. Wrap it up
+## 5. Verify it
 
-When the slice is done and committed:
+When the slice is done and committed, verify before you ship — the review in the next step is the
+expensive part, and it's wasted on a change nobody has exercised:
+
+```
+/relay:test
+```
+
+Relay opens a draft PR and writes a structured test plan into it (happy path + the edge, error,
+permission and tenant-isolation cases). Add `drive` and it clicks through it in the browser. What
+it tests *against* is your project's call: a **PR preview** (`/relay:deploy` gets you a gated,
+verified URL) or a **local stack**, brought up through your own command declared as
+`hooks.env.up`/`hooks.env.down`. Relay never starts or kills a stack itself — if you haven't got
+those commands, it offers once to draft them and wire them in.
+
+## 6. Wrap it up
 
 ```
 /relay:ship
@@ -153,14 +167,16 @@ This runs the whole end-of-session loop in order, stopping at any gate that need
 
 1. **Test** — runs your suite; stops if anything's red.
 2. **PR** — opens a draft PR for the branch.
-3. **Review** — fans out the applicable specialists (security always runs), merged into one
+3. **Verify gate** — checks the PR carries a test pass. If it doesn't, it asks once — run `/test`
+   now, or review anyway — instead of quietly spending the next step on unexercised work.
+4. **Review** — fans out the applicable specialists (security always runs), merged into one
    report in `relay/reviews/`.
-4. **Fix** — re-verifies each finding and fixes the real ones.
-5. **Merge** — only on a clean green path (no blockers, checks passing, no conflicts).
-6. **Handover** — writes a cold-start note to `relay/handover/`, updates the board, commits
+5. **Fix** — re-verifies each finding and fixes the real ones.
+6. **Merge** — only on a clean green path (no blockers, checks passing, no conflicts).
+7. **Handover** — writes a cold-start note to `relay/handover/`, updates the board, commits
    both to `main`, and prints a compact summary.
 
-## 6. See the magic
+## 7. See the magic
 
 Run `/clear` to wipe the session's memory. Then, in the fresh session:
 
@@ -187,8 +203,9 @@ nothing about your last one, and it doesn't need to. That's the point.
   it, and slice it to your session size.
 - **Starting fresh?** `/next` — pick from the board.
 - **Picking up a thread?** `/continue` — resume from its handover.
-- **Want to try it before merging?** `/test` — a draft PR with a structured test plan (happy path +
-  edge/error/tenant-isolation + threat-model cases); add `drive` to run it in the browser. Never merges.
+- **Built something?** `/test` — the step between build and ship: a draft PR with a structured test
+  plan (happy path + edge/error/tenant-isolation + threat-model cases); add `drive` to run it in the
+  browser, against a preview or your local stack. Never merges.
 - **Need the PR preview ready to test?** `/deploy` — orchestrate + security-gate the PR preview via
   your own CI, then hand a verified URL to `/test`.
 - **Blocked on a sibling session's unlanded work?** `/watch` — park it, auto-resume when it lands.

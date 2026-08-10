@@ -178,3 +178,8 @@ State which **board item** (`track/slug`) and which handover you continued (orig
 or local, plus the filename). When you reach the done-criteria (or get blocked),
 summarise what you changed (files + commits), what's left, and anything the user should
 know. `/handover` will fold the outcome back into `<root>/board.md` at the end of the session.
+
+**Reached the done-criteria? Point at verify, not at ship.** The next step is **`/relay:test`** —
+draft PR + test plan, and with `drive` an actual pass against the project's preview or local
+environment. `/ship` picks the verified PR up from there and owns the merge; going straight to it
+spends the review fan-out on work nobody has exercised.

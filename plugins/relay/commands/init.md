@@ -29,7 +29,7 @@ sees and the one signal that certifies which command file ran:
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v1.2.2
+  continuity-first SSDLC workbench                          v1.3.0
   by Line20 · @eriklenaerts
 ```
 
@@ -230,8 +230,9 @@ understands the convention:
 - **`reviews/`** — one merged review report per PR (created on first review).
 
 The loop: `/explore` (shape an idea) → `/refine` (ground it against the code + guardrails) →
-`/next` / `/continue` (build) → `/test` (draft PR + test plan; can drive it) → `/deploy` (verify +
-security-gate a PR preview) → `/review` → `/ship` (test→review→merge→handover) → `/persist` (harvest
+`/next` / `/continue` (build) → `/test` (draft PR + test plan; drives it against a preview or your
+local stack) → `/deploy` (verify + security-gate a PR preview, feeding `/test`) → `/review` →
+`/ship` (test→verify gate→review→merge→handover) → `/persist` (harvest
 lessons, ADRs + release notes — durable output lands **outside `<root>/`**, in your docs tree).
 Setup/support: `/guardrails` (project standards), `/adopt` (pull legacy docs into Relay, by area),
 `/cross-check` (prior art), `/watch` (park on a dependency), `/handover`, `/tidy` (keep the volatile

@@ -1,6 +1,6 @@
 ---
-description: After a chunk of work, open (or reuse) a PR and write a consistent, structured test plan — preconditions, happy path, and the edge/error/tenant-isolation cases an LLM skips by default. Can then DRIVE the happy path in the browser against the preview and report. 'plan-only' prints the checklist without a PR.
-argument-hint: "[focus/area · a PR number · 'plan-only' (checklist alone) · 'drive'/'run' (also run it in the browser)]"
+description: The verify step between build and ship — open (or reuse) a PR and write a consistent, structured test plan (preconditions, happy path, and the edge/error/tenant-isolation cases an LLM skips by default). Can then DRIVE the happy path in the browser, against a PR preview or the project's local stack. 'plan-only' prints the checklist without a PR.
+argument-hint: "[focus/area · a PR number · 'plan-only' (checklist alone) · 'drive'/'run' (also run it in the browser) · 'preview'/'local' (which environment)]"
 ---
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
@@ -24,6 +24,11 @@ open PR or opens one, never a second.
 This is NOT `/ship`. `/ship` ships (merges). `/test` **stops at a tested-but-unmerged
 PR** (or a printed checklist) — a human (or Claude, in drive mode) exercises it against the
 preview before anyone merges. Merge later with `/ship` or by hand once it passes.
+
+**This is the step between build and ship, not an optional extra.** `/ship`'s review fan-out is the
+most expensive phase in the loop; running it on a change nobody has clicked through is the waste
+this command exists to prevent. `/next` and `/continue` point here when a slice is built, and
+`/ship` checks for a pass from here before it spends the review.
 
 ## Step 1 — Ensure a PR (committed work only; never merge here)
 **`plan-only` mode → skip this whole step.** Don't open, push, or require anything — go straight
@@ -59,16 +64,70 @@ source for the mode:
    that must never break). This is what makes the non-happy-path cases *real* for this project
    rather than generic filler.
 
-## Step 3 — Detect the preview-deploy hook (the project overlay)
-Most repos have no preview deploy; some (e.g. a PR-triggered preview) do. Discover, don't assume:
-- Check `CLAUDE.md`/README for a documented **preview-URL pattern + how to authenticate to it**,
-  and `gh pr checks <n>` for a deploy/preview check that publishes a URL.
-- **Preview exists** → the plan's "how to reach it" steps use the **preview URL** and its login,
-  and it's the target the drive step (Step 6) exercises. Grab the actual URL from the PR's deploy
-  check once it's green (or leave a clear `<preview-url>` placeholder + how to find it if the
-  deploy is still running).
-- **No preview** → fall back to **local run** steps (the project's run command from `CLAUDE.md`).
-- Say which mode you used in the Report. Never hardcode a URL or login — read it from the project.
+## Step 3 — Pick the verify target (the project owns the environment, both ways)
+Testing needs something reachable to test *against*, and there are two ways to get one — a
+**dedicated test environment** (the project's PR preview / review env) or a **local stack**.
+
+> **The boundary that keeps this portable** — the same one `/deploy` holds. Relay names the phase
+> and *sequences* it; it never owns an environment. It doesn't invent a preview, and it doesn't
+> hand-start or hand-kill a local stack — a local stack may be shared with a sibling session, and
+> only the project knows whether it's safe to touch. Relay dispatches **the project's own command**
+> for each target. If the project hasn't got one, Relay offers to help you write it and wire it up
+> (Step 3b) — that's the help it gives, instead of guessing.
+
+**`plan-only` mode → decide the target on paper and stop there.** Name it in the plan's
+Preconditions so the reader knows what to reach for, but **don't dispatch anything** — no `/deploy`,
+no `hooks.env.up`. Plan-only never brings an environment up. Skip Step 3b's offer too.
+
+**Choose the target** — first match wins:
+1. `preview` / `local` in `$ARGUMENTS`.
+2. `relay.config.json` → `.test.target` (`preview` | `local` | `ask`):
+   ```bash
+   TARGET="$(jq -r '.test.target // empty' relay.config.json 2>/dev/null)"
+   ```
+   `ask` ⇒ put the choice to the user once, with what's actually available on each side.
+3. **Auto** (nothing configured): **preview if the project has one**, else local. Discover, don't
+   assume — `CLAUDE.md`/README for a documented preview-URL pattern, `gh pr checks <n>` for a
+   deploy/preview check, `relay.config.json` → `hooks.deploy`.
+
+**Preview target** → the plan's "how to reach it" steps use the **preview URL** and its documented
+login, and it's what Step 6 drives. Getting a *trustworthy* one is `/deploy`'s job, not this
+command's: `/deploy <n>` drives the project's own pipeline (dispatching `hooks.deploy` if the
+project declared one), waits for the build, smoke-checks it and security-gates it. Run it when the
+preview is still building or you want it gated; grab the URL from the PR's deploy check if it's
+already green. If it's mid-build and you don't want to wait, leave a clear `<preview-url>`
+placeholder plus how to find it — the plan still stands.
+
+**Local target** → the environment comes up through **`hooks.env.up`**, the project's own stack
+command (see [[conventions]] → Hooks):
+```bash
+ENV_UP="$(jq -r '.hooks.env.up // empty' relay.config.json 2>/dev/null)"
+```
+- **Hook declared** → dispatch it, and use whatever reachable URL/port it reports as the plan's
+  target. **Note in your Report that *this session* brought the environment up** — `/ship` tears
+  down at the end of the session **only** what Relay itself started here. Never reach past the hook
+  to start or stop services by hand.
+- **No hook** → Step 3b.
+
+Never hardcode a URL or a login — read it from the project. Say which target you used in the Report.
+
+### Step 3b — No env hook? Offer to build one (once), then fall back gracefully
+The project has no declared way to bring a local environment up. **Offer once, and STOP for the
+answer:** *"No `hooks.env` configured. Want me to draft this project's stack up/down command and
+wire it into `relay.config.json`? (y/N)"*
+- **Yes** → use the `authoring-skills` skill to draft the pair as project commands/skills, grounded
+  in how this repo actually runs (its `CLAUDE.md`, compose file, package scripts, Makefile). The
+  `down` command is the project's place to be **sibling-safe** — to refuse, or no-op, when another
+  session is still using the stack. Then add the entry **surgically** — `relay.config.json` is
+  project truth with other keys in it, so merge, never overwrite:
+  ```bash
+  base='{}'; [ -f relay.config.json ] && base="$(cat relay.config.json)"
+  printf '%s' "$base" | jq '.hooks.env = { up: "stack-up", down: "stack-down" }' \
+    > relay.config.json.tmp && mv relay.config.json.tmp relay.config.json
+  ```
+- **No / declined** → fall back to the run command from `CLAUDE.md` and put it in the plan's
+  **Preconditions** as a step *the user* performs. Relay doesn't run it. That's a complete result —
+  a plan you drive yourself. If nothing ends up reachable, skip the drive (Step 6) rather than block.
 
 ## Step 4 — Build the plan (the fixed structure IS the value)
 Always the same headings, in this order, so every PR reads the same. Include a category **only if
@@ -117,11 +176,11 @@ touch. Every step is a concrete action + its expected result, as a `- [ ]` check
   preview in Chrome and report back? (y/N)"* Skip on no; a plan alone is a complete result.
 
 **If driving:**
-1. **Need a reachable target.** Use the preview URL (Step 3) once its deploy check is green, or a
-   local run if that's the mode. If the preview is still building or you want it gated (incl.
-   security) before trusting it, run **`/deploy <n>`** first — it waits for, health-checks, and
-   security-gates the preview, then hands back a verified URL. If nothing's reachable yet and you
-   don't want to wait, say so and **skip the drive** rather than blocking — the plan still stands.
+1. **Need a reachable target** — the one Step 3 settled on. Preview: the URL, once its deploy check
+   is green; run **`/deploy <n>`** first if it's still building or you want it gated (incl.
+   security) before trusting it. Local: the URL the `hooks.env.up` dispatch reported. If nothing's
+   reachable yet and you don't want to wait, say so and **skip the drive** rather than blocking —
+   the plan still stands.
 2. **Use the Claude-in-Chrome browser tools** (load them via ToolSearch if they're deferred; open
    a fresh tab, don't hijack the user's). Record with `gif_creator` — grab a few frames before
    and after each action so the clip is watchable.
@@ -144,11 +203,16 @@ touch. Every step is a concrete action + its expected result, as a `- [ ]` check
    `plan-only`/terminal, just print the summary.
 
 ## Step 7 — Report
-One compact block: **where the plan is** (the PR url, or "printed above"), the **mode** (preview
-vs local), and a count — *N happy-path steps, M non-happy-path cases across <categories>*. If you
-drove it, add a one-line **pass/fail tally** and the **GIF path**. If a preview URL is live, print
-it so the user can click straight through; if the deploy is still running, say where it'll appear.
+One compact block: **where the plan is** (the PR url, or "printed above"), the **target** (preview
+vs local, and how it was chosen — argument, config, or auto), and a count — *N happy-path steps, M
+non-happy-path cases across <categories>*. If you drove it, add a one-line **pass/fail tally** and
+the **GIF path**. If a preview URL is live, print it so the user can click straight through; if the
+deploy is still running, say where it'll appear. **If this session brought a local environment up
+via `hooks.env.up`, say so** — `/ship` reads that as the teardown it's allowed to do at the end.
 Don't recap the plan itself — it's on the PR (or just above).
+
+Then point at the next step: **`/relay:ship`** once the plan passes (it picks the verified PR up
+from here), or `/relay:fix` if driving turned something red.
 
 **Reflect, if the results warrant it.** If driving surfaced something that changes the plan — a broken
 assumption, a better approach, a scope the brief got wrong — that's a reflect signal: `/relay:refine`

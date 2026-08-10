@@ -9,8 +9,9 @@ markdown table** (never stacked records — see [[conventions]]). Keep it tight.
 
 Open with the one-line lifecycle, then the tables:
 
-**The spiral:** `guardrails → explore → refine → next/continue → test → deploy → review/fix → ship → persist`
-— each phase optional, results loop back to `explore`/`refine`.
+**The spiral:** `guardrails → explore → refine → next/continue → test (+deploy) → review/fix → ship → persist`
+— results loop back to `explore`/`refine`. **Build → verify → ship** is the main line: `/test` sits
+between them so the review fan-out is spent on something that's actually been exercised.
 
 ## The loop (what you type most)
 
@@ -20,8 +21,9 @@ Open with the one-line lifecycle, then the tables:
 | `/relay:refine` | ground | Fit a brief to the project: code, guardrails, threat model, session-sized slices |
 | `/relay:next` | build | Ranked shortlist from the board → start a pick in a worktree |
 | `/relay:continue` | build | Resume an in-flight thread from its handover |
-| `/relay:test` | verify | Draft PR + structured test plan; can drive it in the browser |
-| `/relay:ship` | ship | test → review → fix → merge → handover → (persist, per `persist` policy) |
+| `/relay:test` | verify | Draft PR + structured test plan; can drive it against a preview or a local env |
+| `/relay:deploy` | verify | Get a trustworthy PR preview to test against — via the project's own CI |
+| `/relay:ship` | ship | test → verify gate → review → fix → merge → handover → (persist, per `persist` policy) |
 
 ## Setup & knowledge (occasional)
 
@@ -33,7 +35,6 @@ Open with the one-line lifecycle, then the tables:
 | `/relay:adopt` | Bulk-adopt a brownfield area: pull idea docs in, register + compact convention docs, reconcile `.claude/` |
 | `/relay:exit` | Cleanly remove Relay: restore adopted content to where it came from, export your briefs, un-wire config. Code untouched |
 | `/relay:persist` | After a lap: harvest lessons into guardrails/design-system/memory + ADRs + release notes — durable output lands outside `<root>/` (config-driven: `none`→`full`) |
-| `/relay:deploy` | Orchestrate + security-gate a PR preview via your own CI |
 
 ## Support (as needed)
 
@@ -52,5 +53,6 @@ Open with the one-line lifecycle, then the tables:
 |---|---|
 | `small` · `medium` · `large` | Session size — how big a slice (`/refine`), how wide the fan-out |
 | `terse` · `verbose` | How much Relay narrates |
+| `preview` · `local` | (`/test`) which environment to verify against — else `test.target`, else auto |
 
 **More** → **github.com/line-20/relay** · [quickstart](https://github.com/line-20/relay/blob/main/docs/quickstart.md) · [the board model](https://github.com/line-20/relay/blob/main/docs/the-board-model.md) · [a day in the loop](https://github.com/line-20/relay/blob/main/docs/a-day-in-the-loop.md) · [conventions](https://github.com/line-20/relay/blob/main/docs/conventions.md) · [CHANGELOG](https://github.com/line-20/relay/blob/main/CHANGELOG.md)

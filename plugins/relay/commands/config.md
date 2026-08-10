@@ -56,7 +56,12 @@ Only if the user opted in above. **Offer only what this repo shows evidence for*
   **name the repo, never guess the user** (see [[conventions]] → *No fabricated familiarity*).
 - **Hooks** — if there are existing `.claude/commands` or skills (a `test-stack`, a `commit`): name them
   and **hand off to `/adopt`**'s `.claude/` reconciliation (keep / remove-redundant / keep-and-hook),
-  which writes the `hooks` map.
+  which writes the `hooks` map. **Include the verify hooks** if the repo shows evidence for them — a
+  compose file / dev-server script / Makefile target ⇒ `hooks.env` (`{ up, down }`, how `/test` gets a
+  **local** environment); a preview/deploy CI job ⇒ `hooks.deploy` (how `/deploy` triggers the
+  **preview**). Relay never starts or stops an environment itself — these hooks are how the project
+  keeps that job. If the repo has one side and not the other, mention that `test.target`
+  (`preview`/`local`/`ask`) picks which `/test` defaults to; absent ⇒ auto.
 If the repo shows **no** evidence for either, say so plainly and skip — don't manufacture an offer.
 
 ## Persist policy (jump-only: `/relay:config persist`, NOT in the layered pass)

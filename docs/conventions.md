@@ -21,7 +21,7 @@ different files because they have different owners and lifetimes.
 | | `relay.config.json` (committed) | `relay.config.local.json` (gitignored) |
 |---|---|---|
 | Owns | project truth — shared by everyone | the driver's here-and-now preferences |
-| Holds | `root`, `paths`, `guardrails`, `hooks`, `review`, `persist`, `tidy` | `session`, `verbosity`, `audience` |
+| Holds | `root`, `paths`, `guardrails`, `hooks`, `test`, `review`, `persist`, `tidy` | `session`, `verbosity`, `audience` |
 | Lifetime | stable; changes rarely | switch-often; personal, per-machine |
 | Committed? | yes | **no** (`/init` adds it to `.gitignore`) |
 
@@ -56,7 +56,15 @@ config file at all:
     "ops": { "prune": true, "trim": true, "merge": "report" },
     "retention": { "reviews": 20, "handovers": "board-linked" }
   },
-  "hooks": { "test": "test-stack", "commit": "commit" },  // /adopt — dispatch project automation
+  "test": { "target": "preview" },                    // /test, /config — preview | local | ask
+                                                      //   absent ⇒ auto (preview if the project has one)
+  "hooks": {                                          // /adopt, /test, /deploy — dispatch project automation
+    "test": "test-stack",                             //   run the suite (+ its fixture stack)
+    "commit": "commit",                               //   how this project commits
+    "env": { "up": "stack-up",                        //   bring a LOCAL test environment up …
+             "down": "stack-down" },                  //   … and take it down (sibling-safe: the project's call)
+    "deploy": "deploy-preview"                        //   trigger the project's PR preview
+  },
   "review": {                                          // /adopt, /config — project-declared review agents
     "agents": [
       { "name": "a11y-auditor",                        //   a .claude/agents/*.md the project ships
@@ -73,7 +81,8 @@ config file at all:
 { "session": "large", "verbosity": "terse", "audience": "informed" }
 ```
 **Defaults when a key is absent:** `root` → `relay`; no `paths` overrides; no `guardrails` (reviewers
-use their built-in defaults); no `hooks` (commands use their built-in discovery); no `review.agents`
+use their built-in defaults); no `hooks` (commands use their built-in discovery); `test.target` → unset
+(auto — preview if the project has one, else local); no `review.agents`
 (just the built-in ten specialists); `persist` → `cadence:
 ask`, `level: standard` (today's harvest); `tidy` → `level: standard`; `session` → unset (no shaping,
 full fan-out); `verbosity` → `normal`; `audience` → unset (no register shaping — today's prose). A
@@ -255,12 +264,34 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
 **dispatches them at the matching phase** instead of reinventing them, via a `hooks` map in
 `relay.config.json` (this *is* project truth):
 ```json
-{ "hooks": { "test": "test-stack", "commit": "commit", "deploy": "…" } }
+{ "hooks": { "test": "test-stack",
+             "commit": "commit",
+             "env": { "up": "stack-up", "down": "stack-down" },
+             "deploy": "deploy-preview" } }
 ```
-- A command that has a hook for its phase **runs the hooked command/skill** at that point (e.g. `/test`
-  and `/ship` bring the fixture stack up via the `test` hook; `/ship`/`/handover` commit via `commit`).
+- A command that has a hook for its phase **runs the hooked command/skill** at that point.
 - No hook ⇒ the command's built-in behaviour (discover the test command from `CLAUDE.md`, etc.).
 - `/adopt` populates this map when it reconciles an existing `.claude/` setup (keep-and-hook).
+
+| Hook | Dispatched by | What it's for |
+|---|---|---|
+| `test` | `/ship` (Phase 1) | Run the suite, bringing its fixture stack up if it needs one |
+| `commit` | `/ship`, `/handover` | This project's way of committing |
+| `env.up` / `env.down` | `/test` (local target) · `/ship` (teardown) | Bring a **local test environment** up / take it down |
+| `deploy` | `/deploy` | Trigger the project's **PR preview** |
+
+**Relay never owns an environment.** This is the same boundary `/deploy` states for deployment,
+generalised: Relay names the *verify* phase and sequences it, the project owns the *mechanics*. That
+matters most locally, where a stack is routinely shared with a sibling session — so:
+- `/test` brings a local environment up **only** through `env.up`, never by hand;
+- `/ship` calls `env.down` **only for an environment this session started**, and never touches one it
+  found already running;
+- **the `down` command is the project's place to be sibling-safe** — to refuse, or no-op, when
+  something else is still using the stack. Relay can't know that; the project can.
+- **No hook? Relay offers to write one.** `/test` (local) and `/deploy` (preview) each offer once to
+  draft the project's command via the `authoring-skills` skill and wire it into this map. Decline and
+  they fall back to printing the run command from `CLAUDE.md` as a manual precondition — never to
+  starting or stopping things themselves.
 
 ## Custom review agents — extend the `/review` fan-out with your own
 
