@@ -144,24 +144,30 @@ Every slice states its **acceptance criteria** (incl. the guardrail requirements
 mitigations that apply to it). Keep YAGNI: cut anything not needed for the real problem.
 
 ## Step 6 — Present the refined plan and confirm — **STOP**
-Show a compact summary and **wait for approval before writing anything**:
+**Wait for approval before writing anything.** *What* you render is governed by `audience`
+([[conventions]]) — and it is **terminal-only: Step 7 writes the full brief regardless**, so nothing
+below is ever lost by rendering less. This branch is the primary shape of the output, not an afterthought.
+
+**`expert` / unset — the full plan:**
 - **Grounding** — the key "what already exists / safe extension point / don't break" facts (cited).
 - **Guardrail requirements** — the bars this must meet (or "none configured").
-- **Threat model** — assets, the real threats, the mitigations now baked into slices (or "no threat
-  surface").
-- **Slice plan** — the session-sized slices with their acceptance criteria, and the session size they are sized for.
-Note anything the grounding **changed** versus `/explore`'s approach (a reuse that shrinks it, a
-constraint that reshapes it). **STOP for the go-ahead**, a redirect, or a re-slice.
+- **Threat model** — assets, the real threats, the mitigations now baked into slices (or "no threat surface").
+- **Slice plan** — the session-sized slices with their acceptance criteria, and the session size.
+- Note anything the grounding **changed** versus `/explore`'s approach.
 
-**Scale this STOP-gate to `audience` — terminal only; Step 7 writes the full brief regardless, so no
-grounding is lost** ([[conventions]]):
-- `expert` / unset ⇒ the full tables above.
-- `informed` ⇒ lead with what the grounding **changed** and the decisions; show only the corrections
-  and the open questions/threats that need the driver's call; **don't** paste the exhaustive
-  `file:line` grounding table — say the full grounding lands in the brief. The open decisions still
-  appear in full: they're the landing.
-- `plain` ⇒ the decisions, the reshape in a sentence or two, and any open question — everything else
-  is in the brief.
+**`informed` — an executive summary (~10 lines), NOT the tables above:**
+- The **decision(s)** you need — each with a recommendation. In full: this is the landing.
+- The **top 2–4 load-bearing reshapes** only — the ones that move the plan or the decision, one line
+  each. **Not** every finding, and **no** `file:line` grounding table — that's in the brief.
+- The threat model as a **one-line verdict** (surface yes/no; mitigations baked in) — not the table.
+- The slices as **titles + count + session size** — no per-slice acceptance criteria.
+- The **open questions** that still need you.
+- One closing line: *"full grounding, threat model, and acceptance criteria are in the brief."*
+
+**`plain` — tighter still:** the decision(s) + recommendation, the reshape in a sentence or two, and
+the open questions. Everything else is in the brief.
+
+**STOP for the go-ahead**, a redirect, or a re-slice.
 
 ## Step 7 — Write the refined brief back (main-owned)
 On approval, extend the existing `<root>/briefs/<slug>.md` **in place** — keep `/explore`'s sections,

@@ -7,6 +7,16 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.2.2 — `/refine` executive summary actually compresses
+
+**Changed**
+- **`/refine`'s `informed`/`plain` STOP-gate is now a real executive summary.** 1.2.1 added audience as
+  an *addendum* under Step 6's "show grounding / threat / slices" bullets, so it didn't bite — the full
+  tables still rendered. Step 6 is now *structured by* audience: `informed` renders the decision(s) +
+  recommendation, the **top 2–4 load-bearing reshapes** (not every finding, no `file:line` table), a
+  one-line threat verdict, and slice **titles + count** — ~10 lines instead of ~50. `plain` is tighter
+  still; `expert`/unset keep the full plan. Step 7 still writes the complete brief, so no grounding is lost.
+
 ## 1.2.1 — audience governs terminal altitude
 
 **Changed**
