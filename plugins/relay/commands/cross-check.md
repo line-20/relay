@@ -1,6 +1,6 @@
 ---
 description: Build or consult a reference frame — how other systems, products, standards and people handle this problem — and cross-check your approach against it for alignment, divergence, and blind spots.
-argument-hint: "[a topic, a brief slug, or a design decision to check]"
+argument-hint: "[a topic, a brief slug, or a design decision; add 'conceptual' or 'technical' to aim the lens]"
 ---
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
@@ -13,7 +13,10 @@ reusable: every run reads and extends it, so the knowledge accrues instead of be
 re-gathered each time.
 
 Use it **standalone** at the start of a domain ("what's the landscape for X?") or to pressure-
-test a design, and it's offered at the end of `/explore` before a design is committed.
+test a design. It's also offered at two points in the loop, aimed at different lenses: `/explore`
+offers it at convergence to check the **concept** (`conceptual` — is this the right approach at
+all?), and `/refine` folds it into grounding to check the **implementation** (`technical` — do we
+build it the way others do?).
 
 > **Relay convention.** Reference frames live at `<root>/reference/<topic-slug>.md`, committed to
 > `main` like the board — durable, shared, and cross-referenced by later work.
@@ -35,6 +38,12 @@ Pick a stable **topic slug** for the reference frame (the problem space, not the
 `rate-limiting`, `full-text-search`, `competitive-landscape`), so future work on the same space
 extends the same frame.
 
+**Resolve the lens.** A `conceptual` or `technical` word in `$ARGUMENTS` (or passed by the calling
+command) aims the frame: **conceptual** — how others *frame and solve the problem* (products,
+approaches, whether this is even the right shape); **technical** — how others *implement it*
+(algorithms, libraries, protocols, standards, data models, failure modes). Absent ⇒ cover both. The
+lens biases emphasis in Step 3, not which sections of the frame exist.
+
 ## Step 2 — Load or start the frame
 Read `<root>/reference/<topic-slug>.md` if it exists (`git show origin/main:...` to get the
 shared copy). If it doesn't, you'll create it in Step 4. An existing frame is a head start, not
@@ -44,7 +53,9 @@ gospel — treat its entries as claims to confirm and extend.
 Research how this problem is actually solved elsewhere. **If your environment has web
 search/fetch tools, use them** for current, specific detail; otherwise work from your own
 knowledge and **say so in the frame** (mark it "from model knowledge, unverified — confirm
-before relying on it"). Cover, as far as each applies:
+before relying on it"). **Weight by the lens** (Step 1): `conceptual` leans on Products/systems and
+how they frame the problem; `technical` leans on Patterns/standards, algorithms, libraries, and
+Lessons/anti-patterns; no lens ⇒ cover all evenly. Cover, as far as each applies:
 - **Products / systems** — the notable tools, competitors, or systems in this space, and *how*
   each handles it (not just that they do).
 - **Prior art & patterns** — established design patterns, algorithms, or architectures for this

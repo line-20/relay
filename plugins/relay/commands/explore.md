@@ -76,14 +76,18 @@ Then **recommend one, with the reason** — the smallest approach that credibly 
 problem from Step 2. Present it, and **STOP for a direction.** The user may pick a different
 option, merge two, or redirect.
 
-## Step 3.5 — Cross-check against prior art (offer)
-Once an approach is chosen, **offer to `/cross-check` it** before it hardens into a brief —
+## Step 3.5 — Cross-check the concept against prior art (always offer)
+Once an approach is chosen, **always offer to `/cross-check` it** before it hardens into a brief —
 this is the cheapest moment to catch a reinvented wheel, a missed standard, or a blind spot
-everyone else in the space has already solved. If the user accepts, run the `/cross-check` flow
-on the chosen approach (build/extend `<root>/reference/<topic>.md`, then report Aligns /
-Diverges / Blind spots / Reinvention) and **fold its findings into the approach** before Step 4.
-If the user declines, or the idea is small/obvious enough that prior art won't teach you
-anything, skip it — don't force a landscape study onto a two-line change.
+everyone else in the space has already solved. This is the **conceptual** cross-check: *is this the
+right approach at all*, judged against how others frame and solve the problem — so run it at the
+`conceptual` lens. **Make the offer a real, visible line at convergence** — the failure to avoid is
+silently skipping it. On accept, run the `/cross-check` flow on the chosen approach (build/extend
+`<root>/reference/<topic>.md`, then report Aligns / Diverges / Blind spots / Reinvention) and **fold
+its findings into the approach** before Step 4. **Only auto-skip** when the change is genuinely
+trivial (a two-line tweak, well-trodden ground with nothing to learn) — and even then, say in one
+line that you skipped it and why. `/refine` runs the **technical** counterpart against the
+implementation later; this one is about the idea.
 
 ## Step 4 — Write the brief and put it on the board
 Pick a slug (`<track>/<slug>`) on an existing board track, or propose a new track if none fits.

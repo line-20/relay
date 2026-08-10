@@ -87,6 +87,17 @@ of against it. Read, don't assume:
   1.0: it needs the project, so it belongs in grounding, not in context-free shaping.) If the project
   defines none, skip it.
 
+**Offer a technical cross-check as a third grounding source.** When the change introduces a genuinely
+novel or external-facing technical approach — a payment/reference scheme, a new authz predicate, a
+protocol, a non-trivial algorithm — how *others implement it* is grounding too, sitting right beside
+"read the code" and "read the internal material". **Offer once** to fold in a `/cross-check` at the
+`technical` lens; on yes, run it **as part of grounding** (build/extend `<root>/reference/<topic>.md`)
+and let its findings shape the slices — so the plan is designed *with* prior art, not corrected after.
+Skip on a routine change with no meaningful prior art. If `/explore` already ran the **conceptual**
+cross-check on this idea, don't repeat it — aim this one at the *implementation* delta. Scale it to the
+session size like the code grounding below (small ⇒ inline or skip; large ⇒ a dedicated prior-art scout
+alongside the code scouts).
+
 **Scale the grounding to the session size** — this is the first sizing lever:
 - `small` ⇒ one inline pass; read the obvious files directly.
 - `medium` ⇒ fan out ~3 code-scout agents over the distinct affected areas, in parallel.

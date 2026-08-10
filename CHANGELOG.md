@@ -7,6 +7,27 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.4.0 — cross-check at both decision points, with a lens
+
+Prior-art cross-checking now happens at the two points where it's cheapest, aimed differently at each:
+**explore checks the *idea, after* shaping; refine checks the *build, as input* to grounding.**
+
+**Added**
+- **`/cross-check` takes a `conceptual` | `technical` lens** (a per-call word, or passed by the calling
+  command). `conceptual` weights how others *frame and solve the problem*; `technical` weights how they
+  *implement it* (algorithms, libraries, protocols, standards, failure modes); absent ⇒ both. Biases
+  emphasis, not which sections of the reference frame exist.
+- **`/refine` folds a technical cross-check into grounding (Step 2).** When a change introduces a novel
+  or external-facing technical approach, refine now offers — once, content-gated — to run a `technical`
+  cross-check *as a grounding source alongside the code scouts*, so the slices are shaped **with** prior
+  art rather than corrected after. It's explore-aware: if the concept was already cross-checked, this
+  one aims at the implementation delta. Scales to session size; skipped on routine changes.
+
+**Changed**
+- **`/explore`'s prior-art cross-check is now offered consistently** (Step 3.5), at the `conceptual`
+  lens. The offer is a visible line at convergence; it auto-skips only genuinely trivial changes, and
+  says so when it does — fixing the "sometimes offered, sometimes not" behaviour.
+
 ## 1.3.0 — verify is a step in the loop
 
 The loop was **build → ship**, with `/test` sitting to one side as an optional "kick the tyres". That
