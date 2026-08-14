@@ -91,9 +91,18 @@ Also project-wide in `relay.config.json` — how `/tidy` keeps the volatile laye
   schedule itself). Skip ⇒ `level: standard`.
 
 ## Autonomy policy (jump-only: `/relay:config autonomy`, NOT in the layered pass)
-Project-wide in `relay.config.json` — how much a session decides **without the user**. Deliberately
+How much a session decides **without the user**. Deliberately
 out of the layered pass: this is a trust decision, and it should be made on purpose rather than
 answered in passing. Default is today's behaviour, so a project that never visits it loses nothing.
+
+**Two surfaces, on purpose.** `decide` and `budget` are **per-driver and per-session** — they live in
+`relay.config.local.json` (gitignored) with a **per-call word in `$ARGUMENTS` winning**, exactly like
+`session`, because "how much this tab decides alone" is a property of what *this tab is doing*, not of
+the repo: one session runs `/next solo` on plumbing while another runs `/next ask` beside it.
+`escalate` and `log` are **project-wide** in `relay.config.json` (committed) — what counts as a product
+decision, and where calls get recorded, are facts about the project that every driver should share.
+A `decide`/`budget` in the committed file still reads as the project's **default**; local and per-call
+override it.
 
 - **`decide`** (`ask`/`challenge`/`solo`, default `ask`) — what a session does at a **technical**
   decision that will outlive the current lap (the shape of stored data, a new seam or boundary, a name

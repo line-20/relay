@@ -7,6 +7,19 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.5.1 — autonomy is per-session, not per-project
+
+**Fixed**
+- **`autonomy.decide` and `autonomy.budget` are per-driver, per-session** — read from
+  `relay.config.local.json` (gitignored) with a **per-call `ask`/`challenge`/`solo` word in
+  `$ARGUMENTS` winning**, exactly like `session`. 1.5.0 put them only in the committed project file,
+  which forced every parallel tab to the same level — wrong, since "how much this tab decides alone"
+  is a property of what the tab is doing. You can now run `/next solo` on plumbing in one window and
+  `/next ask` on something you want a say in beside it.
+- `escalate` and `log` stay **project-wide** in `relay.config.json`: what counts as a product decision,
+  and where calls are recorded, are facts about the project, not the driver. A committed
+  `decide`/`budget` still reads as the project default; local and per-call override it.
+
 ## 1.5.0 — decisions made without you, on purpose
 
 Relay's agents all reviewed code that already existed, so the decision made *at minute forty of a
