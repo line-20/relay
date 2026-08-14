@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#
+# Fail a push whose version strings have drifted — in YOUR terminal, not on a web page.
+#
+# version-sync also runs in CI, but a red check on GitHub is a signal nobody is standing
+# next to: it failed on every push to main from 1.2.0 to 1.4.0 and none of it was seen,
+# because a failing run and a passing run look identical from where the work happens.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+#
+set -euo pipefail
+repo_root="$(git rev-parse --show-toplevel)"
+
+if ! bash "$repo_root/scripts/check-version.sh"; then
+  cat >&2 <<'EOF'
+
+✗ push blocked — version strings disagree.
+
+  Fix: ./scripts/release.sh <version>   (writes all four places, then re-checks)
+  Override, if you really mean it: git push --no-verify
+EOF
+  exit 1
+fi

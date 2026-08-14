@@ -194,6 +194,26 @@ search can be token-heavy. These are the next places to sharpen, not solved prob
 - **[docs/ssdlc-roadmap.md](docs/ssdlc-roadmap.md)** — where Relay is heading: the Secure-SDLC
   spiral, the layered guardrails model, and the increment arc to 1.0.
 
+## Releasing (maintainers)
+
+The version is mirrored in four files — `plugin.json` (source of truth), the marketplace
+manifest, and the banner in `/init` and `/version`. The banners are hardcoded on purpose:
+a command can't read its own version at runtime, so the banner is what certifies which
+command file a session actually loaded.
+
+Never edit those by hand. Write the `CHANGELOG.md` entry first, then:
+
+```sh
+git config core.hooksPath .githooks   # once per clone
+./scripts/release.sh 1.6.0
+```
+
+It refuses if the CHANGELOG has no entry for that version, writes all four places, and
+runs `scripts/check-version.sh`. The same check runs as a **pre-push hook** and in CI —
+the hook is the one that matters, because it fails in your terminal rather than on a page
+nobody opens. (`1.0.9` once drifted five releases behind while CI went red on every push
+to `main`, unread.)
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
