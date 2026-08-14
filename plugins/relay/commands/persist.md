@@ -1,5 +1,5 @@
 ---
-description: Harvest what a lap produced back into the project's living knowledge — guardrails and the design system (as the extends overlay only), AI memory, and human-readable release notes. Sprawl-guarded on the lessons; every user-facing change earns a release note. Phase (j) — the step that makes the spiral compound.
+description: Harvest what a lap produced back into the project's living knowledge — guardrails and the design system (as the extends overlay only), AI memory, and human-readable release notes. One fact, one home: a lesson promoted to a durable surface retires the memory it supersedes rather than leaving a second copy to drift. Sprawl-guarded on the lessons; every user-facing change earns a release note. Phase (j) — the step that makes the spiral compound.
 argument-hint: "[pr-number or slug — the lap to harvest from; omit for the most recent merge]"
 ---
 
@@ -17,9 +17,11 @@ starts smarter — and so a human can see what shipped. This is phase (j), the c
   in user-benefit language. **This is NOT filtered by the non-obvious test** — every change a user
   would *notice* earns a note, even one that taught nothing. Gated instead on "would a user notice?"
 
-> **What it writes, and what it never writes.** Target surfaces are the **guardrails** overlay, the
-> **design system**, **AI memory**, **release notes**, and — when the level enables them — **ADRs**,
-> **procedures**, and **how-tos**. For guardrails it only ever writes the **`extends` overlay** (the
+> **What it writes, what it retires, and what it never writes.** Target surfaces are the **guardrails**
+> overlay, the **design system**, **AI memory**, **release notes**, and — when the level enables them —
+> **ADRs**, **procedures**, and **how-tos**. It is also the **only** command that removes an AI memory,
+> and only ever the one **this lap superseded** by writing its content somewhere better (Steps 4–6) —
+> approved at the Step 5 gate like every other write. For guardrails it only ever writes the **`extends` overlay** (the
 > project's house rules) — **never a shipped baseline**. Establishing guardrails from scratch is
 > `/guardrails`' job; `/persist` only grows the overlay. **Durable output lives OUTSIDE `<root>/`** (see
 > [[conventions]] → *Persistence*) — `/persist` writes it to the project's docs tree via `paths.*`, so
@@ -116,10 +118,31 @@ Gate each row by `LEVEL` (Step 0): `none` routes nothing; `lean` only memory + r
 `standard` the first four rows; `full` all of them. List every **deferred** item explicitly so nothing
 is lost — it's the backlog for a later persist slice (or a level bump), not a silent drop.
 
-## Step 4 — Dedupe against what's already written
+> **One fact, one home.** Each row routes to **exactly one** surface. A lesson written to a guardrail,
+> the design system, an ADR, a procedure or a how-to is **not also written to AI memory** — the
+> durable surface is the copy `/refine` and the review specialists read, and a second copy in memory
+> is free to drift out of step with it. Memory is for the fact that has **no** repo home: a machine
+> reality, a working agreement, a gotcha that belongs to no document. When you catch yourself wanting
+> both, the repo wins.
+
+## Step 4 — Dedupe against what's already written, and find what this write supersedes
 Before proposing any write, read the target doc and confirm it doesn't already say this. If it does,
 drop the candidate (or, if the existing line is weaker, propose a **sharpening** of it, not a
 duplicate). Persist the decision and the why — never the play-by-play of how you got there.
+
+Then look the other way. **For every row targeting a durable surface, check whether AI memory already
+holds that fact** — a memory written on an earlier lap, before the content had a repo home. Read the
+memory index and open anything whose subject matches. Classify each hit:
+
+- **Fully superseded** — the durable write says everything the memory says, or more. Mark it
+  **retire**; it becomes a removal row in Step 5.
+- **Partly superseded** — the memory also carries something the durable surface won't hold (a machine
+  reality, a working agreement). Mark it **trim**: propose the reduced memory text, keeping only the
+  part with no repo home, and say what moved out.
+- **Not superseded** — leave it alone and don't mention it.
+
+A memory whose content now lives in a guide is not harmless clutter: it is a *second, weaker copy of a
+rule*, and the next session may read either one.
 
 ## Step 5 — Present the harvest plan and confirm — **STOP**
 The knowledge layer is **project truth** — committed, shared, main-owned. **Offer, don't auto-write.**
@@ -131,11 +154,19 @@ Show a compact table and **wait for approval**:
 > | New `<StatusPill>` states | design system (`knowledge/ui-design.md`) | pill token + the four interactive states | pr-471 `StatusPill.tsx:1` |
 > | **Release note** | **release notes (`knowledge/release-notes.md`)** | **New — "Export a workspace to CSV from its ⋯ menu."** | **pr-471** |
 
+Then, **under the same table, a Retiring block** — every memory Step 4 found superseded, so removals
+are approved in the same breath as the writes that cause them, never silently:
+
+> | Memory | Verdict | Because |
+> |---|---|---|
+> | `tenant-filter-in-sql` | **retire** | fully carried by the `security` overlay line above |
+> | `staging-box-quirks` | **trim** | its query rule moves to the overlay; the box's IP and login stay |
+
 Show the **drafted release note verbatim** (it's user-facing copy — the user should approve the exact
 words), name any **ADR / procedure / how-to** to be written (at `full`) with its destination path, note
 which briefs will get the **Distilled** marker, list the **deferred** lessons under the table, and note
 if there's **no release note** (an internal-only lap). **STOP for the go-ahead** — the user may cut a
-lesson, reword the note, or redirect a target.
+lesson, reword the note, redirect a target, or **keep a memory you proposed retiring**.
 
 ## Step 6 — Write the approved harvest
 On approval, write **surgically and idempotently** — update in place, never clobber hand-authored content:
@@ -147,7 +178,15 @@ On approval, write **surgically and idempotently** — update in place, never cl
 - **Design system:** append the pattern/token to the design-system doc (`<root>/knowledge/ui-design.md`,
   honouring a `paths.design-system` override) in its Relay-managed section.
 - **AI memory:** write each non-obvious decision as one fact (decision + why + how-to-apply) via the
-  harness's memory mechanism, if available.
+  harness's memory mechanism, if available — and **only for facts with no repo home** (Step 3's
+  *one fact, one home*).
+- **Retire what this lap superseded — do it LAST, and only for writes that actually landed.** For each
+  approved **retire** row, remove the memory *and its index entry* through the same mechanism you write
+  memory with; for each **trim** row, rewrite the memory to the reduced text. Order matters: a memory
+  is removed only after the durable write that replaces it is committed, so a failed write never
+  costs you the copy you had. If a durable write was skipped or rejected, its retire row is dropped
+  too — say so rather than removing anyway. **Never retire a memory this lap did not supersede**;
+  general tidying of the memory layer is not `/persist`'s job.
 - **Release notes:** add the drafted note to `$RELEASE_NOTES` (create the file with a top-level
   heading if it's the first note). Group under the **current release heading** — the project's version
   (from its version manifest or the latest tag) or an **`## Unreleased`** section that accretes until a
@@ -175,9 +214,9 @@ harness, not necessarily via this commit.
 
 ## Step 7 — Report
 State, outcome-first: **what was harvested and where** (each lesson → its surface), the **release
-note** written (or that the lap was internal-only, so none), **what was deferred** to a later persist
-slice, and that next lap's `/refine` and the review specialists now read the grown overlay — the
-lesson is enforced from here on. If a lap taught no durable lesson **and** shipped nothing
+note** written (or that the lap was internal-only, so none), **which memories were retired or trimmed**
+and what now carries them, **what was deferred** to a later persist slice, and that next lap's
+`/refine` and the review specialists now read the grown overlay — the lesson is enforced from here on. If a lap taught no durable lesson **and** shipped nothing
 user-visible, say so plainly: **"nothing to persist — no durable lesson, no user-visible change"** is
 a valid, sprawl-respecting outcome, not a failure. (A common case: a user-visible lap that taught
 nothing still gets a release note but no lesson — that's correct, not a half-result.)

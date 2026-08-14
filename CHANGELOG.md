@@ -37,6 +37,36 @@ the thing it governs is on screen.
 - **`review.agents` no longer claims `/config` writes it** — only `/adopt` does — and it finally has a
   changelog entry, backfilled under 1.2.0 where it actually shipped.
 
+## 1.8.0 — one fact, one home
+
+Promoting a lesson to a guardrail, a guide or an ADR left its AI-memory copy sitting there. Nothing in
+the lifecycle ever removed it, so the rule now existed twice, in two places free to drift — and the
+next session could read either one.
+
+Found by auditing a real repo after a week of use: **151 memories, 636 KB**, of which five were rules
+already written word for word into the project's own guardrail files. A sixth appeared the day after
+the audit — a filter-privacy rule whose memory said, correctly, that it belonged in the design guide
+beside where filters are declared. It was written there. The memory stayed anyway.
+
+**Added**
+- **`/persist` retires what it supersedes.** Step 4 now looks both ways: as well as deduping the new
+  write against its target, it checks whether AI memory already holds that fact from an earlier lap,
+  and classifies each hit **retire** (fully carried by the durable write), **trim** (keep only the part
+  with no repo home) or leave alone.
+- **A Retiring block at the Step 5 gate**, under the harvest table, so a removal is approved in the
+  same breath as the write that causes it — never silently. The user can keep any memory proposed for
+  retirement.
+- **Ordered removal in Step 6**, last and only for writes that actually landed: a memory goes only
+  after the durable write replacing it is committed, so a failed or rejected write never costs you the
+  copy you had.
+
+**Changed**
+- **One fact, one home** is now stated in the routing table: a lesson written to a guardrail, the
+  design system, an ADR, a procedure or a how-to is **not also** written to memory. Memory is for the
+  fact with no repo home — a machine reality, a working agreement, a gotcha belonging to no document.
+- `/persist` is the only command that removes an AI memory, and only the one this lap superseded.
+  General tidying of the memory layer stays out of scope.
+
 ## 1.7.0 — a policy with no trigger never fires
 
 `tidy.level` defaults to `standard`, which is documented as *"prune + trim"*. Prune has run on every
