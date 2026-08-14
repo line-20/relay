@@ -154,7 +154,8 @@ to durable docs **outside `<root>/`**. Non-fatal — never block the handover on
 The PR is now merged, so proceed directly into the handover. Run `/handover` end to end:
 its Step 0 guard passes (PR is MERGED), it generates the cold-start handover, commits it to
 main, prints the compact summary, **and does the end-of-session housekeeping** — its Step 4.5
-archives superseded handovers + old PR reviews, and its Step 6 exits this thread's topic worktree
+archives superseded handovers + old PR reviews **and trims done rows off the board** (both gated by
+`tidy.level`; the first trim in a repo asks once), and its Step 6 exits this thread's topic worktree
 (keeping it on disk for the topic's next slice) and prunes dead worktree entries. There is no
 separate cleanup command; this is it.
 

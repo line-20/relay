@@ -87,8 +87,13 @@ A flat `persist: "ask"` from an earlier version is still read as `persist.cadenc
 ## Tidy policy (jump-only: `/relay:config tidy`, NOT in the layered pass)
 Also project-wide in `relay.config.json` — how `/tidy` keeps the volatile layer lean:
 - **`level`** (`none`/`lean`/`standard`/`full`, default `standard`) — **none** = off; **lean** = prune
-  only; **standard** = prune + trim, merge report-only; **full** = also auto-apply merges.
+  only (the per-lap trigger reports what trim would clear, without applying it); **standard** = prune +
+  trim, merge report-only; **full** = also auto-apply merges. The same level governs `/handover`'s
+  per-lap Step 4.5, so this is the dial between *housekeeping happens by convention* (`standard`) and
+  *tell me and I'll decide* (`lean`).
 - **`ops`** — per-op override: `prune`/`trim` (`true`/`false`), `merge` (`report`/`auto`/`false`).
+  Setting `trim` here up front also skips the one-time "trim done rows from now on?" question the
+  first per-lap trim asks.
 - **`retention`** — `reviews` (keep newest N, default 20), `handovers` (`board-linked` — keep those the
   board still points at). Describe factually; a bigger project runs `/tidy` more aggressively, a tiny
   one barely at all. Recurring runs are wired via the harness scheduler, not here (`/tidy` can't
