@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Line20's Claude Code plugins.",
-    "version": "1.7.0"
+    "version": "1.8.0"
   },
   "plugins": [
     {

@@ -21,7 +21,7 @@ different files because they have different owners and lifetimes.
 | | `relay.config.json` (committed) | `relay.config.local.json` (gitignored) |
 |---|---|---|
 | Owns | project truth — shared by everyone | the driver's here-and-now preferences |
-| Holds | `root`, `paths`, `guardrails`, `hooks`, `test`, `review`, `persist`, `tidy` | `session`, `verbosity`, `audience` |
+| Holds | `root`, `paths`, `guardrails`, `hooks`, `test`, `review`, `persist`, `tidy`, `autonomy.escalate`/`.log` | `session`, `verbosity`, `audience`, `autonomy.decide`/`.budget` |
 | Lifetime | stable; changes rarely | switch-often; personal, per-machine |
 | Committed? | yes | **no** (`/init` adds it to `.gitignore`) |
 
@@ -63,9 +63,17 @@ config file at all:
     "commit": "commit",                               //   how this project commits
     "env": { "up": "stack-up",                        //   bring a LOCAL test environment up …
              "down": "stack-down" },                  //   … and take it down (sibling-safe: the project's call)
-    "deploy": "deploy-preview"                        //   trigger the project's PR preview
+    "deploy": "deploy-preview",                       //   trigger the project's PR preview
+    "release": "release"                              //   cut a release post-merge — one per lap
   },
-  "review": {                                          // /adopt, /config — project-declared review agents
+  "autonomy": {                                       // /config autonomy — who decides without the driver
+    "escalate": ["user-visible", "commercial",        //   categories that ALWAYS come back to the user,
+                 "copy", "consequential"],            //     whatever `decide` says (project truth)
+    "log": "relay/decisions.md",                      //   one line per call made without the user
+    "decide": "ask",                                  //   project DEFAULT only — local + per-call win
+    "budget": 4                                       //   idem (see relay.config.local.json below)
+  },
+  "review": {                                          // /adopt — project-declared review agents
     "agents": [
       { "name": "a11y-auditor",                        //   a .claude/agents/*.md the project ships
         "gate": "copy-relevant",                       //   built-in signal, or { "paths": ["packages/ui/**"] }
@@ -78,13 +86,16 @@ config file at all:
 ```
 ```jsonc
 // relay.config.local.json  (gitignored — driver preferences; or set per-call)
-{ "session": "large", "verbosity": "terse", "audience": "informed" }
+{ "session": "large", "verbosity": "terse", "audience": "informed",
+  "autonomy": { "decide": "challenge", "budget": 4 } }   // per-driver, per-session — see below
 ```
 **Defaults when a key is absent:** `root` → `relay`; no `paths` overrides; no `guardrails` (reviewers
 use their built-in defaults); no `hooks` (commands use their built-in discovery); `test.target` → unset
 (auto — preview if the project has one, else local); no `review.agents`
 (just the built-in ten specialists); `persist` → `cadence:
-ask`, `level: standard` (today's harvest); `tidy` → `level: standard`; `session` → unset (no shaping,
+ask`, `level: standard` (today's harvest); `tidy` → `level: standard`; `autonomy` → `decide: ask`
+(today's behaviour — every outliving decision goes to the user), `escalate` → the four categories
+above, `budget` → 4, `log` → `<root>/decisions.md`; `session` → unset (no shaping,
 full fan-out); `verbosity` → `normal`; `audience` → unset (no register shaping — today's prose). A
 committed `tier` is still read where `session` is absent
 (back-compat), and a flat `persist: "ask"|"always"|"never"` is still read as `persist.cadence`
@@ -125,11 +136,41 @@ review report, an ADR, a handover — always carries full depth, whatever the au
 
 Never drops a STOP-gate question or the decision itself — those are the landing, at every level.
 
+### `autonomy` — who decides when the driver isn't asked
+How much a session settles **alone** at a technical decision that outlives the current lap (the shape
+of stored data, a new seam, a name that becomes public API, two project rules pointing opposite ways).
+Set it deliberately via `/relay:config autonomy` — it is kept out of the guided pass on purpose.
+
+**Split across both surfaces, on purpose:**
+- **`decide`** (`ask` | `challenge` | `solo`, default `ask`) and **`budget`** (integer, default `4`
+  challenges per lap) are **per-driver, per-session** — `relay.config.local.json`, with a per-call word
+  winning, exactly like `session`. "How much *this tab* decides alone" is a property of what the tab is
+  doing, so one window can run `/next solo` on plumbing while another runs `/next ask` beside it. A
+  committed `decide`/`budget` still reads as the project's **default**.
+- **`escalate`** (categories that come back to the driver whatever `decide` says — default
+  `["user-visible", "commercial", "copy", "consequential"]`) and **`log`** (default
+  `<root>/decisions.md`, one line per call made without the driver) are **project truth**, committed:
+  what counts as a product decision, and where calls are recorded, are facts every driver shares.
+
+`challenge` dispatches the `challenger` agent with the options and acts on its ruling; `solo` decides
+alone. Both **record the call** in `log` — turning `decide` up without a log is the one combination to
+talk a project out of.
+
+**Asked once, at the first real decision.** A policy about who decides can't be answered before a
+decision exists, so it is deliberately absent from `/relay:config`'s guided pass. Instead `/next`
+offers it **once per repo** at the first outliving decision — after putting that decision to the
+driver, never instead of it — and records the answer (all three, `ask` included) to
+`relay.config.local.json`, so the offer never repeats. Setting `decide` ahead of time, or passing a
+per-call word, means it never fires. Same shape as the per-lap trim gate: ask at the moment it's
+answerable, with the real thing on screen, then remember. **This governs judgment gates only, never safety gates:** a dirty tree, a red
+suite, an unresolved 🔴 blocker, a stale merge base or a destructive operation stays a STOP at every
+level.
+
 ### Per-call overrides (the "case by case")
 Any command accepts these words in its arguments and they win over the files, for that one run:
-`small` / `medium` / `large` (session), `terse` / `quiet` / `verbose` (verbosity), and
-`plain` / `informed` / `expert` (audience). E.g. `/refine large informed`, `/next small terse`,
-`/review verbose`.
+`small` / `medium` / `large` (session), `terse` / `quiet` / `verbose` (verbosity),
+`plain` / `informed` / `expert` (audience), and `ask` / `challenge` / `solo` (autonomy). E.g.
+`/refine large informed`, `/next small terse`, `/next solo`, `/review verbose`.
 
 **Resolution order (both signals):** per-call word → `relay.config.local.json` → (`relay.config.json`
 `tier`, back-compat only) → default. Resolve once at a command's Step 0:
@@ -138,7 +179,9 @@ LOCAL=relay.config.local.json
 SESSION="$(jq -r '.session // empty' "$LOCAL" 2>/dev/null)"; : "${SESSION:=$(jq -r '.tier // empty' relay.config.json 2>/dev/null)}"
 VERBOSITY="$(jq -r '.verbosity // "normal"' "$LOCAL" 2>/dev/null || echo normal)"
 AUDIENCE="$(jq -r '.audience // empty' "$LOCAL" 2>/dev/null)"   # empty ⇒ no register shaping
-# then let any per-call word in $ARGUMENTS override SESSION / VERBOSITY / AUDIENCE
+DECIDE="$(jq -r '.autonomy.decide // empty' "$LOCAL" 2>/dev/null)"
+: "${DECIDE:=$(jq -r '.autonomy.decide // empty' relay.config.json 2>/dev/null)}"; : "${DECIDE:=ask}"
+# then let any per-call word in $ARGUMENTS override SESSION / VERBOSITY / AUDIENCE / DECIDE
 ```
 > **Migration note:** `session` supersedes the old `tier` (`free`/`pro`/`max`). A committed `tier` is
 > still read as a fallback so nothing breaks; new setups write `session` to the local file instead.

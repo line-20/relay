@@ -1,6 +1,6 @@
 ---
 description: Set Relay's optional config, layered gentlest-first — lead with session + verbosity + audience, then a compact offer for guardrails/hooks, with root/paths on demand only. Opt-in depth, never a gate.
-argument-hint: "[jump to one area: session|verbosity|audience|persist|tidy|guardrails|hooks|paths|root|show; omit for the layered pass]"
+argument-hint: "[jump to one area: session|verbosity|audience|autonomy|persist|tidy|guardrails|hooks|paths|root|show; omit for the layered pass]"
 ---
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
@@ -134,7 +134,13 @@ override it.
 unresolved 🔴 blocker, a stale merge base or a destructive/irreversible operation stays a STOP at every
 level. Autonomy is about who picks between two defensible designs, not about merging something broken.
 
-Skip ⇒ `decide: ask` (nothing changes).
+**You don't have to come here first.** Because a policy about who decides is hard to answer before any
+decision has happened, `/next` asks **once per repo**, at the *first* outliving decision — after
+putting that decision to the user, with it still on screen as the example (Step 5.4) — and records the
+answer to `relay.config.local.json`. Setting `decide` here up front means that gate never fires. This
+is why autonomy stays out of the layered pass: the question has a better moment than setup.
+
+Skip ⇒ `decide: ask` (nothing changes; the first-decision gate will offer once).
 
 ## Advanced — root & paths (on demand only, NOT in the layered pass)
 **Do not surface these in the guided flow.** They're structural, for someone who's read the docs, and
