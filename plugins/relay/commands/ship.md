@@ -85,6 +85,7 @@ Merge only if ALL of these hold. If any fails, **STOP** and report which one:
 - No needs-judgment items or reverted fixes outstanding from Phase 4.
 - The PR is mergeable: `gh pr view --json mergeable,mergeStateStatus` → mergeable, no conflicts.
 - Required checks are already green: `gh pr checks <n>` → all pass. **If checks are still running or failing, STOP** (don't merge into the unknown).
+- **The green is against the CURRENT base.** `git fetch origin && git rev-list --count HEAD..origin/<base>` — if it's not `0`, the base moved after those checks ran (typically a sibling session merged first) and the green proves nothing about the merged result. Update the branch, push, and wait for checks again before merging. This is the one condition that makes parallel sessions safe to merge without coordinating: whoever gets there second re-verifies.
 
 If all hold:
 1. Push the fix commits: `git push`.

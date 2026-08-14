@@ -99,6 +99,14 @@ needs them:
 dbms, test-engineer, security, privacy, i18n, solution-architect. All stack-agnostic — they
 read your project's `CLAUDE.md` and code rather than assuming a framework.
 
+**A build-time agent**, `challenger` — the one that isn't a reviewer. Every agent above reads code
+that already exists; this one argues with a decision *before* it's built. Hand it two or three named
+options, what you already checked, what breaks either way, and your own recommendation; it grounds
+itself in your rules and real call sites, tries to find the flaw in your pick, and returns a ruling
+plus the one observation that would reverse it. It refuses an underspecified brief rather than doing
+your thinking, and escalates anything that isn't an engineering call. Wire it to fire automatically
+via `/config autonomy`.
+
 **A meta-skill**, `authoring-skills`, for adding your own commands and agents in the same shape.
 
 ## Install

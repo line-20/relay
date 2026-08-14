@@ -16,7 +16,7 @@ first few questions.
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 Read both surfaces: `relay.config.json` (committed) and `relay.config.local.json` (gitignored).
-- If `$ARGUMENTS` names **one area** (`session`/`verbosity`/`audience`/`persist`/`tidy`/`guardrails`/`hooks`/`paths`/`root`),
+- If `$ARGUMENTS` names **one area** (`session`/`verbosity`/`audience`/`persist`/`tidy`/`autonomy`/`guardrails`/`hooks`/`paths`/`root`),
   skip the layering and go straight to that area's step.
 - If `$ARGUMENTS` is **`show`**, print the reference table (bottom) and stop — no questions.
 
@@ -89,6 +89,34 @@ Also project-wide in `relay.config.json` — how `/tidy` keeps the volatile laye
   board still points at). Describe factually; a bigger project runs `/tidy` more aggressively, a tiny
   one barely at all. Recurring runs are wired via the harness scheduler, not here (`/tidy` can't
   schedule itself). Skip ⇒ `level: standard`.
+
+## Autonomy policy (jump-only: `/relay:config autonomy`, NOT in the layered pass)
+Project-wide in `relay.config.json` — how much a session decides **without the user**. Deliberately
+out of the layered pass: this is a trust decision, and it should be made on purpose rather than
+answered in passing. Default is today's behaviour, so a project that never visits it loses nothing.
+
+- **`decide`** (`ask`/`challenge`/`solo`, default `ask`) — what a session does at a **technical**
+  decision that will outlive the current lap (the shape of stored data, a new seam or boundary, a name
+  that becomes public API, two project rules pointing opposite ways): **ask** = STOP and put it to the
+  user, today's behaviour; **challenge** = dispatch the `challenger` agent with the options and act on
+  its ruling; **solo** = decide alone. `challenge` and `solo` both record the call (see `log`).
+- **`escalate`** — categories that come back to the user **whatever `decide` says**. Default
+  `["user-visible", "commercial", "copy", "consequential"]`: anything that changes what a user sees or
+  can do; anything touching pricing/packaging/licensing; product wording; and anything with legal,
+  financial, safety or security weight. These aren't engineering calls, so no agent settles them —
+  the session parks them and keeps building around them. Set `[]` only with eyes open.
+- **`budget`** (integer, default `4`) — challenges per lap. Hitting it is a signal the slice is too
+  big; the session says so and re-slices rather than asking a fifth time.
+- **`log`** (path, default `<root>/decisions.md`) — one line per call made without the user: date, the
+  question, the ruling, why. This is what makes `challenge`/`solo` reviewable after the fact, and what
+  stops the next lap quietly reversing this one. **Turning `decide` up without a log is the one
+  combination to talk the user out of.**
+
+**This governs judgment gates only — never safety gates.** A STOP for a dirty tree, a red suite, an
+unresolved 🔴 blocker, a stale merge base or a destructive/irreversible operation stays a STOP at every
+level. Autonomy is about who picks between two defensible designs, not about merging something broken.
+
+Skip ⇒ `decide: ask` (nothing changes).
 
 ## Advanced — root & paths (on demand only, NOT in the layered pass)
 **Do not surface these in the guided flow.** They're structural, for someone who's read the docs, and

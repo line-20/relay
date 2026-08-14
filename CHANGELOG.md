@@ -7,6 +7,37 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.5.0 — decisions made without you, on purpose
+
+Relay's agents all reviewed code that already existed, so the decision made *at minute forty of a
+build* — the one that's expensive precisely because nothing is written yet — had only two outcomes:
+stop and ask, or decide alone and hope. This adds a third, and a policy for when to use it.
+
+**Added**
+- **`challenger` agent** — challenges a technical decision **before** it's built. Takes two or three
+  named options, what the caller already checked, what breaks either way, and the caller's own
+  recommendation; grounds itself in the project's rules, prior decisions and real call sites; attacks
+  the recommendation (what it forecloses, what becomes irreversible, who else changes when it's wrong,
+  whether the framing itself is wrong); returns a ruling with the one observation that would reverse
+  it. Deliberately **not** findings-shaped and **not** in the `/review` fan-out. **Refuses an
+  underspecified brief** (`INSUFFICIENT BRIEF`) rather than doing the caller's thinking, and
+  **escalates** anything that isn't an engineering call.
+- **`autonomy` config block** (`/config autonomy`, jump-only — a trust decision shouldn't be answered
+  in passing). `decide` (`ask`/`challenge`/`solo`, default `ask` = today's behaviour) governs what a
+  session does at a decision that outlives the lap; `escalate` lists the categories that come back to
+  the user at every level (default: user-visible, commercial, copy, consequential); `budget` caps
+  challenges per lap (default 4 — needing more means the slice is too big); `log` records every call
+  made without the user (default `<root>/decisions.md`). **Judgment gates only — safety gates never
+  relax.**
+- **`/next` carries the policy into the build** (Step 0 resolves it, Step 5 acts on it), so autonomy
+  reaches the part of the lap that isn't inside a command.
+
+**Changed**
+- **`/ship`'s merge gate checks the green is against the CURRENT base** (`HEAD..origin/<base>` must be
+  empty). A sibling session merging first invalidates a green run, and the old gate couldn't see it.
+  This is what makes parallel sessions safe to merge without coordinating — whoever arrives second
+  re-verifies rather than merging an untested combination.
+
 ## 1.4.0 — cross-check at both decision points, with a lens
 
 Prior-art cross-checking now happens at the two points where it's cheapest, aimed differently at each:
