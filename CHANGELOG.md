@@ -7,6 +7,36 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.8.0 — a question with no moment never gets asked
+
+The sibling of 1.7.0's lesson. `autonomy` was kept out of `/config`'s guided pass on purpose — how
+much a session decides alone is a trust decision, and answering it while picking a verbosity is how
+you get an answer nobody meant. But "not in the guided pass" was implemented as *nowhere*: it wasn't
+in `/config`'s argument hint either, so the picker never revealed it, and the only route in was typing
+a word you had no way to learn. The default is the most conservative option, so nothing broke — it
+just meant every driver stopped at every design decision forever, unaware there was a dial.
+
+**A policy question needs a moment, and setup is usually the wrong one.** The right moment is when
+the thing it governs is on screen.
+
+**Added**
+- **A one-time autonomy gate in `/next` (Step 5.4).** At the *first* decision that outlives the lap,
+  the session puts the decision to the driver as always — and only once it's answered, offers the
+  policy with that decision still on screen as the example: keep asking, hand calls like it to the
+  **challenger** agent, or decide alone. The answer is written to `relay.config.local.json` (per-driver,
+  gitignored), **including an explicit `ask`**, which is what stops the gate ever firing again. Set
+  `autonomy.decide` up front, or pass a per-call `ask`/`challenge`/`solo` word, and it never fires at
+  all. It never replaces the decision, and never fires on an `autonomy.escalate` category.
+
+**Fixed**
+- **`autonomy` is in `/config`'s argument hint**, so the picker shows it alongside the other areas.
+- **Doc drift in `docs/conventions.md`:** the "full schema" reference had no `autonomy` block at all
+  (nor the split across the two config surfaces), and its `hooks` example omitted `release` — both
+  shipped in 1.5.0/1.6.0 and documented everywhere except the schema everyone reads first. The
+  per-call override list and the Step 0 resolution snippet now carry `ask`/`challenge`/`solo` too.
+- **`review.agents` no longer claims `/config` writes it** — only `/adopt` does — and it finally has a
+  changelog entry, backfilled under 1.2.0 where it actually shipped.
+
 ## 1.7.0 — a policy with no trigger never fires
 
 `tidy.level` defaults to `standard`, which is documented as *"prune + trim"*. Prune has run on every
@@ -191,6 +221,13 @@ is now a named step on the main line: **build → test → ship**.
   (`/refine informed`), and shapes narrative prose only — never a required code snippet, a STOP-gate,
   or the substance of a table or the final landing. **Absent ⇒ no shaping (today's behaviour)** —
   additive and fully back-compatible.
+- **Project-declared review agents** (`review.agents`) — a project can register its own
+  `.claude/agents/*.md` and `/review` folds it into the same machinery as the built-in ten: `gate`
+  (a built-in signal name or a `{ "paths": [glob…] }` match) decides whether it runs for this diff,
+  `tier` (`safety` uncapped / `cappable`) whether the session cap applies, `scope` + `priority` where
+  it sits in the fan-out — then one merged report. Written by `/adopt`'s keep-and-hook triage
+  (register-as-review-agent) or by hand; absent ⇒ just the built-in specialists. Shipped in this
+  release but missing from these notes until 1.7.x — recorded here for the record.
 
 ## 1.1.0 — knowledge persistence + housekeeping
 

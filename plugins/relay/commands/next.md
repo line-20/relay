@@ -24,7 +24,9 @@ SESSION="$(jq -r '.session // empty' relay.config.local.json 2>/dev/null)"; : "$
 # autonomy: how much THIS session decides without the user — local prefs → project default;
 # a per-call word in $ARGUMENTS (ask|challenge|solo) wins. Absent ⇒ ask.
 DECIDE="$(jq -r '.autonomy.decide // empty' relay.config.local.json 2>/dev/null)"
-: "${DECIDE:=$(jq -r '.autonomy.decide // empty' relay.config.json 2>/dev/null)}"; : "${DECIDE:=ask}"
+: "${DECIDE:=$(jq -r '.autonomy.decide // empty' relay.config.json 2>/dev/null)}"
+DECIDE_SET="${DECIDE:+yes}"; : "${DECIDE_SET:=unset}"   # never chosen ⇒ the Step 5.4 gate may fire once
+: "${DECIDE:=ask}"
 ```
 `SESSION` (`small`/`medium`/`large`, see [[conventions]]) caps how wide the verify/audit levels fan
 out research agents (Steps 2.9A / 2.9B). **Empty ⇒ no cap** — full width. It never changes the
@@ -277,6 +279,26 @@ The item has no handover yet — work from its **brief / roadmap detail**.
    re-slice. Whatever the level, `autonomy.escalate` categories still come back to the user, and no
    level relaxes a **safety** gate (dirty tree, red suite, unresolved 🔴, stale merge base,
    destructive operation). See `/relay:config autonomy`.
+5. **The first such decision in a repo asks once — after answering it, never before.** A policy about
+   who decides is unanswerable in the abstract, which is why it is kept out of `/relay:config`'s
+   guided pass; the moment it *is* answerable is when a real decision is on screen. So when
+   `DECIDE` is `ask` and `DECIDE_SET` is `unset`, put the decision to the user **first**, and only
+   once they have answered it, add the offer — one short block, never a second question stacked on
+   the first:
+
+   > I stopped here because `decide` is `ask` (the default). I could instead put a call like this to
+   > the **challenger** agent — it argues the named options against this project's rules and prior
+   > decisions, and I act on its ruling — or decide it alone. Either way every call is logged to
+   > `relay/decisions.md`, and user-visible, commercial, copy and consequential calls still come back
+   > to you. Keep asking you, challenge, or solo?
+
+   Record the answer by surgically merging `autonomy.decide` into **`relay.config.local.json`**
+   (gitignored — this is a per-driver, per-session preference, not project truth; preserve every other
+   key, the merge pattern `/init` uses). Write it for **all three answers**, `ask` included — an
+   explicit `ask` is what stops the gate ever firing again. A driver who sets `autonomy.decide` up
+   front, or passes a per-call `ask`/`challenge`/`solo` word, is never asked at all. **The offer never
+   replaces the decision**, and it never fires on an `autonomy.escalate` category — those aren't
+   engineering calls, so no policy applies to them.
 
 ## Step 6 — Report
 State the **board item** (`track/slug`) you started, the worktree/branch you're in, and the
