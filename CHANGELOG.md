@@ -7,6 +7,35 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.7.0 — a policy with no trigger never fires
+
+`tidy.level` defaults to `standard`, which is documented as *"prune + trim"*. Prune has run on every
+lap for months, because it is wired into `/handover` Step 4.5. Trim had the same policy, switched on
+by the same default, and no trigger at all — so it never ran once. (Found on a real repo after a week
+of use: **13 of the 50 rows in *Open threads* were ✅ done**, and the board `/next` reads before every
+decision had grown to 127 KB. Its owner had never run `/tidy`, and had no reason to: the half of it
+with a visible symptom was already automatic, and the half without one was silently inert.)
+
+The general shape, worth stating: **a layer that accretes needs a trigger, and the level dial should
+say what the trigger may do — not whether the work happens at all.**
+
+**Added**
+- **Per-lap TRIM** in `/handover` Step 4.5 (so also in `/ship`) — done rows leave *Open threads* and
+  collapse to a one-line `✅ Done: <slug>` on their track, in the same worktree-safe commit that
+  archives superseded handovers and reviews. `/tidy` Step 4 stays the canonical rule; every KEEP-live
+  guard applies unchanged, and a near-done tail still keeps its row.
+- **A one-time gate.** The first trim in a repo reports the count and the board's size and asks
+  *"trim them from now on?"*, then records the answer as `tidy.ops.trim` and never asks again. Set
+  `tidy.ops.trim` up front and you are never asked at all.
+- **`lean` gained a voice** — it prunes as before, then *reports* what trim would clear without
+  touching it. That is the rung for an owner who wants the signal and keeps the decision; `standard`
+  is the rung for an owner who wants it handled.
+
+**Changed**
+- `/tidy`'s own docs now say plainly that you are not expected to remember to run it: hand-running is
+  for the ops handover doesn't carry (MERGE, brief archival), for a repo that ships rarely, or for a
+  deliberate sweep.
+
 ## 1.6.0 — one release per lap
 
 `/ship` merged your work and stopped, leaving the project's version describing a past that no longer

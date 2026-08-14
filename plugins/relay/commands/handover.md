@@ -146,31 +146,61 @@ say so — both files are already correct locally, so nothing is lost and the us
 commit them. The handover stays untracked on the current feature branch until main
 propagates; that's expected.
 
-## Step 4.5 — Tidy the record (archive superseded notes)
-`/handover` and `/review` mint a new file every session, so `<root>/handover/` and
-`<root>/reviews/` grow without bound. Since you've just synced with `main` and are already
-committing there, sweep the **superseded** files into `archive/` in the same breath — nothing
-is deleted, git keeps full history, so this is always safe and reversible. **Skip this step if
-Step 4's push FAILED** (you're not synced with main; don't touch the record).
+## Step 4.5 — Tidy the record (archive superseded notes, trim done rows)
+`/handover` and `/review` mint a new file every session and the board keeps every row it ever
+opened, so `<root>/handover/`, `<root>/reviews/` and *Open threads* all grow without bound. Since
+you've just synced with `main` and are already committing there, do the housekeeping in the same
+breath — nothing is deleted, git keeps full history, so this is always safe and reversible. **Skip
+this step entirely if Step 4's push FAILED** (you're not synced with main; don't touch the record).
 
-> This is the **per-lap subset** of `/tidy`'s PRUNE op — the same rule and the same worktree-safe
-> commit. `/tidy` is the fuller, recurring housekeeper (it also trims done rows and merges briefs,
-> honouring the Distilled invariant); run it on demand or on a schedule when the record needs more than
-> this per-ship sweep.
+> This is the **per-lap subset** of `/tidy` — the same rules and the same worktree-safe commit,
+> triggered here because a lap is exactly when the record goes stale. `/tidy` remains the fuller,
+> recurring housekeeper (it also merges briefs and honours the Distilled invariant); run it on demand
+> or on a schedule when the record needs more than this per-ship sweep.
 
-The rule is "keep only what's still live":
+```bash
+TIDY_LEVEL="$(jq -r '.tidy.level // "standard"' relay.config.json 2>/dev/null || echo standard)"
+TRIM_OP="$(jq -r '.tidy.ops.trim // "unset"' relay.config.json 2>/dev/null || echo unset)"
+```
+
+**PRUNE — always, unless `TIDY_LEVEL` is `none`.** The rule is "keep only what's still live":
 - **Handovers** — the board's *Open threads* table is the source of truth. Archive every
   `<root>/handover/next-*.md` on main whose basename is **not** linked from `<root>/board.md`
   (the one you just wrote IS linked, so it stays). Keep the ones the board still points at.
 - **PR reviews** — a review doc is consumed at merge time. Keep the **20 most recent**
-  `<root>/reviews/*.md` and archive the rest.
+  `<root>/reviews/*.md` (`tidy.retention.reviews`) and archive the rest.
 
-Do it on `main` with the same temp-index pattern as Step 4 (no branch switch). Refresh from
-main, compute the moves, and commit them as one archival commit — `git read-tree FETCH_HEAD`,
-stage the renames into `<root>/handover/archive/` and `<root>/reviews/archive/` in the temp
-index, `write-tree`, `commit-tree -p FETCH_HEAD`, push to `main`. If nothing qualifies, skip
-the commit. Report a one-line count (e.g. "archived 3 handovers, 5 reviews") or say "nothing
-to archive".
+**TRIM — the done rows, gated by level.** Apply `/tidy`'s TRIM rule exactly (it is canonical there,
+Step 4): a ✅ row leaves *Open threads* and collapses to a one-line `✅ Done: <slug>` entry on its
+track, while a **near-done tail** — shipped with one loose end — **stays** an Open-threads row. Every
+KEEP-live guard still applies: never touch a row whose topic is owned by a live worktree, is ⚙/🔍,
+is locked, or is still open/queued. What the level decides is only whether you **apply** or **say**:
+
+| `TIDY_LEVEL` | Behaviour |
+|---|---|
+| `none` | skip Step 4.5 altogether |
+| `lean` | prune only — then **report** what trim would clear, and stop there |
+| `standard` (default) | prune + **apply** trim in this same commit |
+| `full` | as `standard`; brief merges still belong to `/tidy`, which can auto-apply them |
+
+**First run in a repo asks once — STOP.** When trim is eligible (`standard`/`full`) and `TRIM_OP` is
+`unset`, the owner has never been asked. Report the count and the board's size and ask:
+
+> `13 rows on the board are done (board: 127 KB). Trim them from now on?`
+
+On **yes**, surgically merge `"trim": true` into `.tidy.ops` in `relay.config.json` (preserve every
+other key — the merge pattern `/init` uses), include the config change in this commit, and apply. On
+**no**, write `"trim": false` the same way and skip. Either answer is remembered, so this gate fires
+once per repo and never again — an owner who wants it automatic from the start can set
+`tidy.ops.trim` ahead of time and is never asked at all. An explicit `true`/`false` always wins over
+the level preset.
+
+Do it on `main` with the same temp-index pattern as Step 4 (no branch switch). Refresh from main,
+compute all the moves together, and commit them as **one** housekeeping commit — `git read-tree
+FETCH_HEAD`, stage the renames into `<root>/handover/archive/` and `<root>/reviews/archive/` plus the
+edited `<root>/board.md` in the temp index, `write-tree`, `commit-tree -p FETCH_HEAD`, push to
+`main`. If nothing qualifies, skip the commit. Report one line naming each op that did something
+(e.g. "archived 3 handovers, 5 reviews · trimmed 13 done rows") or say "nothing to archive".
 
 ## Step 5 — Print a COMPACT terminal summary
 Do NOT paste the full handover into the terminal. Print only a short summary plus the

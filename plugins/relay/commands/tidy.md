@@ -1,6 +1,6 @@
 ---
 name: tidy
-description: Keep Relay's VOLATILE layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs — recurring, idempotent, and parallel-worktree-safe. Never touches durable output (code, ADRs, guides). The daily housekeeper; runs to a no-op when nothing's stale.
+description: Keep Relay's VOLATILE layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs — recurring, idempotent, and parallel-worktree-safe. Never touches durable output (code, ADRs, guides). Prune and trim already run per-lap inside /handover at the same `tidy.level`, so run this by hand for the rest (merges, brief archival) or for a deliberate sweep; a no-op when nothing's stale.
 argument-hint: "[optional: a single op — prune|trim|merge — else all enabled; add 'dry-run' to report without writing]"
 allowed-tools: Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git ls-files:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(git mv:*), Bash(date:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(grep:*), Bash(jq:*), Read, Write, Edit
 ---
@@ -17,6 +17,11 @@ nothing's stale it does nothing and says so.
 > `paths.*` points at. Durable knowledge is moved out by `/persist`; this only keeps the input side
 > tidy. It is the *content* counterpart to `/gc` (which reclaims orphaned git **worktrees**) — different
 > job, don't conflate them.
+
+> **You don't have to remember to run this.** PRUNE and TRIM both have a **per-lap trigger** in
+> `/handover` Step 4.5 (and so in `/ship`), gated by the same `tidy.level` — a policy with no trigger
+> is a policy that never fires. Running `/tidy` by hand is for the ops handover doesn't carry (MERGE,
+> brief archival), for a repo that ships rarely, or for a deliberate sweep.
 
 ## The hard invariants (get these right)
 - **Distil before prune.** Never archive/merge a brief whose durable content isn't harvested yet. A
@@ -47,8 +52,10 @@ PCADENCE="$(jq -r 'if (.persist|type)=="object" then .persist.cadence else .pers
 PLEVEL="$(jq -r 'if (.persist|type)=="object" then .persist.level else null end // "standard"' relay.config.json 2>/dev/null || echo standard)"
 ```
 `LEVEL` sets the op defaults when `tidy.ops.*` are absent — `none` ⇒ a no-op (report and stop);
-`lean` ⇒ prune only; `standard` ⇒ prune + trim, merge report-only; `full` ⇒ prune + trim + merge with
-auto-apply allowed. Explicit `tidy.ops.*` win over the preset. A single-op arg (`prune`/`trim`/`merge`)
+`lean` ⇒ prune only (and, at the per-lap trigger, *report* what trim would clear); `standard` ⇒
+prune + trim, merge report-only; `full` ⇒ prune + trim + merge with auto-apply allowed. Explicit
+`tidy.ops.*` win over the preset — which is also how the per-lap trim gate records its one-time
+answer (`tidy.ops.trim: true|false`), so an owner is asked once per repo and never again. A single-op arg (`prune`/`trim`/`merge`)
 or `dry-run` in `$ARGUMENTS` narrows this run. **Distillation is disabled** when `PCADENCE = never` or
 `PLEVEL = none` — in that case a shipped brief counts as spent without a marker.
 
@@ -94,7 +101,8 @@ only main-owned content under `<root>/`.
 - **TRIM** — remove each done row from *Open threads* and collapse it to a one-line `✅ Done: <slug>`
   entry on its track (the `/next` compaction shape). A **near-done tail** (shipped, one loose end) is
   **not** trimmed away — it **stays an Open-threads row** (🔜/⏸) linking back to its source brief, so
-  the board remains the single tracker (no separate residue file).
+  the board remains the single tracker (no separate residue file). (This is also the canonical home of
+  `/handover` Step 4.5's per-lap trim.)
 - **MERGE** (approved) — fold the same-unit briefs into one, de-duplicating overlap while **preserving
   all content**, then rewrite every inbound link (Step 4.5) and archive the emptied file.
 - **COMPACT** — Relay's board keeps "done" as terse inline `✅ Done:` lines, so there's no growing

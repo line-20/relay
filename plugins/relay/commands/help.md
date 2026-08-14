@@ -43,7 +43,7 @@ between them so the review fan-out is spent on something that's actually been ex
 | `/relay:cross-check` | Check an approach against prior art / standards |
 | `/relay:watch` | Park on a dependency, auto-resume when it lands |
 | `/relay:review` · `/relay:fix` · `/relay:handover` | The pieces `/ship` composes — run standalone when needed |
-| `/relay:tidy` | Keep the volatile layer lean — prune spent handovers/reviews, trim done rows, merge briefs (content) |
+| `/relay:tidy` | Keep the volatile layer lean — merge briefs, archive spent ones, deliberate sweeps. Prune + trim already ride every `/handover` |
 | `/relay:gc` | Reclaim orphaned worktrees (git worktrees, not content) |
 | `/relay:help` · `/relay:version` | This overview · the version banner |
 

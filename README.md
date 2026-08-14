@@ -67,9 +67,10 @@ the normal flow you don't:
 | `/handover` | `/ship` Phase 6 | you're handing off **mid-thread**, without shipping |
 
 > `/ship` does the routine end-of-session housekeeping (archiving superseded handovers and old
-> reviews, pruning dead worktree entries) as part of its handover step — you don't run it by hand.
-> It **keeps** the topic's worktree for the next slice (removed only when the topic itself is done).
-> For a deeper, recurring sweep of the volatile layer — spent briefs, done rows — reach for `/tidy`.
+> reviews, trimming done rows off the board, pruning dead worktree entries) as part of its handover
+> step — you don't run it by hand, and `tidy.level` says how much of it applies itself. It **keeps**
+> the topic's worktree for the next slice (removed only when the topic itself is done). For the
+> deeper sweep — spent briefs, same-unit merges — reach for `/tidy`.
 
 **The SSDLC spiral** — Relay is a **Secure-SDLC workbench**, not just a ship loop. These extend the
 loop into a spiral where quality and security *compound* each lap. All optional, invoked when the work
@@ -89,7 +90,7 @@ needs them:
 |---|---|
 | `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/explore`. |
 | `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
-| `/tidy` | Keep the **volatile** layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs. Recurring, idempotent, parallel-worktree-safe; config-driven (`tidy.level`/`retention`). The **content** housekeeper (`/gc` does worktrees). |
+| `/tidy` | Keep the **volatile** layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs. Recurring, idempotent, parallel-worktree-safe; config-driven (`tidy.level`/`retention`). Prune and trim already ride every `/handover` at the same level, so run this for the rest. The **content** housekeeper (`/gc` does worktrees). |
 | `/gc` | Reclaim **orphaned** worktrees left by sessions that skipped the happy path (crashed, or `/clear`ed without a handover). You never need it in normal use — `/ship` cleans up after itself; reach for it only when orphans pile up. |
 | `/config` | The config front door — shows what's set/available and walks a guided setup. Opt-in depth, never a gate: nothing here blocks getting to work. |
 | `/help` | On-demand capability map — the lifecycle and every command, one line each, with links to the docs. The "what can this do again?" surface. |
