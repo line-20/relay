@@ -1,6 +1,6 @@
 ---
 description: Continue the next phase from a handover (prefers the shared copy on main) — verify the branch, then execute
-argument-hint: "[optional item slug or handover path; defaults to the thread matching this branch]"
+argument-hint: "[optional item slug or handover path; defaults to the thread matching this branch. Add ask|challenge|solo to set this session's autonomy]"
 ---
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
@@ -18,7 +18,16 @@ at the repo root (`{ "root": "docs" }`). Resolve it once; read every `<root>/…
 to it. Absent config (or no `root` key) ⇒ `<root>` = `relay`, so existing repos are unchanged.
 ```bash
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
+# autonomy: how much THIS session decides without the user — local prefs → project default;
+# a per-call word in $ARGUMENTS (ask|challenge|solo) wins. Absent ⇒ ask.
+DECIDE="$(jq -r '.autonomy.decide // empty' relay.config.local.json 2>/dev/null)"
+: "${DECIDE:=$(jq -r '.autonomy.decide // empty' relay.config.json 2>/dev/null)}"
+DECIDE_SET="${DECIDE:+yes}"; : "${DECIDE_SET:=unset}"   # never chosen ⇒ the Step 4 gate may fire once
+: "${DECIDE:=ask}"
 ```
+A resumed build hits decisions that outlive the lap exactly as a fresh one does, so `/continue`
+carries the same policy as `/next` (Step 4). See [[conventions]] → *`autonomy`*.
+
 **Soft check:** if the resolved `<root>/board.md` is nowhere to be found (not on `origin/main`, not
 local), STOP and say so plainly — e.g. *"root `docs` configured but `docs/board.md` missing — run
 `/init`?"* — rather than failing deep in a later step.
@@ -164,6 +173,29 @@ With topic and approach approved, carry out the handover's "Start here" steps, t
 continue toward the "Next objective" within its "Done when" scope. Stay inside the scope
 edges the handover names. If you hit a genuine fork the handover doesn't cover, make the
 reasonable call and note it rather than stalling.
+
+**Carry `DECIDE` into the build** (Step 0; a per-call `ask`/`challenge`/`solo` word in `$ARGUMENTS`
+wins — that's how two tabs resume different threads at different levels). For a decision that will
+outlive the lap — the shape of stored data, a new seam or boundary, a name that becomes public API,
+two project rules pointing opposite ways — `ask` stops and puts it to the user (today's behaviour);
+`challenge` dispatches the **`challenger`** agent with named options, what you already checked, what
+breaks either way, and your own recommendation, then acts on its ruling; `solo` decides alone. Under
+`challenge`/`solo`, append one line per call to `autonomy.log` (default `<root>/decisions.md`) and
+respect `autonomy.budget` — needing more challenges than that means the slice is too big, so say so
+and re-slice. Whatever the level, `autonomy.escalate` categories still come back to the user, and no
+level relaxes a **safety** gate (dirty tree, red suite, unresolved 🔴, stale merge base, destructive
+operation). See `/relay:config autonomy`.
+
+**The first such decision in a repo asks once — after answering it, never before.** When `DECIDE` is
+`ask` and `DECIDE_SET` is `unset`, put the decision to the user **first**, and only once they have
+answered it, add the offer — the same one-time gate `/next` runs (Step 5.4), verbatim in behaviour:
+a short block explaining that `decide` is `ask`, that calls like this one could go to the challenger
+agent or be decided alone, that every call is logged to `<root>/decisions.md`, and that
+user-visible/commercial/copy/consequential calls come back regardless. Record the answer — **all
+three, `ask` included** — by surgically merging `autonomy.decide` into `relay.config.local.json`
+(gitignored, per-driver; preserve every other key). Whichever command fires it first, the other is
+then silent: one gate per repo, not one per command. It never replaces the decision, and never fires
+on an `autonomy.escalate` category.
 
 **Path gate — after your FIRST batch of edits, before running any check:** confirm the
 edits actually landed in the worktree, not the main checkout. Run

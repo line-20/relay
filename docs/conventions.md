@@ -157,10 +157,11 @@ alone. Both **record the call** in `log` — turning `decide` up without a log i
 talk a project out of.
 
 **Asked once, at the first real decision.** A policy about who decides can't be answered before a
-decision exists, so it is deliberately absent from `/relay:config`'s guided pass. Instead `/next`
-offers it **once per repo** at the first outliving decision — after putting that decision to the
-driver, never instead of it — and records the answer (all three, `ask` included) to
-`relay.config.local.json`, so the offer never repeats. Setting `decide` ahead of time, or passing a
+decision exists, so it is deliberately absent from `/relay:config`'s guided pass. Instead **`/next`
+and `/continue`** offer it **once per repo** at the first outliving decision — after putting that
+decision to the driver, never instead of it — and record the answer (all three, `ask` included) to
+`relay.config.local.json`, so the offer never repeats. Whichever fires first silences the other:
+one gate per repo, not one per command. Setting `decide` ahead of time, or passing a
 per-call word, means it never fires. Same shape as the per-lap trim gate: ask at the moment it's
 answerable, with the real thing on screen, then remember. **This governs judgment gates only, never safety gates:** a dirty tree, a red
 suite, an unresolved 🔴 blocker, a stale merge base or a destructive operation stays a STOP at every

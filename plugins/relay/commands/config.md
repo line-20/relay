@@ -135,9 +135,9 @@ unresolved 🔴 blocker, a stale merge base or a destructive/irreversible operat
 level. Autonomy is about who picks between two defensible designs, not about merging something broken.
 
 **You don't have to come here first.** Because a policy about who decides is hard to answer before any
-decision has happened, `/next` asks **once per repo**, at the *first* outliving decision — after
-putting that decision to the user, with it still on screen as the example (Step 5.4) — and records the
-answer to `relay.config.local.json`. Setting `decide` here up front means that gate never fires. This
+decision has happened, **`/next` and `/continue`** ask **once per repo**, at the *first* outliving
+decision — after putting that decision to the user, with it still on screen as the example — and
+record the answer to `relay.config.local.json` (whichever fires first silences the other). Setting `decide` here up front means that gate never fires. This
 is why autonomy stays out of the layered pass: the question has a better moment than setup.
 
 Skip ⇒ `decide: ask` (nothing changes; the first-decision gate will offer once).
