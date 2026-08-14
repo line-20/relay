@@ -108,6 +108,27 @@ not — so a merged schema/dependency change can leave the next session hitting 
 3. **Best-effort and NON-fatal.** If the local environment isn't running, note it and
    continue to handover rather than stopping.
 
+## Phase 5.6 — Cut a release for what just landed (hook-driven, non-fatal)
+A lap that merged and then stopped leaves the project's version describing a past that no longer
+exists. **One release per lap** keeps a version number meaning "a session's work" rather than
+"sometime in the last month" — and it has to happen here, because a release nobody remembers to cut
+is a release that doesn't happen. (Seen in the wild: a release proposal open for three weeks while
+1,637 commits landed behind it.)
+
+```bash
+RELEASE="$(jq -r '.hooks.release // empty' relay.config.json 2>/dev/null)"
+```
+- **Hook set** ⇒ dispatch it. The project owns the mechanics entirely — merging a release-bot's
+  proposal, running a bump script, tagging. Relay only decides *when*.
+- **No hook** ⇒ skip silently. Do **not** invent a release: guessing a version scheme, writing tags,
+  or editing version files in a repo that never asked is exactly the ownership Relay doesn't take.
+  If the repo shows an obvious release mechanism (an open release-bot PR, a release workflow, a
+  `release` script) you may **mention it once** and offer to wire `hooks.release` via
+  `authoring-skills` — then carry on either way.
+- **Non-fatal.** A failed or skipped release never blocks the handover; report it and continue.
+
+Docs-only laps and laps that shipped nothing user-visible don't need a release — say so and skip.
+
 ## Phase 5.7 — Persist what the lap taught (policy-driven, non-fatal)
 The merge is in; before handing over, this is the moment to compound. **First decide whether the lap
 taught something durable** — a review finding that should become a guardrail rule, a design pattern

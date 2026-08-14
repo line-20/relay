@@ -7,6 +7,24 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.6.0 — one release per lap
+
+`/ship` merged your work and stopped, leaving the project's version describing a past that no longer
+exists. Cutting a release was a step that only happened when someone remembered it — and in a repo
+with a release bot, that means a proposal PR sits open indefinitely. (Found on a real one: open three
+weeks, 1,637 commits and 324 features landed behind it, version still reading the July number.)
+
+**Added**
+- **`hooks.release`** — the project's own way to cut a release, dispatched by **`/ship` Phase 5.6**,
+  right after a successful merge. Merging a release bot's proposal, running a bump script, tagging:
+  all of it stays the project's business. Relay only decides *when*, and the answer is **once per lap**,
+  so a version number means "a session's work" rather than "sometime last month".
+- **No hook ⇒ skipped silently.** Relay will not invent a release — no guessed version scheme, no tags,
+  no edits to version files in a repo that never asked. If it spots an obvious mechanism (a release-bot
+  PR, a release workflow, a `release` script) it says so **once** and offers to wire the hook. Non-fatal
+  either way; a failed release never blocks the handover.
+- `/config`'s hooks offer now includes `release` when the repo shows evidence for one.
+
 ## 1.5.1 — autonomy is per-session, not per-project
 
 **Fixed**

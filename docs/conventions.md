@@ -267,7 +267,8 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
 { "hooks": { "test": "test-stack",
              "commit": "commit",
              "env": { "up": "stack-up", "down": "stack-down" },
-             "deploy": "deploy-preview" } }
+             "deploy": "deploy-preview",
+             "release": "release" } }
 ```
 - A command that has a hook for its phase **runs the hooked command/skill** at that point.
 - No hook ⇒ the command's built-in behaviour (discover the test command from `CLAUDE.md`, etc.).
@@ -279,6 +280,7 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
 | `commit` | `/ship`, `/handover` | This project's way of committing |
 | `env.up` / `env.down` | `/test` (local target) · `/ship` (teardown) | Bring a **local test environment** up / take it down |
 | `deploy` | `/deploy` | Trigger the project's **PR preview** |
+| `release` | `/ship` (Phase 5.6, post-merge) | Cut a release for what just landed — one release per lap |
 
 **Relay never owns an environment.** This is the same boundary `/deploy` states for deployment,
 generalised: Relay names the *verify* phase and sequences it, the project owns the *mechanics*. That
