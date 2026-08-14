@@ -71,7 +71,7 @@ cat <<EOF
 
 Next:
   git checkout -b release/$new && git add -A && git commit -m "chore: release $new"
-  git push -u origin release/\$(echo $new) && gh pr create --fill
+  git push -u origin release/$new && gh pr create --fill
   # after the PR merges, on main:
   git tag -a v$new -m "$new" && git push origin v$new
 EOF

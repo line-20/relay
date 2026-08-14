@@ -61,7 +61,11 @@ Only if the user opted in above. **Offer only what this repo shows evidence for*
   **local** environment); a preview/deploy CI job ⇒ `hooks.deploy` (how `/deploy` triggers the
   **preview**). Relay never starts or stops an environment itself — these hooks are how the project
   keeps that job. If the repo has one side and not the other, mention that `test.target`
-  (`preview`/`local`/`ask`) picks which `/test` defaults to; absent ⇒ auto.
+  (`preview`/`local`/`ask`) picks which `/test` defaults to; absent ⇒ auto. **Include `hooks.release`**
+  if the repo shows evidence of one — a release-bot PR/workflow (release-please, changesets,
+  semantic-release), a `release` script, or version tags — so `/ship` cuts a release per lap instead of
+  leaving the version describing a past that no longer exists. Absent ⇒ `/ship` skips it silently and
+  never invents a version scheme.
 If the repo shows **no** evidence for either, say so plainly and skip — don't manufacture an offer.
 
 ## Persist policy (jump-only: `/relay:config persist`, NOT in the layered pass)
