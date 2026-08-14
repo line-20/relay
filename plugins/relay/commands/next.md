@@ -21,6 +21,8 @@ to it. Absent config (or no `root` key) ⇒ `<root>` = `relay`, so existing repo
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 # session size: local prefs → (committed tier, back-compat); a per-call word in $ARGUMENTS wins
 SESSION="$(jq -r '.session // empty' relay.config.local.json 2>/dev/null)"; : "${SESSION:=$(jq -r '.tier // empty' relay.config.json 2>/dev/null)}"
+# autonomy: how much the build session decides without the user (absent ⇒ ask)
+DECIDE="$(jq -r '.autonomy.decide // "ask"' relay.config.json 2>/dev/null || echo ask)"
 ```
 `SESSION` (`small`/`medium`/`large`, see [[conventions]]) caps how wide the verify/audit levels fan
 out research agents (Steps 2.9A / 2.9B). **Empty ⇒ no cap** — full width. It never changes the
@@ -262,6 +264,16 @@ The item has no handover yet — work from its **brief / roadmap detail**.
 2. Run any **pre-build checklist** the project's `CLAUDE.md` requires for a new feature/module.
 3. Scope the first shippable slice, then start building it — don't stop to ask for a full plan;
    make reasonable calls and note them. `/handover` folds the outcome back into the board.
+4. **Carry `DECIDE` into the build.** For a decision that will outlive the lap — the shape of stored
+   data, a new seam or boundary, a name that becomes public API, two project rules pointing opposite
+   ways — `ask` stops and puts it to the user (today's behaviour); `challenge` dispatches the
+   **`challenger`** agent with named options, what you already checked, what breaks either way, and
+   your own recommendation, then acts on its ruling; `solo` decides alone. Under `challenge`/`solo`,
+   append one line per call to `autonomy.log` (default `<root>/decisions.md`) and respect
+   `autonomy.budget` — needing more challenges than that means the slice is too big, so say so and
+   re-slice. Whatever the level, `autonomy.escalate` categories still come back to the user, and no
+   level relaxes a **safety** gate (dirty tree, red suite, unresolved 🔴, stale merge base,
+   destructive operation). See `/relay:config autonomy`.
 
 ## Step 6 — Report
 State the **board item** (`track/slug`) you started, the worktree/branch you're in, and the
