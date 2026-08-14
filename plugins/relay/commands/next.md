@@ -1,6 +1,6 @@
 ---
 description: Recommend the next best thing to work on — a ranked shortlist from the board, at one of three depths (quick / verify / audit), then start the one you pick in a worktree
-argument-hint: "[track/theme/slug; or 'verify' (thorough shortlist) / 'audit' (exhaustive all-items + archival)]"
+argument-hint: "[track/theme/slug; or 'verify' (thorough shortlist) / 'audit' (exhaustive all-items + archival). Add ask|challenge|solo to set this session's autonomy]"
 ---
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
@@ -284,7 +284,8 @@ The item has no handover yet — work from its **brief / roadmap detail**.
    guided pass; the moment it *is* answerable is when a real decision is on screen. So when
    `DECIDE` is `ask` and `DECIDE_SET` is `unset`, put the decision to the user **first**, and only
    once they have answered it, add the offer — one short block, never a second question stacked on
-   the first:
+   the first. `/continue` runs the same gate (its Step 4), and either answer silences both: **one
+   gate per repo, not one per command.**
 
    > I stopped here because `decide` is `ask` (the default). I could instead put a call like this to
    > the **challenger** agent — it argues the named options against this project's rules and prior

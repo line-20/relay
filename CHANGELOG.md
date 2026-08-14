@@ -7,6 +7,24 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.9.1 — the other half of the loop
+
+1.5.0 taught `/next` to carry the autonomy policy into the build, and 1.8.0 gave it a moment to ask
+about one. Both landed in `/next` only — but `/next` starts work that has no handover yet, and every
+*resumed* thread comes back through `/continue`. So on any thread past its first lap, `/relay:continue
+<handover> solo` parsed the handover path, silently dropped the `solo`, and stopped at every decision
+anyway. Worse than an error: it looked like it worked. (`verbosity` and `audience` words *were*
+honoured there, which is what made the gap easy to miss.)
+
+**Fixed**
+- **`/continue` resolves and carries `autonomy.decide`** — the same Step 0 resolution as `/next`
+  (local prefs → project default → `ask`), the same per-call `ask`/`challenge`/`solo` word, and the
+  same carry-into-the-build clause at Step 4. Two tabs can now resume two threads at two levels.
+- **The first-decision gate runs in `/continue` too**, with an explicit hand-off: whichever command
+  fires it first, the other stays silent — **one gate per repo, not one per command**.
+- **`ask|challenge|solo` is in both argument hints**, so the picker shows the words instead of leaving
+  them to be learnt from the docs — the same discoverability miss 1.8.0 fixed for `/config`.
+
 ## 1.9.0 — one fact, one home
 
 Promoting a lesson to a guardrail, a guide or an ADR left its AI-memory copy sitting there. Nothing in
