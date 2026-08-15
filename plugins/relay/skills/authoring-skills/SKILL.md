@@ -30,7 +30,10 @@ with the ones already there.
 
 1. **Frontmatter**: a one-line `description` (shown in the picker — say what it does, not how),
    and an `argument-hint` if it takes arguments. Add `allowed-tools` only to *restrict* a
-   command to a safe set (as `/handover` does).
+   command to a safe set (as `/handover` does). **Never add a `name:`** — a plugin command is
+   named by its filename and `name:` *replaces* that name, dropping the command out of the `/`
+   menu under the name people type. Short names come from generated twin files instead
+   (`scripts/gen-short-names.sh` in the Relay repo).
 2. **A `## Usage` block** directly after the frontmatter: the signature, a GFM table of one row
    per argument, the shared per-call words, the config keys it reads, and the `?` gate that
    prints the block verbatim and STOPs. Copy the shape from any existing command — it's what

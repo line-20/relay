@@ -7,6 +7,32 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.10.1 — both names, side by side
+
+1.10.0 gave the ten loop commands their short names with a frontmatter `name:` — and a plugin
+command's `name:` **replaces** the name its filename gives it rather than adding to it. So the `/`
+menu stopped listing `/relay:test`, `/relay:next` and the other eight: typing one in full still ran
+it (that part of 1.10.0's note was right), but it was no longer there to be found, picked or
+autocompleted. Whoever knew the `rl` mapping lost nothing; everyone else lost the command.
+
+**Fixed**
+- **Both names are listed again.** Every loop command keeps its own file under its own name, and the
+  short name now lives in a **twin file beside it** — `commands/rlt.md` mirrors `commands/test.md`
+  body-for-body. `/relay:test`, `/relay:rlt` and the bare `/rlt` all reach the same instructions, and
+  the first two both appear in the menu. Verified live against an installed build for all three.
+- **Twins are generated, never hand-written** — `./scripts/gen-short-names.sh` writes them from the
+  source command; `--check` fails on drift and runs in both the pre-push hook and CI, next to the
+  version-sync check. Edit the source file; the twin follows.
+- **`/gc` and `/tidy` gave up the bare global name they were quietly holding.** Both carried a
+  leftover `name:` that claimed `/gc` and `/tidy` across every installed plugin — the exact collision
+  the `rl` prefix exists to avoid. `/relay:gc` and `/relay:tidy` are unchanged.
+
+Two cheaper mechanisms were tested against a live build first and neither works: a **symlink** beside
+the source is ignored by the loader (`Unknown command`), and a **stub that injects the real body**
+registers but then produces nothing — the same class of failure as the forwarding stub 1.10.0
+dropped. That supersedes 1.10.0's "one command, one file" note for authors: two names need two files,
+and the second one is generated.
+
 ## 1.10.0 — every command tells you what it takes
 
 Relay had 22 commands and no way to ask any of them a question. The arguments existed — `plan-only`,

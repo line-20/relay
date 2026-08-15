@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Fail a push whose version strings have drifted — in YOUR terminal, not on a web page.
+# Fail a push whose version strings — or short-name twins — have drifted, in YOUR terminal
+# rather than on a web page.
 #
 # version-sync also runs in CI, but a red check on GitHub is a signal nobody is standing
 # next to: it failed on every push to main from 1.2.0 to 1.4.0 and none of it was seen,
@@ -17,6 +18,18 @@ if ! bash "$repo_root/scripts/check-version.sh"; then
 ✗ push blocked — version strings disagree.
 
   Fix: ./scripts/release.sh <version>   (writes all four places, then re-checks)
+  Override, if you really mean it: git push --no-verify
+EOF
+  exit 1
+fi
+
+echo
+if ! bash "$repo_root/scripts/gen-short-names.sh" --check; then
+  cat >&2 <<'EOF'
+
+✗ push blocked — a short-name twin no longer matches the command it mirrors.
+
+  Fix: ./scripts/gen-short-names.sh   (regenerates the twins; commit the result)
   Override, if you really mean it: git push --no-verify
 EOF
   exit 1

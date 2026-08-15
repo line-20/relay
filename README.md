@@ -58,7 +58,8 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 | `/ship` | End-of-session loop: test → PR → **verify gate** → review → fix → merge → handover → persist (per `persist.cadence` policy). The verify gate asks once before spending the review fan-out on a change nobody has exercised |
 
 > **Typing less.** The ten loop commands have short names: `/rlt` runs `/relay:test`, `/rln`
-> `/relay:next`, `/rls` `/relay:ship` — bare, no prefix, and `/relay:rlt` works too. And **any**
+> `/relay:next`, `/rls` `/relay:ship` — bare, no prefix, and `/relay:rlt` works too. The full
+> names are unchanged and still in the `/` menu; the short ones sit beside them. And **any**
 > command takes `?` (or `--help`): `/relay:test ?` prints every argument it accepts and stops
 > without doing anything. `/relay:help test` prints the same thing.
 
