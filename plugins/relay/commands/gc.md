@@ -1,5 +1,4 @@
 ---
-name: gc
 description: Reclaim orphaned git worktrees left by sessions that skipped the happy path — auto-remove only the provably-finished ones, report the risky ones, prune dead entries. Not needed in normal use; run from the main checkout when orphans pile up.
 argument-hint: "(no arguments)"
 ---

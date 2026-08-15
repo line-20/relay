@@ -40,6 +40,10 @@ reading.
 5. **A final "Report" step** — outcome first, terse.
 6. **Restrict tools** with `allowed-tools` only when the command should be sandboxed (see
    `/handover`).
+7. **No `name:` field.** A plugin command's name comes from its filename, and `name:` *replaces*
+   it — set it and the command drops out of the `/` menu under the name everyone types. A short
+   name belongs in a generated twin instead: add the pair to `scripts/gen-short-names.sh` and run
+   it ([conventions](conventions.md)).
 
 ## What makes a good review agent
 

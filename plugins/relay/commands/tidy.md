@@ -1,5 +1,4 @@
 ---
-name: tidy
 description: Keep Relay's VOLATILE layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs — recurring, idempotent, and parallel-worktree-safe. Never touches durable output (code, ADRs, guides). Prune and trim already run per-lap inside /handover at the same `tidy.level`, so run this by hand for the rest (merges, brief archival) or for a deliberate sweep; a no-op when nothing's stale.
 argument-hint: "[optional: a single op — prune|trim|merge — else all enabled; add 'dry-run' to report without writing]"
 allowed-tools: Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git ls-files:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(git mv:*), Bash(date:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(grep:*), Bash(jq:*), Read, Write, Edit

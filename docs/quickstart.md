@@ -227,8 +227,9 @@ The lifecycle, one line: **`guardrails` → `explore` → `refine` → `next`/`c
 `review`/`fix` → `ship` → `persist`** — a spiral, each phase optional, results loop back to
 `explore`/`refine`.
 
-Two keystroke savers: the loop commands have short names (`/rln` = `/relay:next`, `/rlt` =
-`/relay:test`, `/rls` = `/relay:ship`, and `/relay:rln`/`/relay:rlt`/`/relay:rls` too), and **any** command
+Two keystroke savers: the loop commands have short names *beside* their full ones (`/rln` =
+`/relay:next`, `/rlt` = `/relay:test`, `/rls` = `/relay:ship`, and `/relay:rln`/`/relay:rlt`/`/relay:rls`
+too — both forms show in the `/` menu), and **any** command
 takes `?` — `/relay:test ?` prints every argument it accepts and stops without doing anything.
 
 Next: **[the-board-model.md](the-board-model.md)** — the one mental model that makes all of

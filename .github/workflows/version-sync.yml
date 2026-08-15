@@ -1,7 +1,8 @@
 name: version-sync
 
-# Fail the build if any hardcoded version has drifted from plugin.json,
-# or the current version isn't documented in the CHANGELOG.
+# Fail the build if any hardcoded version has drifted from plugin.json, the current
+# version isn't documented in the CHANGELOG, or a short-name twin has fallen out of
+# step with the command it mirrors.
 on:
   push:
     branches: [main]
@@ -14,3 +15,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check version sync
         run: bash scripts/check-version.sh
+      - name: Check short-name twins
+        run: bash scripts/gen-short-names.sh --check

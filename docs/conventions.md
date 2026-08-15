@@ -202,10 +202,9 @@ ways to see it, both printing the same block verbatim and doing nothing else:
 with the command's `argument-hint` frontmatter — the hint is what the picker shows *before* you run
 it, the block is what `?` shows *instead of* running it. See [authoring-skills](authoring-skills.md).
 
-**The ten commands in the loop answer to a short name too.** Each of them declares a `name:` in its
-frontmatter, which buys two extra ways to reach the *same file* — a bare form that needs no prefix at
-all, and the prefixed equivalent. Nothing is dispatched or forwarded: all three names land directly
-on the command.
+**The ten commands in the loop answer to a short name too** — two extra ways to reach the same
+instructions: a bare form that needs no prefix at all, and the prefixed equivalent. Nothing is
+dispatched or forwarded: every name lands directly on a command file.
 
 | Bare | Prefixed | Full |
 |---|---|---|
@@ -222,12 +221,18 @@ on the command.
 
 Same arguments either way, `?` included. The **`rl` prefix on the bare form is deliberate**: a bare
 name is global across every plugin you have installed, and Claude Code silently drops one that
-collides with a name something else already owns — `/rlt` won't collide, `/t` might. The full names
-never go away; nothing you already type stops working.
+collides with a name something else already owns — `/rlt` won't collide, `/t` might. All three
+columns are listed in the `/` menu, so either name is there to be picked or autocompleted.
 
-> **Authors: one command, one file.** A short name is a `name:` line on the command itself, never a
-> second file that forwards to it. A forwarding command has to be *executed* to reach its target, and
-> in testing that dispatch failed more often than it worked.
+> **Authors: two names, two files — one of them generated.** A plugin command takes its name from its
+> filename, and a frontmatter `name:` *replaces* that name rather than adding to it. So the short
+> names live in generated twins: `commands/rlt.md` mirrors `commands/test.md` body-for-body, carries
+> `name: rlt` (which is what registers the bare `/rlt`), and is written by
+> `./scripts/gen-short-names.sh`. **Edit the source; never the twin** — the pre-push hook and CI both
+> fail on a twin that has fallen out of step. Two routes that avoid the duplication don't work: a
+> symlink is ignored by the loader, and a stub that injects the real body registers but then produces
+> nothing — the same failure as the forwarding stub tried in 1.10.0, which had to be *executed* to
+> reach its target and failed more often than it worked.
 
 ## Persistence — volatile input, durable output
 
