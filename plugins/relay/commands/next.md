@@ -1,7 +1,26 @@
 ---
+name: rln
 description: Recommend the next best thing to work on — a ranked shortlist from the board, at one of three depths (quick / verify / audit), then start the one you pick in a worktree
 argument-hint: "[track/theme/slug; or 'verify' (thorough shortlist) / 'audit' (exhaustive all-items + archival). Add ask|challenge|solo to set this session's autonomy]"
 ---
+
+## Usage
+`/relay:next [track|theme|slug] [verify|audit] [ask|challenge|solo]` — also `/rln` (bare, no prefix) and `/relay:rln`
+
+| Argument | Effect |
+|---|---|
+| `<track>` · `<theme>` · `<slug>` | Bias the shortlist, or start that exact item |
+| `verify` (`check`, `thorough`, `deep`) | L2 — rebuild the shortlist from the board's evidence |
+| `audit` (`archive`, `exhaustive`, `compact`, `full`) | L3 — exhaustive pass over every item, plus archival |
+| `ask` · `challenge` · `solo` | Who decides in this session (autonomy), for this run |
+| *(empty)* | L1 — quick ranked shortlist |
+
+**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]).
+
+> **`?` prints this and stops.** If `$ARGUMENTS` is exactly `?`, `help`, `--help` or `-h`, print the
+> signature line, the argument table and the words/config line above — verbatim, nothing else, not
+> even this note — then **STOP**: no tools, no preamble, no action. `/relay:help <command>` prints
+> the same thing.
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
 

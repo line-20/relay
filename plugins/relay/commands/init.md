@@ -3,6 +3,21 @@ description: Scaffold the MINIMAL Relay convention — a board and the dirs to s
 argument-hint: "[--root <dir>  (where durable state lives; default 'relay')]"
 ---
 
+## Usage
+`/relay:init [--root <dir>]`
+
+| Argument | Effect |
+|---|---|
+| `--root <dir>` | Where durable state lives (default `relay`) |
+| *(empty)* | Scaffolds `relay/` — never destructive, greenfield or brownfield |
+
+**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]).
+
+> **`?` prints this and stops.** If `$ARGUMENTS` is exactly `?`, `help`, `--help` or `-h`, print the
+> signature line, the argument table and the words/config line above — verbatim, nothing else, not
+> even this note — then **STOP**: no tools, no preamble, no action. `/relay:help <command>` prints
+> the same thing.
+
 Get a repo ready to run the Relay loop **with the least possible ceremony**. This does the *minimum*
 to start — a board and the dirs the first commands write — and **nothing else up front**. Everything
 heavier (session size, verbosity, audience, guardrails, pulling legacy docs into Relay) is **deferred** and
@@ -29,7 +44,7 @@ sees and the one signal that certifies which command file ran:
 |  _ <  __/ | (_| | |_| |
 |_| \_\___|_|\__,_|\__, |
                    |___/
-  continuity-first SSDLC workbench                          v1.9.1
+  continuity-first SSDLC workbench                         v1.10.0
   by Line20 · @eriklenaerts
 ```
 
@@ -231,12 +246,16 @@ understands the convention:
 
 The loop: `/explore` (shape an idea) → `/refine` (ground it against the code + guardrails) →
 `/next` / `/continue` (build) → `/test` (draft PR + test plan; drives it against a preview or your
-local stack) → `/deploy` (verify + security-gate a PR preview, feeding `/test`) → `/review` →
-`/ship` (test→verify gate→review→merge→handover) → `/persist` (harvest
+local stack) → `/review` → `/ship` (test→verify gate→review→merge→handover) → `/persist` (harvest
 lessons, ADRs + release notes — durable output lands **outside `<root>/`**, in your docs tree).
 Setup/support: `/guardrails` (project standards), `/adopt` (pull legacy docs into Relay, by area),
-`/cross-check` (prior art), `/watch` (park on a dependency), `/handover`, `/tidy` (keep the volatile
-layer lean), `/gc` (reclaim orphaned worktrees), `/version`. Each is optional — invoke what the work needs.
+`/deploy` (security-gate a PR preview for `/test`, if your project builds previews), `/cross-check`
+(prior art), `/watch` (park on a dependency), `/handover`, `/tidy` (keep the volatile layer lean),
+`/gc` (reclaim orphaned worktrees), `/version`. Each is optional — invoke what the work needs.
+
+Typing less: the loop commands have short names — `/rle`, `/rlrf`, `/rln`, `/rlc`, `/rlt`, `/rls`,
+`/rlrv`, `/rlf`, `/rlh`, `/rlp` (or `/relay:rlt`, `/relay:rln`, …). Any command takes `?` for its usage:
+`/relay:test ?` lists every argument and stops.
 ```
 
 ## Step 6 — Commit and report (compact)
@@ -274,4 +293,5 @@ no file-content recaps):
 - **Write commands with the `/relay:` prefix** (a bare `/explore` tab-completes to the built-in
   `/export`) — show the full `/relay:<name>`; tab-complete after the colon.
 - **The loop, one line** (each a `/relay:` command, optional — invoke what the work needs):
-  `explore → refine → next/continue → test → deploy → review → ship → persist`.
+  `explore → refine → next/continue → test → review → ship → persist`. Mention once that the loop
+  commands have short names (`/rln`, `/rlt`, `/rls`) and that `?` on any command prints its usage.

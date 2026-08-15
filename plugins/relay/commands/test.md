@@ -1,7 +1,27 @@
 ---
+name: rlt
 description: The verify step between build and ship — open (or reuse) a PR and write a consistent, structured test plan (preconditions, happy path, and the edge/error/tenant-isolation cases an LLM skips by default). Can then DRIVE the happy path in the browser, against a PR preview or the project's local stack. 'plan-only' prints the checklist without a PR.
 argument-hint: "[focus/area · a PR number · 'plan-only' (checklist alone) · 'drive'/'run' (also run it in the browser) · 'preview'/'local' (which environment)]"
 ---
+
+## Usage
+`/relay:test [focus | pr-number] [plan-only | drive] [preview | local]` — also `/rlt` (bare, no prefix) and `/relay:rlt`
+
+| Argument | Effect |
+|---|---|
+| `<focus/area>` | What the plan should centre on |
+| `<pr-number>` | Use that PR instead of the current branch's |
+| `plan-only` | Print the checklist only — opens, touches, requires no PR |
+| `drive` / `run` | Also drive the happy path in the browser, without asking first |
+| `preview` / `local` | Which environment to verify against |
+| *(empty)* | PR mode — ensure a PR, write the plan, then ask once about driving it |
+
+**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `test.target`, `hooks.deploy`, `hooks.env.up`.
+
+> **`?` prints this and stops.** If `$ARGUMENTS` is exactly `?`, `help`, `--help` or `-h`, print the
+> signature line, the argument table and the words/config line above — verbatim, nothing else, not
+> even this note — then **STOP**: no tools, no preamble, no action. `/relay:help <command>` prints
+> the same thing.
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
 

@@ -31,13 +31,18 @@ with the ones already there.
 1. **Frontmatter**: a one-line `description` (shown in the picker — say what it does, not how),
    and an `argument-hint` if it takes arguments. Add `allowed-tools` only to *restrict* a
    command to a safe set (as `/handover` does).
-2. **One-sentence statement of intent** at the top — what question this command answers.
-3. **Numbered steps.** Each step is one coherent move. Put the *why* in a clause, not a
+2. **A `## Usage` block** directly after the frontmatter: the signature, a GFM table of one row
+   per argument, the shared per-call words, the config keys it reads, and the `?` gate that
+   prints the block verbatim and STOPs. Copy the shape from any existing command — it's what
+   `/relay:<cmd> ?` and `/relay:help <cmd>` both surface, so it has to stay in step with the
+   `argument-hint` above it.
+3. **One-sentence statement of intent** — what question this command answers.
+4. **Numbered steps.** Each step is one coherent move. Put the *why* in a clause, not a
    paragraph. Front-load reads (fetch state) before writes.
-4. **Explicit STOP gates.** Mark every point where the model must pause for the user with a
+5. **Explicit STOP gates.** Mark every point where the model must pause for the user with a
    bold **STOP** and say exactly what to wait for. The value of these commands is as much in
    where they *pause* as in what they do.
-5. **A final "Report" step** that says what to tell the user — outcome first, terse.
+6. **A final "Report" step** that says what to tell the user — outcome first, terse.
 
 ## The shape of a good review agent
 

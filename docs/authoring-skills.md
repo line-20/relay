@@ -29,12 +29,16 @@ reading.
 
 1. **A one-line `description`** in the frontmatter — what it does, not how. It's what shows in
    the picker.
-2. **Numbered steps**, each one coherent move, the *why* in a clause not a paragraph. Reads
+2. **An `argument-hint`** in the frontmatter and a **`## Usage` block** as the first thing in the
+   body — one table row per argument, the shared per-call words, the config keys it reads, and the
+   `?` gate that prints the block and stops. That block is what `/relay:<cmd> ?` and
+   `/relay:help <cmd>` show; keep the two in step ([conventions](conventions.md)).
+3. **Numbered steps**, each one coherent move, the *why* in a clause not a paragraph. Reads
    before writes.
-3. **Explicit STOP gates** — bold **STOP**, and say what to wait for. Where a command pauses
+4. **Explicit STOP gates** — bold **STOP**, and say what to wait for. Where a command pauses
    for you is half its value.
-4. **A final "Report" step** — outcome first, terse.
-5. **Restrict tools** with `allowed-tools` only when the command should be sandboxed (see
+5. **A final "Report" step** — outcome first, terse.
+6. **Restrict tools** with `allowed-tools` only when the command should be sandboxed (see
    `/handover`).
 
 ## What makes a good review agent

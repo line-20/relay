@@ -187,6 +187,48 @@ DECIDE="$(jq -r '.autonomy.decide // empty' "$LOCAL" 2>/dev/null)"
 > **Migration note:** `session` supersedes the old `tier` (`free`/`pro`/`max`). A committed `tier` is
 > still read as a fallback so nothing breaks; new setups write `session` to the local file instead.
 
+## Typing a command — usage on demand, and short names
+
+**Every command carries its own usage.** Each command file opens with a `## Usage` block — the
+arguments it takes, one row each, plus the per-call words above and the config keys it reads. Two
+ways to see it, both printing the same block verbatim and doing nothing else:
+
+| | |
+|---|---|
+| `/relay:<command> ?` | Also `help`, `--help`, `-h`. The command stops there — no tools, no side effects |
+| `/relay:help <command>` | The same block, without leaving the help surface |
+
+`/relay:help` with no argument still prints the whole map. Authors: keep the `## Usage` table in step
+with the command's `argument-hint` frontmatter — the hint is what the picker shows *before* you run
+it, the block is what `?` shows *instead of* running it. See [authoring-skills](authoring-skills.md).
+
+**The ten commands in the loop answer to a short name too.** Each of them declares a `name:` in its
+frontmatter, which buys two extra ways to reach the *same file* — a bare form that needs no prefix at
+all, and the prefixed equivalent. Nothing is dispatched or forwarded: all three names land directly
+on the command.
+
+| Bare | Prefixed | Full |
+|---|---|---|
+| `/rle` | `/relay:rle` | `/relay:explore` |
+| `/rlrf` | `/relay:rlrf` | `/relay:refine` |
+| `/rln` | `/relay:rln` | `/relay:next` |
+| `/rlc` | `/relay:rlc` | `/relay:continue` |
+| `/rlt` | `/relay:rlt` | `/relay:test` |
+| `/rls` | `/relay:rls` | `/relay:ship` |
+| `/rlrv` | `/relay:rlrv` | `/relay:review` |
+| `/rlf` | `/relay:rlf` | `/relay:fix` |
+| `/rlh` | `/relay:rlh` | `/relay:handover` |
+| `/rlp` | `/relay:rlp` | `/relay:persist` |
+
+Same arguments either way, `?` included. The **`rl` prefix on the bare form is deliberate**: a bare
+name is global across every plugin you have installed, and Claude Code silently drops one that
+collides with a name something else already owns — `/rlt` won't collide, `/t` might. The full names
+never go away; nothing you already type stops working.
+
+> **Authors: one command, one file.** A short name is a `name:` line on the command itself, never a
+> second file that forwards to it. A forwarding command has to be *executed* to reach its target, and
+> in testing that dispatch failed more often than it worked.
+
 ## Persistence — volatile input, durable output
 
 Relay separates the knowledge it *works through* from the knowledge it *produces*, and treats them

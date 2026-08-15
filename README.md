@@ -57,6 +57,11 @@ is in the repo, so it survives `/clear`, survives days, survives a completely fr
 | `/test` | **Verify before you ship** — open (or reuse) a draft PR and write a consistent, structured test plan into it (preconditions, happy path, and the edge/error/tenant-isolation + threat-model cases an LLM skips by default). Add `drive` and it clicks the happy path through the browser and reports pass/fail with a GIF. Runs against a **PR preview** or a **local stack**, whichever the project provides — Relay dispatches your command, it never owns the environment. Never merges; `plan-only` prints the checklist without a PR |
 | `/ship` | End-of-session loop: test → PR → **verify gate** → review → fix → merge → handover → persist (per `persist.cadence` policy). The verify gate asks once before spending the review fan-out on a change nobody has exercised |
 
+> **Typing less.** The ten loop commands have short names: `/rlt` runs `/relay:test`, `/rln`
+> `/relay:next`, `/rls` `/relay:ship` — bare, no prefix, and `/relay:rlt` works too. And **any**
+> command takes `?` (or `--help`): `/relay:test ?` prints every argument it accepts and stops
+> without doing anything. `/relay:help test` prints the same thing.
+
 **Run by the loop** — `/ship` composes these for you. You *can* call them standalone, but in
 the normal flow you don't:
 
@@ -79,7 +84,6 @@ needs them:
 | Command | What it does |
 |---|---|
 | `/guardrails` | Establish **what "good" means** for the project — layered, per-dimension (API/UI/security/privacy/testing…), that `/refine` and the review agents check against |
-| `/deploy` | Orchestrate + **security-gate** the PR preview your own CI produces, then hand a verified URL to `/test`. Never owns deployment |
 | `/persist` | After a lap, **harvest what it taught** — into guardrails, the design system, AI memory, **ADRs**, and human-readable **release notes**. Config-driven (`persist.level` `none`→`full`), and durable output lands **outside `<root>/`** in your docs tree, so it outlives Relay. The step that makes the spiral compound |
 | `/adopt` | **Bulk-adopt a brownfield area**: move its idea docs into Relay (tidying them) and register + compact its convention docs in place. The fast-forward for what `/refine`/`/guardrails` do gradually |
 | `/exit` | **Leave cleanly** — the round-trip for `/adopt`: restore adopted content to where it came from, export your briefs, un-wire config; your code untouched, one `git revert` away. No lock-in |
@@ -88,6 +92,7 @@ needs them:
 
 | Command | What it does |
 |---|---|
+| `/deploy` | Orchestrate + **security-gate** the PR preview your own CI produces, then hand a verified URL to `/test`. Only relevant if your project builds PR previews — `/test preview` leans on it. Never owns deployment |
 | `/cross-check` | Build a **reference frame** — how other products, standards, and prior art handle a problem — and check your approach against it for blind spots and reinvention. Standalone, or offered at the end of `/explore`. |
 | `/watch` | Park this thread on a **dependency** (a PR, a sibling board item, or a branch), watch it land in the background, and **auto-resume** once it's on `main`. `/next` and `/continue` offer it automatically when they spot a cross-worktree dependency. |
 | `/tidy` | Keep the **volatile** layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs. Recurring, idempotent, parallel-worktree-safe; config-driven (`tidy.level`/`retention`). Prune and trim already ride every `/handover` at the same level, so run this for the rest. The **content** housekeeper (`/gc` does worktrees). |

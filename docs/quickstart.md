@@ -218,13 +218,18 @@ nothing about your last one, and it doesn't need to. That's the point.
   layer needs a deeper sweep (spent briefs, done rows), `/tidy` does it — recurring and safe.
 - **Want more control?** `/config` — a guided, layered pass (session/verbosity/audience first, then
   optionally guardrails/hooks). Opt-in depth, never a gate.
-- **Lost, or forgot a command?** `/help` — the whole capability map on one screen.
+- **Lost, or forgot a command?** `/help` — the whole capability map on one screen; `/help test` (or
+  `/relay:test ?`) for one command's arguments.
 - **Leaving?** `/exit` — cleanly removes Relay and hands your content back (restores adopted docs,
   exports your briefs), code untouched. No lock-in.
 
 The lifecycle, one line: **`guardrails` → `explore` → `refine` → `next`/`continue` → `test` →
-`deploy` → `review`/`fix` → `ship` → `persist`** — a spiral, each phase optional, results loop back to
+`review`/`fix` → `ship` → `persist`** — a spiral, each phase optional, results loop back to
 `explore`/`refine`.
+
+Two keystroke savers: the loop commands have short names (`/rln` = `/relay:next`, `/rlt` =
+`/relay:test`, `/rls` = `/relay:ship`, and `/relay:rln`/`/relay:rlt`/`/relay:rls` too), and **any** command
+takes `?` — `/relay:test ?` prints every argument it accepts and stops without doing anything.
 
 Next: **[the-board-model.md](the-board-model.md)** — the one mental model that makes all of
 this hang together.
