@@ -1,7 +1,25 @@
 ---
+name: rlc
 description: Continue the next phase from a handover (prefers the shared copy on main) — verify the branch, then execute
 argument-hint: "[optional item slug or handover path; defaults to the thread matching this branch. Add ask|challenge|solo to set this session's autonomy]"
 ---
+
+## Usage
+`/relay:continue [slug | handover-path] [ask|challenge|solo]` — also `/rlc` (bare, no prefix) and `/relay:rlc`
+
+| Argument | Effect |
+|---|---|
+| `<track/slug>` | Resume that board item's thread |
+| `<handover path>` | Resume from a specific handover file |
+| `ask` · `challenge` · `solo` | Who decides in this session (autonomy), for this run |
+| *(empty)* | The thread matching the current branch |
+
+**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]).
+
+> **`?` prints this and stops.** If `$ARGUMENTS` is exactly `?`, `help`, `--help` or `-h`, print the
+> signature line, the argument table and the words/config line above — verbatim, nothing else, not
+> even this note — then **STOP**: no tools, no preamble, no action. `/relay:help <command>` prints
+> the same thing.
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
 

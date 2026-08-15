@@ -7,6 +7,41 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.10.0 — every command tells you what it takes
+
+Relay had 22 commands and no way to ask any of them a question. The arguments existed — `plan-only`,
+`audit`, `dry-run`, `no-verify` — but they lived in an `argument-hint` you see for a moment while
+typing, or in a doc you'd have to leave the terminal for. The words that work on *every* command
+(`small`/`large`, `terse`, `plain`, `solo`) appeared in three hints out of 22. And the whole set was
+namespaced `/relay:`, so the shortest command in the loop was 11 keystrokes before its arguments.
+
+**Added**
+- **`?` on any command prints its usage and stops.** `/relay:test ?` (or `help`, `--help`, `-h`)
+  lists every argument that command takes, one row each, plus the per-call words and the config keys
+  it reads — then does nothing else. No PR opened, no tools run. `/relay:help test` prints the same
+  block, and `/relay:help` alone still prints the whole map.
+- **A `## Usage` block in all 20 argument-taking commands**, directly under the frontmatter — the
+  single source both surfaces read, and now part of the command shape in
+  [authoring-skills](docs/authoring-skills.md).
+- **Short names for the ten loop commands.** `/rlt` runs `/relay:test`, `/rln` `/relay:next`, `/rls`
+  `/relay:ship` — bare, no prefix, from anywhere; `/relay:rlt` and the full `/relay:test` land on the
+  same file. Same arguments, `?` included. The `rl` prefix on the bare form is deliberate: a bare
+  name is global across every installed plugin and Claude Code silently drops one that collides, so
+  `/rlt` is safe where `/t` would be a coin toss. Full names are unchanged — nothing you type today
+  stops working.
+  The short name is a `name:` line on the command itself, **not** a second command that forwards to
+  it: the forwarding version was built first and dropped, because reaching the target meant executing
+  a hop, and that hop failed in four of five test runs. Verified live against an installed build —
+  `/rlh`, `/relay:rlh` and `/relay:handover` all print handover's usage.
+- **`/fix` finally has an `argument-hint`** — the one command that never showed one.
+
+**Changed**
+- **`/deploy` moved out of the loop and into support.** It was sitting in the main line of `/help`,
+  the README and the quickstart as though every lap ran it, when it only applies to projects whose CI
+  builds PR previews — `/test preview` is what reaches for it. The spiral now reads
+  `explore → refine → next/continue → test → review/fix → ship → persist`. The command itself is
+  unchanged and still there.
+
 ## 1.9.1 — the other half of the loop
 
 1.5.0 taught `/next` to carry the autonomy policy into the build, and 1.8.0 gave it a moment to ask

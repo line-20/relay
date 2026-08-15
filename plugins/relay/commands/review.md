@@ -1,7 +1,24 @@
 ---
+name: rlrv
 description: Review a PR (or the current branch) with domain specialists (frontend, ui-ux, backend, API design, DB) scoped to the touched areas, plus a test-coverage pass, always-on security, and content-gated privacy/architecture/i18n passes, merged into one report
 argument-hint: "[pr-number]   # omit to review the current branch"
 ---
+
+## Usage
+`/relay:review [pr-number] [small|medium|large]` — also `/rlrv` (bare, no prefix) and `/relay:rlrv`
+
+| Argument | Effect |
+|---|---|
+| `<pr-number>` | Review that PR |
+| `small` · `medium` · `large` | Caps how many specialists run |
+| *(empty)* | Review the current branch |
+
+**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `review.agents`.
+
+> **`?` prints this and stops.** If `$ARGUMENTS` is exactly `?`, `help`, `--help` or `-h`, print the
+> signature line, the argument table and the words/config line above — verbatim, nothing else, not
+> even this note — then **STOP**: no tools, no preamble, no action. `/relay:help <command>` prints
+> the same thing.
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
 
