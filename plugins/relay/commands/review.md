@@ -10,7 +10,8 @@ argument-hint: "[pr-number]   # omit to review the current branch"
 |---|---|
 | `<pr-number>` | Review that PR |
 | `small` · `medium` · `large` | Caps how many specialists run |
-| `audit` | Also refute every 🔴/🟡 finding before reporting (Step 2.5) — roughly doubles the cost |
+| `audit` | Widen Step 2.5's refutation from 🔴-only to every 🔴 **and** 🟡 — roughly doubles the review's cost |
+| `no-audit` | Skip Step 2.5 entirely — report findings exactly as the specialists raised them |
 | *(empty)* | Review the current branch |
 
 **Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `review.agents`, `review.verify`.
@@ -53,11 +54,22 @@ everywhere `$PR` appears below).
 > agents). Empty ⇒ just the built-in ten. These are folded into Steps 1, 1.5 and 2 alongside the
 > shipped specialists — same gate, same cap, same merged report.
 >
-> **Resolve whether to refute** (Step 2.5):
-> `VERIFY="$(jq -r '.review.verify // empty' relay.config.json 2>/dev/null)"`
-> — a per-call `audit` word in `$ARGUMENTS` turns it on regardless. Absent or `false` ⇒ Step 2.5
-> is skipped and the report records that it didn't run. This is a **cost** dial, not a safety one:
-> refutation only ever removes findings, so leaving it off is always the conservative choice.
+> **Resolve how far to refute** (Step 2.5):
+> `VERIFY="$(jq -r '.review.verify // "auto"' relay.config.json 2>/dev/null || echo auto)"`
+> — `auto` (the default) · `always` · `never`. Back-compat: a boolean `true` reads as `always`,
+> `false` as `never`. A per-call word in `$ARGUMENTS` wins: `audit` ⇒ `always`, `no-audit` ⇒ `never`.
+>
+> | `$VERIFY` | Step 2.5 refutes |
+> |---|---|
+> | `auto` *(default)* | every 🔴 — **and only when the review raised at least one**. No blockers ⇒ the step is a no-op and costs nothing. |
+> | `always` (`audit`) | every 🔴 **and** every 🟡 |
+> | `never` (`no-audit`) | nothing — findings are reported exactly as raised |
+>
+> **Why blockers are the auto trigger:** diff size doesn't predict a misread (a three-line change in
+> unfamiliar code misreads as easily as a big one), but a 🔴 is the only finding class that *costs*
+> something — it flips the verdict to `request-changes`, triggers a fix pass and holds the merge.
+> Two agents to check a claim that is about to stop the lap is always worth it; a stray 🟡 is a
+> paragraph you skim. Most laps raise no blocker, so most laps pay nothing.
 
 ## Step 1 — Classify the diff
 Get a diffstat before invoking any subagent:
@@ -179,16 +191,23 @@ the final report's *Skipped specialists* section, e.g. "privacy-specialist skipp
 schema/form/log/third-party-call code" or "ui-ux-designer deferred — session=small budget cap". A skip
 is always auditable, never silent.
 
-## Step 2.5 — Refute before reporting (`audit` only)
+## Step 2.5 — Refute before reporting
 Specialists return **claims**, and a claim built from a diff hunk can misread code it only saw a
 fragment of. This step tries to kill each one before it reaches the report — and before `/fix`
 spends a pass discovering the same thing.
 
-**Run this step only if `$VERIFY` is `true` or `$ARGUMENTS` contains `audit`.** Otherwise skip
-straight to Step 3 and record `verified: false` there.
+**Scope comes from `$VERIFY`** (resolved above). Take the findings it names:
 
-Take every 🔴 and 🟡 finding from Step 2. **Nits pass through unverified** — two agents per nit
-cost more than the nit. In a single message, launch **two refuters per finding**, each a
+| `$VERIFY` | Findings to refute | If there are none |
+|---|---|---|
+| `auto` | every 🔴 | Nothing to do — skip to Step 3, record `verified: none`. No agents launched. |
+| `always` | every 🔴 and 🟡 | as above |
+| `never` | — | skip to Step 3, record `verified: none` |
+
+**Nits are never refuted**, in any mode — two agents per nit cost more than the nit. Under `auto`,
+🟡s aren't either: they don't hold a merge, so they don't earn the spend.
+
+In a single message, launch **two refuters per finding**, each a
 `general-purpose` agent given the finding text, the cited `file:line`, and exactly one lens:
 
 | Lens | The question it asks |
@@ -213,6 +232,27 @@ dropped real blocker ships a bug, while a surviving noisy finding costs one para
 findings* section is how you tell whether this pass is calibrated or is quietly eating real bugs;
 read it deliberately for the first few runs on a new project.
 
+### The last blocker is the user's call — STOP
+Dropping a 🔴 normally just tidies the report. But if refutation would drop the **last remaining
+🔴**, it stops being a reporting decision: the verdict flips `request-changes` → `approve`, and
+under `/ship` that is what lets the branch merge. Two refuters would be deciding what lands.
+
+**So when the refuted set would leave zero blockers, STOP before writing the report** and put it to
+the user — regardless of `autonomy.decide`, because this is a merge-gate decision, not a routine one:
+
+> *Refutation would clear the last blocker: **<B1 claim>** at `<file:line>` (raised by
+> `<specialist>`). misread says: <reason>. mitigated says: <reason>. Drop it and approve, or keep
+> it and let the fix pass look?*
+>
+> - **Drop it** → finding moves to *Refuted findings*, verdict becomes `approve`.
+> - **Keep it** → finding stays 🔴, annotated `(contested: refuters disagreed with the specialist)`,
+>   verdict stays `request-changes`.
+
+Blockers 2..N are dropped quietly — only the one that would empty the list is escalated. If the
+review raised no blocker at all, there is nothing to escalate and no question is asked.
+
+Log the answer to `autonomy.log` like any other decision made mid-loop ([[conventions]]).
+
 ## Step 3 — Merge into ONE report, in EXACTLY this structure
 The report must look the same every time, no matter which specialists ran or how many findings
 they raised — a reader (and `/fix`) should be able to scan any Relay review report
@@ -226,7 +266,7 @@ pr: <number, or branch name if no PR>
 date: <YYYY-MM-DD>
 areas: <touched areas, comma-separated — e.g. apps/admin, packages/schemas>
 specialists: <the ones that RAN, comma-separated>
-verified: <true if Step 2.5 ran, else false>
+verified: <none | blockers | all — what Step 2.5 actually refuted>
 verdict: <approve | request-changes>
 blockers: <total 🔴 count>
 counts: { blocker: <n>, should-fix: <n>, nit: <n> }
@@ -256,8 +296,10 @@ never omit the heading.>
 <One line per finding Step 2.5 dropped, in the same shape as a Findings line but with the
 original severity emoji and both refuters' reasons instead of a **Fix:** —
 `- 🔴 · `<area>` · `<file:line>` — <claim>. **Refuted:** <misread reason> / <mitigated reason>
-_(<specialist>)_`. "_None — every 🔴/🟡 finding survived refutation._" if the step ran and
-dropped nothing. "_Not run — `audit` not requested._" if Step 2.5 was skipped.>
+_(<specialist>)_`. "_None — every refuted finding survived._" if the step ran and dropped nothing.
+"_Not run — no blockers to refute._" when `verified: none` because the review was clean, or
+"_Not run — `no-audit`._" when it was switched off. Note the scope on the heading line when it
+was `blockers` ("🔴 only — `audit` widens this to 🟡 too").>
 
 ## Skipped specialists
 <One line per specialist that did NOT run, with the reason — a content gate that didn't fire
@@ -278,7 +320,7 @@ raised, an undocumented-but-inferred rule worth writing down, a follow-up out of
 - **IDs are stable within the report** (`B1, B2, S1, N1…`) so a review can be discussed by ID.
 - **Never omit a heading.** All five sections (Blockers, Should-fix, Nits, Refuted, Skipped)
   always appear; an empty one says `_None._`. A reader learns the shape once — including
-  *Refuted findings*, which says `_Not run — `audit` not requested._` on an ordinary review.
+  *Refuted findings*, which says `_Not run — no blockers to refute._` on a clean review.
 - **`verdict` is `request-changes` if there is ANY 🔴, else `approve`.** `blockers` = the 🔴
   count. `counts` totals all three severities. These three frontmatter facts must agree with the
   Verdict line and the Findings.

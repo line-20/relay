@@ -7,6 +7,36 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.12.0 — refutation without remembering to ask for it
+
+1.11.0 put refutation behind a word you had to type. That's the wrong shape for a safety net: the
+laps where it matters most are the ones where you're moving fast enough not to think about it, and a
+protection you have to remember isn't one.
+
+**Changed**
+- **Refutation is automatic, and the trigger is a blocker.** `/rls` now refutes every 🔴 the fan-out
+  raised, no argument needed. Diff size doesn't predict a misread — a three-line change in
+  unfamiliar code misreads as easily as a big one — but a 🔴 is the only finding class that *costs*
+  something: it flips the verdict to `request-changes`, triggers a fix pass and holds the merge. Two
+  agents to check a claim that's about to stop your lap always pays; a stray 🟡 is a paragraph you
+  skim past.
+- **A clean review costs exactly nothing.** No blockers ⇒ no refuters launched, no tokens spent, no
+  visible difference. That's most laps.
+- **`audit` now *widens* rather than switches on** — 🔴 **and** 🟡, the 1.11.0 behaviour. **`no-audit`
+  switches the whole step off.** In config, `review.verify` becomes `auto` (default) · `always` ·
+  `never`; the booleans 1.11.0 shipped still read as `always`/`never`.
+
+**Added**
+- **A STOP gate on the last blocker.** Dropping a 🔴 normally just tidies the report — but dropping
+  the *last* one flips the verdict to `approve`, and under `/ship` that is what lets the branch
+  merge. Refutation would be deciding what lands, not just what you read. So when the refuted set
+  would leave zero blockers, Relay stops and shows you the claim and both refuters' reasons: drop it
+  and approve, or keep it and let the fix pass look. Blockers 2..N are still dropped quietly; only
+  the merge-deciding one asks. This overrides `autonomy.decide` — a merge gate isn't a routine call.
+- **`verified:` now names its scope** — `none` · `blockers` · `all` — so `/fix` and Phase 4 know
+  exactly which findings were already attacked and can fast-confirm those while looking at full
+  strength at everything else. It replaces 1.11.0's `verified: true|false`, which couldn't say that.
+
 ## 1.11.0 — a finding has to survive being wrong
 
 A review specialist reads a diff, and a diff is a fragment. So it reports the missing tenant filter
