@@ -80,7 +80,10 @@ default when no `paths.*` relocates them (back-compat); the **new** kinds — AD
 because the lessons live in the gap between what was planned and what actually shipped:
 - The **diff** — what really changed (`gh pr diff <n>` or `git diff` for the merged range).
 - The **review report** — `<root>/reviews/pr-<n>-*.md`: its findings are the richest lesson source
-  (a 🔴 that recurred, a fix pattern applied more than once).
+  (a 🔴 that recurred, a fix pattern applied more than once). Read its *Refuted findings* too:
+  a specialist that keeps getting refuted the same way is telling you the project has a pattern
+  nobody has written down ("the tenant filter lives in the repository layer, not the query") —
+  that's guardrail material, and writing it down stops the false finding recurring every lap.
 - The **brief** — `<root>/briefs/<slug>.md`: its **Threat model**, the **alternatives it beat**, and
   any decision recorded mid-flight.
 - The **handover(s)** for the thread, and `git log` for the work.
