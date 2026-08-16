@@ -39,13 +39,17 @@ Work through the PR review report and fix what's real. Target: $ARGUMENTS (a rep
 ## Step 2 — Re-verify BEFORE fixing
 Treat every finding as a *claim to verify*, not an instruction to obey. For each unchecked box, in 🔴 → 🟡 → 🟢 order:
 
-**How hard to look** depends on what the report already did. If its frontmatter says
-`verified: true`, two independent refuters already tried and failed to kill each 🔴/🟡 — a
-**fast confirm** is enough there: open the cited line, check the issue is still present, move
-on. Look at full strength anyway for `verified: false` reports, for every 🟢 (refutation skips
-nits), and for anything annotated `(contested: …)` — a split vote is exactly the finding most
-likely to be wrong. Never skip the *stale* check on any finding: the code may have moved since
-the review, which is a different question from whether the claim was true when it was made.
+**How hard to look** depends on what the report already did. Its `verified:` frontmatter names the
+scope refutation covered — `blockers` (🔴 only, the automatic default), `all` (🔴+🟡, from `audit`)
+or `none`. Whatever it covered, two independent refuters already tried and failed to kill those
+findings, so a **fast confirm** is enough there: open the cited line, check the issue is still
+present, move on.
+
+Look at full strength for everything outside that scope — every 🟢 always (refutation never touches
+nits), 🟡 on a `verified: blockers` report, everything on `verified: none` — and for anything
+annotated `(contested: …)`, which is the finding most likely to be wrong: two refuters split on it.
+Never skip the *stale* check on any finding: the code may have moved since the review, which is a
+different question from whether the claim was true when it was made.
 1. Open the cited `file:line` and confirm the issue still exists and is real.
 2. Classify it:
    - **confirmed** — real, reproduce it mentally, proceed to fix.
