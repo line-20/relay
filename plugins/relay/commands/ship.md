@@ -9,6 +9,7 @@ argument-hint: "['no-verify' — skip the Phase 2.5 verify gate and go straight 
 | Argument | Effect |
 |---|---|
 | `no-verify` | Skip the Phase 2.5 verify gate and go straight to review |
+| `audit` | Run Phase 3's review at audit depth — refute every 🔴/🟡 before reporting (~2× review cost) |
 | *(empty)* | The full lap — test → gate → review → fix → merge → handover |
 
 **Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `persist.cadence`, `tidy.level`, `hooks.test`, `hooks.release`, `hooks.env.down`.
@@ -79,7 +80,13 @@ playbook in that command exactly:
 2. **Launch the applicable specialists IN PARALLEL, in a single message**, in contributor
    mode (findings only, no per-agent report, no per-agent verdict). Which ones apply is
    decided by `/review` Step 2. security-specialist is **always** launched.
-3. **Merge** every specialist's findings into ONE report at
+3. **Refute the findings first, if this lap asked for it** (its Step 2.5): only when
+   `$ARGUMENTS` contains `audit` or `relay.config.json` sets `review.verify: true`. Two
+   independent refuters per 🔴/🟡 — one checking the specialist misread the code, one checking
+   the concern is already handled elsewhere. A finding is dropped only if **both** refute, and
+   every drop is recorded in the report's *Refuted findings* section. Skip this and the lap
+   behaves exactly as it did before.
+4. **Merge** every specialist's findings into ONE report at
    `<root>/reviews/pr-<N>-<YYYY-MM-DD>.md` (🔴/🟡/🟢, blocker-first, each finding keeping its
    file path). Verdict is `request-changes` if ANY specialist raised a 🔴, else `approve`;
    `blockers` = the total 🔴 count.
@@ -88,7 +95,7 @@ playbook in that command exactly:
 
 ## Phase 4 — Fix (only if there are findings)
 Work the report the way `/fix` does:
-- Re-verify each finding against the current code BEFORE changing anything (confirmed / stale / wrong / needs-judgment).
+- Re-verify each finding against the current code BEFORE changing anything (confirmed / stale / wrong / needs-judgment). If the report's frontmatter says `verified: true`, a **fast confirm** is enough for its 🔴/🟡 — refutation already ran; keep full strength for 🟢, for anything annotated `(contested: …)`, and always for the stale check.
 - Fix confirmed findings with the smallest change; for security/auth/SQL boundaries, downgrade to needs-judgment rather than guess.
 - Keep the typecheck green; run the relevant tests; tick the boxes in the report.
 - Commit the fixes (they'll be pushed in Phase 5 — the merge needs them on the remote).

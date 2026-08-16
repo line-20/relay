@@ -10,9 +10,10 @@ argument-hint: "[pr-number]   # omit to review the current branch"
 |---|---|
 | `<pr-number>` | Review that PR |
 | `small` · `medium` · `large` | Caps how many specialists run |
+| `audit` | Also refute every 🔴/🟡 finding before reporting (Step 2.5) — roughly doubles the cost |
 | *(empty)* | Review the current branch |
 
-**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `review.agents`.
+**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `review.agents`, `review.verify`.
 
 > **`?` prints this and stops.** If `$ARGUMENTS` is exactly `?`, `help`, `--help` or `-h`, print the
 > signature line, the argument table and the words/config line above — verbatim, nothing else, not
@@ -51,6 +52,12 @@ everywhere `$PR` appears below).
 > — each entry is `{ name, gate, tier, scope, priority }` (see [[conventions]] → Custom review
 > agents). Empty ⇒ just the built-in ten. These are folded into Steps 1, 1.5 and 2 alongside the
 > shipped specialists — same gate, same cap, same merged report.
+>
+> **Resolve whether to refute** (Step 2.5):
+> `VERIFY="$(jq -r '.review.verify // empty' relay.config.json 2>/dev/null)"`
+> — a per-call `audit` word in `$ARGUMENTS` turns it on regardless. Absent or `false` ⇒ Step 2.5
+> is skipped and the report records that it didn't run. This is a **cost** dial, not a safety one:
+> refutation only ever removes findings, so leaving it off is always the conservative choice.
 
 ## Step 1 — Classify the diff
 Get a diffstat before invoking any subagent:
@@ -172,6 +179,40 @@ the final report's *Skipped specialists* section, e.g. "privacy-specialist skipp
 schema/form/log/third-party-call code" or "ui-ux-designer deferred — session=small budget cap". A skip
 is always auditable, never silent.
 
+## Step 2.5 — Refute before reporting (`audit` only)
+Specialists return **claims**, and a claim built from a diff hunk can misread code it only saw a
+fragment of. This step tries to kill each one before it reaches the report — and before `/fix`
+spends a pass discovering the same thing.
+
+**Run this step only if `$VERIFY` is `true` or `$ARGUMENTS` contains `audit`.** Otherwise skip
+straight to Step 3 and record `verified: false` there.
+
+Take every 🔴 and 🟡 finding from Step 2. **Nits pass through unverified** — two agents per nit
+cost more than the nit. In a single message, launch **two refuters per finding**, each a
+`general-purpose` agent given the finding text, the cited `file:line`, and exactly one lens:
+
+| Lens | The question it asks |
+|---|---|
+| **misread** | Does the cited code actually do what the finding says? Read the whole file, not the diff hunk — the specialist saw a fragment. |
+| **mitigated** | Is the concern already handled somewhere the finding didn't look — a guard one layer up, a framework default, a constraint in the schema, a caller that can't reach this path? |
+
+**Never route a finding back to the specialist that raised it.** The value here is an independent
+read; the author will confirm its own work.
+
+Each refuter returns exactly `{ refuted: true | false, reason: <one line> }`. Instruct every
+refuter to **return `refuted: false` when it is uncertain**. The asymmetry is deliberate: a
+dropped real blocker ships a bug, while a surviving noisy finding costs one paragraph in `/fix`.
+
+| Refuter outcome | What happens to the finding |
+|---|---|
+| **Both refute** | **Dropped** from Findings; listed under *Refuted findings* with both reasons. |
+| **One refutes** | **Kept at its original severity**, annotated `(contested: <reason>)`. A split vote never downgrades a blocker and never flips the verdict. |
+| **Neither refutes** | Stands, unannotated. |
+
+**A refuted finding is never silently deleted** — same rule as a skipped specialist. The *Refuted
+findings* section is how you tell whether this pass is calibrated or is quietly eating real bugs;
+read it deliberately for the first few runs on a new project.
+
 ## Step 3 — Merge into ONE report, in EXACTLY this structure
 The report must look the same every time, no matter which specialists ran or how many findings
 they raised — a reader (and `/fix`) should be able to scan any Relay review report
@@ -185,6 +226,7 @@ pr: <number, or branch name if no PR>
 date: <YYYY-MM-DD>
 areas: <touched areas, comma-separated — e.g. apps/admin, packages/schemas>
 specialists: <the ones that RAN, comma-separated>
+verified: <true if Step 2.5 ran, else false>
 verdict: <approve | request-changes>
 blockers: <total 🔴 count>
 counts: { blocker: <n>, should-fix: <n>, nit: <n> }
@@ -210,6 +252,13 @@ never omit the heading.>
 ### 🟢 Nits
 - [ ] **N1** · `<area>` · `<path/to/file.ext:line>` — <one-sentence problem>. **Fix:** <concrete change>. _(<specialist>)_
 
+## Refuted findings
+<One line per finding Step 2.5 dropped, in the same shape as a Findings line but with the
+original severity emoji and both refuters' reasons instead of a **Fix:** —
+`- 🔴 · `<area>` · `<file:line>` — <claim>. **Refuted:** <misread reason> / <mitigated reason>
+_(<specialist>)_`. "_None — every 🔴/🟡 finding survived refutation._" if the step ran and
+dropped nothing. "_Not run — `audit` not requested._" if Step 2.5 was skipped.>
+
 ## Skipped specialists
 <One line per specialist that did NOT run, with the reason — a content gate that didn't fire
 ("privacy-specialist — diff touches no schema/form/log/third-party-call code") or a session-size
@@ -227,13 +276,18 @@ raised, an undocumented-but-inferred rule worth writing down, a follow-up out of
 - **Every finding is one line** in the `**ID** · area · `file:line` — problem. **Fix:** … _(specialist)_`
   shape — same whether it came from security or i18n. No specialist gets its own private format.
 - **IDs are stable within the report** (`B1, B2, S1, N1…`) so a review can be discussed by ID.
-- **Never omit a heading.** All four sections (Blockers, Should-fix, Nits, Skipped) always
-  appear; an empty one says `_None._`. A reader learns the shape once.
+- **Never omit a heading.** All five sections (Blockers, Should-fix, Nits, Refuted, Skipped)
+  always appear; an empty one says `_None._`. A reader learns the shape once — including
+  *Refuted findings*, which says `_Not run — `audit` not requested._` on an ordinary review.
 - **`verdict` is `request-changes` if there is ANY 🔴, else `approve`.** `blockers` = the 🔴
   count. `counts` totals all three severities. These three frontmatter facts must agree with the
   Verdict line and the Findings.
 - The findings checklist is what `/fix` consumes — keep the `- [ ]`, the severity
-  order, and the `file:line` so it can re-verify and tick each one.
+  order, and the `file:line` so it can re-verify and tick each one. Keep any
+  `(contested: …)` annotation on the line too: `/fix` reads it as "look at this one yourself
+  before changing code".
+- **Refuted findings are not checklist items.** They use `- ` not `- [ ]`, so `/fix` never
+  picks them up as work.
 
 ## Step 4 — Return
 Tell the user the report path and the Verdict line — nothing else.

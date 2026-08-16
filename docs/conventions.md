@@ -74,6 +74,9 @@ config file at all:
     "budget": 4                                       //   idem (see relay.config.local.json below)
   },
   "review": {                                          // /adopt — project-declared review agents
+    "verify": false,                                   //   /review Step 2.5 — refute every 🔴/🟡
+                                                       //     before reporting (~2× cost); per-call
+                                                       //     `audit` turns it on regardless
     "agents": [
       { "name": "a11y-auditor",                        //   a .claude/agents/*.md the project ships
         "gate": "copy-relevant",                       //   built-in signal, or { "paths": ["packages/ui/**"] }
@@ -92,7 +95,8 @@ config file at all:
 **Defaults when a key is absent:** `root` → `relay`; no `paths` overrides; no `guardrails` (reviewers
 use their built-in defaults); no `hooks` (commands use their built-in discovery); `test.target` → unset
 (auto — preview if the project has one, else local); no `review.agents`
-(just the built-in ten specialists); `persist` → `cadence:
+(just the built-in ten specialists); `review.verify` → `false` (findings are reported as the
+specialists raised them — no refutation pass unless `/review audit` asks for one); `persist` → `cadence:
 ask`, `level: standard` (today's harvest); `tidy` → `level: standard`; `autonomy` → `decide: ask`
 (today's behaviour — every outliving decision goes to the user), `escalate` → the four categories
 above, `budget` → 4, `log` → `<root>/decisions.md`; `session` → unset (no shaping,

@@ -7,6 +7,43 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.11.0 — a finding has to survive being wrong
+
+A review specialist reads a diff, and a diff is a fragment. So it reports the missing tenant filter
+it can't see, not knowing the filter sits one layer up in a shared repository call. Relay already
+knew this — `/fix` opens by re-verifying every finding *as a claim*, and classifies some of them
+`wrong` — but by then the finding has been written into the report, read by you, and re-read by the
+fix pass. Three touches for something that was never true. And nothing recorded that it happened, so
+the same false finding came back the next lap, and the one after that.
+
+**Added**
+- **`audit` on `/ship` and `/review` refutes findings before they reach the report.** Between the
+  specialists returning and the report being written, every 🔴 and 🟡 gets **two independent
+  refuters** — one asking whether the specialist misread the code (reading the whole file, not the
+  hunk it saw), one asking whether the concern is already handled somewhere it didn't look. Nits are
+  left alone; two agents cost more than a nit. Refuters are told to **keep the finding when
+  uncertain**, because dropping a real blocker ships a bug while a noisy one costs a paragraph.
+- **A finding dies only on a unanimous verdict.** Both refuters must agree. A split vote keeps the
+  finding at its **original severity** and annotates it `(contested: …)` — a blocker never gets
+  downgraded, and the verdict never flips, on a one-to-one call.
+- **Nothing is dropped silently.** The report grows a fifth always-present section, *Refuted
+  findings*, listing every dropped claim with both reasons. It reads `_Not run_` on an ordinary
+  lap. This is the section that tells you whether refutation is calibrated or quietly eating real
+  bugs — read it deliberately on a new project.
+- **`/fix` and `/ship`'s Phase 4 spend less on what already survived.** A report with
+  `verified: true` gets a fast confirm on its 🔴/🟡 rather than a full re-read, keeping full strength
+  for 🟢, for anything `(contested: …)`, and always for the stale check — code moves after a review,
+  which is a different question from whether the claim was true when it was made.
+- **`/persist` harvests the refutations too.** A specialist refuted the same way three laps running
+  isn't noise; it's an undocumented project rule ("the tenant filter lives in the repository layer,
+  not the query"). Writing it into the guardrails is what stops the false finding recurring — the
+  loop closes rather than just filtering.
+
+Off by default, and off is the conservative setting: refutation only ever *removes* findings, so a
+plain `/rls` behaves exactly as it did in 1.10.1 — same specialists, same report, same cost. Turn it
+on per lap with `/rls audit`, or per project with `review.verify: true`. Expect roughly double the
+review's tokens when it runs, partly repaid by the cheaper fix pass.
+
 ## 1.10.1 — both names, side by side
 
 1.10.0 gave the ten loop commands their short names with a frontmatter `name:` — and a plugin
