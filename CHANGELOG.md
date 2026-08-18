@@ -7,6 +7,32 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.13.0 — good work, wrong week
+
+`/next` ranked by risk and leverage — and never asked *where the product is in its life*. So on a
+pre-launch MVP that nobody uses yet, "harden the tenant isolation" out-ranked "build the screen that
+wins the next user", because bulletproofing scores high on risk every time. That's the wrong bet while
+you're still proving the thing is worth building at all: a week spent making a detail rock-solid on a
+product that never ships is a week burned. The fix is one knob that tells `/next` the stage, and lets
+it bend the ranking accordingly.
+
+**Added**
+- **`/relay:config maturity`** — a single project-wide value in `relay.config.json` (committed truth,
+  not a per-driver taste): `mvp` · `growth` · `scale`. It says where the product is, so every session
+  ranks the same way. Absent ⇒ nothing changes.
+- **`/next` now ranks with a maturity lens.** For each shortlisted item it judges *payoff timing* at the
+  set stage — does this make the product more attractive **now** (a feature, the core flow), or pay off
+  **later** once there are users, volume, or regulators (hardening, security, privacy, scale
+  robustness)? At **`mvp`** the pay-off-later work is **down-weighted** below feature work; at
+  **`growth`** they rank evenly; at **`scale`** the hardening/compliance work is **up-weighted**. It
+  **only ever re-orders and annotates** — never filters or hides an item, and never overrides a hard
+  safety signal (a security hole that's also a live break still earns its bump). A sunk item carries a
+  one-line footnote — `↓ deferred-payoff, parked behind MVP features (maturity: mvp)` — so the good work
+  is visibly still there, just lower, and you can see why.
+- **The project lead moves the needle — never Relay.** `/next` only ever *notices* when the stage looks
+  stale ("real users now — still `mvp`?") and suggests re-setting; the change is always a deliberate
+  `/relay:config maturity`.
+
 ## 1.12.0 — refutation without remembering to ask for it
 
 1.11.0 put refutation behind a word you had to type. That's the wrong shape for a safety net: the

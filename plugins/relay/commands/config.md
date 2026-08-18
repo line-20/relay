@@ -1,6 +1,6 @@
 ---
 description: Set Relay's optional config, layered gentlest-first — lead with session + verbosity + audience, then a compact offer for guardrails/hooks, with root/paths on demand only. Opt-in depth, never a gate.
-argument-hint: "[jump to one area: session|verbosity|audience|autonomy|persist|tidy|guardrails|hooks|paths|root|show; omit for the layered pass]"
+argument-hint: "[jump to one area: session|verbosity|audience|autonomy|persist|tidy|maturity|guardrails|hooks|paths|root|show; omit for the layered pass]"
 ---
 
 ## Usage
@@ -9,7 +9,7 @@ argument-hint: "[jump to one area: session|verbosity|audience|autonomy|persist|t
 | Argument | Effect |
 |---|---|
 | `session` · `verbosity` · `audience` · `autonomy` | Jump straight to one area, skip the rest |
-| `persist` · `tidy` · `guardrails` · `hooks` · `paths` · `root` | Idem — the deeper areas |
+| `persist` · `tidy` · `maturity` · `guardrails` · `hooks` · `paths` · `root` | Idem — the deeper areas |
 | `show` | Print the reference table and stop — no questions |
 | *(empty)* | The layered guided pass (session → verbosity → audience first) |
 
@@ -33,7 +33,7 @@ first few questions.
 ROOT="$(jq -r '.root // "relay"' relay.config.json 2>/dev/null || echo relay)"
 ```
 Read both surfaces: `relay.config.json` (committed) and `relay.config.local.json` (gitignored).
-- If `$ARGUMENTS` names **one area** (`session`/`verbosity`/`audience`/`persist`/`tidy`/`autonomy`/`guardrails`/`hooks`/`paths`/`root`),
+- If `$ARGUMENTS` names **one area** (`session`/`verbosity`/`audience`/`persist`/`tidy`/`maturity`/`autonomy`/`guardrails`/`hooks`/`paths`/`root`),
   skip the layering and go straight to that area's step.
 - If `$ARGUMENTS` is **`show`**, print the reference table (bottom) and stop — no questions.
 
@@ -115,6 +115,27 @@ Also project-wide in `relay.config.json` — how `/tidy` keeps the volatile laye
   board still points at). Describe factually; a bigger project runs `/tidy` more aggressively, a tiny
   one barely at all. Recurring runs are wired via the harness scheduler, not here (`/tidy` can't
   schedule itself). Skip ⇒ `level: standard`.
+
+## Maturity (jump-only: `/relay:config maturity`, NOT in the layered pass)
+A **project-wide** single value in `relay.config.json` (committed) — a fact about where the product is
+in its life, shared by every session, *not* a per-driver taste like session size. It tunes how `/next`
+ranks the shortlist: work whose payoff is deferred until there are users, volume, or regulators
+(hardening, security, privacy, high-volume/scale robustness) is **softly sunk below feature work while
+the product is early**, and that ordering inverts as it matures. Nothing is ever filtered or hidden —
+`/next` only re-orders and says why.
+
+- **`maturity`** (`mvp`/`growth`/`scale`, default **unset**):
+  - **mvp** — pre-users, still proving the product; feature/attractiveness work outranks
+    make-it-bulletproof work (don't spend weeks hardening something nobody uses yet).
+  - **growth** — real users; treat the two evenly, no bump either way.
+  - **scale** — load and compliance are now first-class; hardening/security/privacy rise.
+  - **Unset ⇒ `/next` ranks exactly as today** (no maturity lens), so existing repos are unchanged.
+
+**The project lead moves this needle — never Relay.** `/next` only ever *notices* when the set stage
+looks stale for what the board shows ("real users now — still `mvp`?") and **suggests** re-setting; the
+change is always a deliberate `/relay:config maturity`, never automatic. Record the answer by surgically
+merging `maturity` into **`relay.config.json`** (committed — project truth; preserve every other key).
+Skip ⇒ unset.
 
 ## Autonomy policy (jump-only: `/relay:config autonomy`, NOT in the layered pass)
 How much a session decides **without the user**. Deliberately

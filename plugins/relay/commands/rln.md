@@ -48,6 +48,8 @@ DECIDE="$(jq -r '.autonomy.decide // empty' relay.config.local.json 2>/dev/null)
 : "${DECIDE:=$(jq -r '.autonomy.decide // empty' relay.config.json 2>/dev/null)}"
 DECIDE_SET="${DECIDE:+yes}"; : "${DECIDE_SET:=unset}"   # never chosen ⇒ the Step 5.4 gate may fire once
 : "${DECIDE:=ask}"
+# product maturity: project truth (committed), tunes the Step 3 ranking. Absent ⇒ no maturity lens.
+MATURITY="$(jq -r '.maturity // empty' relay.config.json 2>/dev/null)"
 ```
 `SESSION` (`small`/`medium`/`large`, see [[conventions]]) caps how wide the verify/audit levels fan
 out research agents (Steps 2.9A / 2.9B). **Empty ⇒ no cap** — full width. It never changes the
@@ -167,6 +169,22 @@ Pick the **best ~5** and rank them. Ranking is **not recency** — it's:
 - **Right-sized** — a slice that fits one session; note if it's a multi-session epic.
 - Recency/freshness breaks ties only.
 
+**Maturity lens (only when `MATURITY` is set).** The project's lifecycle stage tunes the ranking so a
+solo build doesn't sink weeks into make-it-bulletproof work before the product has earned it. For each
+candidate, judge its **payoff timing** at `MATURITY`: does it make the product more *attractive now*
+(a feature, the core flow, what wins the next user), or does it *pay off later* — once there are users,
+volume, or regulators (hardening, security, privacy, high-volume/scale robustness)?
+- At **`mvp`** — down-weight the pay-off-later items so feature work ranks above them. They stay on the
+  list, only lower, each carrying a one-line reason.
+- At **`growth`** — treat them evenly; no bump either way.
+- At **`scale`** — *up*-weight them: load and compliance are now first-class.
+
+This lens only ever **re-orders and annotates** — it never filters or hides an item, and never
+overrides a hard signal (a security hole that's also a live correctness break still earns its leverage
+bump; safety is not a maturity call). When `MATURITY` is unset, skip it entirely — today's behaviour.
+And if the set stage looks stale for what the board shows (e.g. `mvp` but items imply real users), say
+so in **one line** and suggest `/relay:config maturity` — but never change it yourself.
+
 Open a brief (via the board's **Detail** column) only for an item that makes the shortlist and
 needs a sentence to explain or size it.
 
@@ -208,6 +226,10 @@ failure to avoid. Keep cells terse so it renders. Hard rules:
 > ¹ <the caveat / verify-first / drift note that would otherwise have bloated the cell>
 >
 > **Parked, not clean to start:** `slug` (<what's blocking it>) · …
+
+When the maturity lens sank an item, surface its reason as a **numbered footnote** on that row — never
+inside a cell — e.g. `↓ deferred-payoff, parked behind MVP features (maturity: mvp)`. That's what keeps
+the down-weight honest: you see the good work is still there, just lower, and why.
 
 Then ask which one — or offer that the user can name a different board item. **Stop here and wait**
 unless `$ARGUMENTS` already named an exact item slug.
