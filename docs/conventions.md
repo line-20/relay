@@ -21,7 +21,7 @@ different files because they have different owners and lifetimes.
 | | `relay.config.json` (committed) | `relay.config.local.json` (gitignored) |
 |---|---|---|
 | Owns | project truth — shared by everyone | the driver's here-and-now preferences |
-| Holds | `root`, `paths`, `guardrails`, `hooks`, `test`, `review`, `persist`, `tidy`, `autonomy.escalate`/`.log` | `session`, `verbosity`, `audience`, `autonomy.decide`/`.budget` |
+| Holds | `root`, `paths`, `guardrails`, `hooks`, `test`, `review`, `persist`, `tidy`, `maturity`, `autonomy.escalate`/`.log` | `session`, `verbosity`, `audience`, `autonomy.decide`/`.budget` |
 | Lifetime | stable; changes rarely | switch-often; personal, per-machine |
 | Committed? | yes | **no** (`/init` adds it to `.gitignore`) |
 
@@ -56,6 +56,11 @@ config file at all:
     "ops": { "prune": true, "trim": true, "merge": "report" },
     "retention": { "reviews": 20, "handovers": "board-linked" }
   },
+  "maturity": "mvp",                                  // /config maturity — product lifecycle stage;
+                                                      //   mvp | growth | scale. Tunes /next ranking:
+                                                      //   deferred-payoff work (hardening/security/
+                                                      //   privacy/scale) sinks below feature work at
+                                                      //   mvp, rises at scale. Absent ⇒ no lens.
   "test": { "target": "preview" },                    // /test, /config — preview | local | ask
                                                       //   absent ⇒ auto (preview if the project has one)
   "hooks": {                                          // /adopt, /test, /deploy — dispatch project automation
@@ -101,7 +106,8 @@ use their built-in defaults); no `hooks` (commands use their built-in discovery)
 refuted before it reaches the report, and only when the review raised one — a clean review launches
 no refuters and costs nothing; `audit` widens it to 🟡, `no-audit` switches it off. A boolean `true`/
 `false` is still read as `always`/`never`, back-compat); `persist` → `cadence:
-ask`, `level: standard` (today's harvest); `tidy` → `level: standard`; `autonomy` → `decide: ask`
+ask`, `level: standard` (today's harvest); `tidy` → `level: standard`; `maturity` → unset (no
+maturity lens — `/next` ranks exactly as today); `autonomy` → `decide: ask`
 (today's behaviour — every outliving decision goes to the user), `escalate` → the four categories
 above, `budget` → 4, `log` → `<root>/decisions.md`; `session` → unset (no shaping,
 full fan-out); `verbosity` → `normal`; `audience` → unset (no register shaping — today's prose). A
