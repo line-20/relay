@@ -7,6 +7,23 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.14.0 — some days you feel like security
+
+The `/next` shortlist told you *which* items to pick up, never *what kind* of work each one is — so if
+you woke up with an appetite for security, or for a quick refactor, you had to open each item to find
+out. Now the kind is right there in the list.
+
+**Added**
+- **A `Tags` column on the `/next` shortlist.** Every shortlisted item carries **one or two** category
+  tags from a **fixed vocabulary** — `security` · `hardening` · `privacy` · `feature` · `bug` ·
+  `refactor` · `perf` · `docs` — so you can pick by appetite at a glance. Tags are **assigned at
+  ranking time** (nothing is stored on the board or a brief) and drawn only from the fixed set, so
+  "give me security" matches the same thing every run; the list grows with Relay's vocabulary, not
+  per run.
+- **Tags are a pick aid, nothing more.** They never change the ranking — that stays the job of the
+  1.13.0 maturity lens, kept deliberately separate. A tag never sinks or lifts an item; it just tells
+  you what the work is.
+
 ## 1.13.0 — good work, wrong week
 
 `/next` ranked by risk and leverage — and never asked *where the product is in its life*. So on a

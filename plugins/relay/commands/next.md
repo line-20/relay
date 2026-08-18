@@ -201,6 +201,18 @@ Present it as a **markdown table** — no preamble, plain English, one row per i
 recommended pick with a ⭐. Use **t-shirt sizes** (S / S–M / M / L), and tag an L item as an epic
 where only the first slice fits a session.
 
+**Tag each row by category (always).** So you can pick by appetite — "today I feel like security" —
+label every shortlisted item with **one or two** tags, judged from what the work actually is, drawn
+from this **fixed vocabulary**:
+
+`security` · `hardening` · `privacy` · `feature` · `bug` · `refactor` · `perf` · `docs`
+
+Assign the tags **here, at ranking time** — nothing is stored on the board or the brief. Pick the
+closest one or two; **never invent a tag outside the list** — the fixed set is what makes "give me
+security" match the same thing every run, and it grows only when Relay's vocabulary does, not per run.
+Tags are a **pick aid only**: they never change the ranking (that's the maturity lens's job, kept
+deliberately separate — a tag never sinks or lifts an item).
+
 **Group epics.** When several shortlist items are slices of one epic (shared `track/epic/` stem),
 show them together and recommend the **next unstarted slice**, not the epic as a whole — an epic is
 never one session's work. A single row can stand in for the epic with "(slice N of `epic`)" in its
@@ -212,12 +224,12 @@ failure to avoid. Keep cells terse so it renders. Hard rules:
 - Each cell is **one short clause (~≤8 words)**. If you need more, it goes in a footnote, not the cell.
 - **No `⚠`, italics, parentheticals, or drift notes inside cells.** Any caveat becomes a numbered
   footnote `¹²³` under the table.
-- Five columns only, in this order. Don't widen it.
+- Six columns only, in this order. Don't widen it. `Tags` holds 1–2 fixed-vocabulary tags, nothing else.
 
-> | # | Item | What it is | Why now | Size |
-> |---|---|---|---|---|
-> | **1** ⭐ | `track/slug` | <one short clause> | <one short clause> | **S–M** |
-> | **2** | `track/slug` | … | … ¹ | **L** |
+> | # | Item | Tags | What it is | Why now | Size |
+> |---|---|---|---|---|---|
+> | **1** ⭐ | `track/slug` | `feature` | <one short clause> | <one short clause> | **S–M** |
+> | **2** | `track/slug` | `hardening` `security` | … | … ¹ | **L** |
 >
 > ⭐ = my pick.
 > ¹ <the caveat / verify-first / drift note that would otherwise have bloated the cell>
