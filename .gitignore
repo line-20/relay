@@ -1,3 +1,7 @@
 # Local Relay briefs — dogfooding scratch, not part of the plugin
 relay/briefs/
 relay/roadmap/
+
+# Maintainer usage-analysis (/reflect) — local cross-project data, never committed
+reflect.repos
+reflect/

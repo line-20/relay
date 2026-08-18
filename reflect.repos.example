@@ -1,0 +1,10 @@
+# reflect.repos — the repos you dogfood Relay in, one absolute path per line.
+# Copy to `reflect.repos` (gitignored) and edit. `#` comments and a leading `~` are allowed.
+#
+# /reflect and scripts/reflect-gather.sh pool the Relay trail from every repo listed here.
+# List your REAL projects — the ones that exercise the full loop — not just the Relay repo,
+# which uses Relay the least.
+
+~/Documents/castlesERP
+# ~/Documents/another-project
+# ~/Documents/relay        # include this repo too if you want its own trail in the mix
