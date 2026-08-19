@@ -25,6 +25,9 @@ out="${1:-reflect/pooled/$(date +%Y-%m-%d-%H%M).md}"
 [ $# -gt 0 ] && shift || true
 repos=("$@")
 
+# Phase-2 movement log — central, outside all repos (see reflect-log.sh).
+central="${RELAY_MOVEMENTS:-$HOME/.relay/movements.jsonl}"
+
 if [ ${#repos[@]} -eq 0 ]; then
   if [ ! -f reflect.repos ]; then
     echo "✗ no repos given and no ./reflect.repos file." >&2
@@ -75,7 +78,12 @@ for repo in "${repos[@]}"; do
   emit_glob  "Handover archive" "$R/handover/archive"  "*.md"
   emit_glob  "Review"           "$R/reviews"           "*.md"
   emit_glob  "Audit"            "$R/audits"            "*.md"
-  emit_file  "Movements"        "$R/movements.jsonl"
+  if [ -f "$central" ]; then
+    moves="$(jq -c --arg r "$repo" 'select(.cwd | startswith($r))' "$central" 2>/dev/null || true)"
+    if [ -n "$moves" ]; then
+      { echo; echo "#### Movements (central log, this repo) — \`$name\`"; echo '```'; printf '%s\n' "$moves"; echo '```'; } >> "$out"
+    fi
+  fi
   emit_file  "Changelog"        "$repo/CHANGELOG.md"
   {
     echo; echo "#### Git log (last 100) — \`$name\`"; echo '```'

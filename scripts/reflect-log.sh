@@ -9,9 +9,11 @@
 # pushed past) by CORRELATING this stream against the durable trail, rather than trusting a command
 # to remember to record its own outcome.
 #
-# Install it per dogfooding repo (or user-global) — see .claude/commands/reflect.md. It writes to
-# <repo>/<root>/movements.jsonl, which reflect-gather.sh then pools. Never fails the prompt: any
-# problem just exits 0 so a logging hiccup never blocks your work.
+# It writes to ONE central log OUTSIDE all your repos — default ~/.relay/movements.jsonl (override
+# with RELAY_MOVEMENTS). Nothing is ever written into a project's working tree, so nothing can be
+# committed by accident and worktrees don't fragment the log; each line carries its `cwd` so
+# reflect-gather.sh can attribute it back to the right repo. Never fails the prompt: any problem just
+# exits 0 so a logging hiccup never blocks your work.
 #
 set -uo pipefail
 
@@ -29,8 +31,7 @@ case "$prompt" in
 esac
 
 [ -n "$cwd" ] || cwd="$PWD"
-root="$(jq -r '.root // "relay"' "$cwd/relay.config.json" 2>/dev/null || echo relay)"
-log="$cwd/$root/movements.jsonl"
+log="${RELAY_MOVEMENTS:-$HOME/.relay/movements.jsonl}"
 mkdir -p "$(dirname "$log")" 2>/dev/null || exit 0
 
 cmd="$(printf '%s' "$prompt" | awk '{print $1}')"

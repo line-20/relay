@@ -78,12 +78,15 @@ eyeballed the evidence. Never edit any Relay command as a side effect of reflect
 ## Phase 2 — installing movement logging (optional, do this once)
 The lenses that need the movement stream (overrides, abandonment, timing) stay thin until the logger
 is installed in the repos you work in. It's a Claude Code `UserPromptSubmit` hook that appends one
-JSON line per Relay command to `<repo>/<root>/movements.jsonl`:
+JSON line per Relay command to **one central log outside all your repos** — default
+`~/.relay/movements.jsonl` (override with `RELAY_MOVEMENTS`). Nothing is written into a project's
+working tree, so nothing can be committed by accident; each line carries its `cwd`, and Step 1
+attributes it back to the right repo.
 ```bash
 ./scripts/reflect-install-hook.sh ~/Documents/castlesERP ~/Documents/other-project
 ./scripts/reflect-install-hook.sh -          # or user-global: log Relay commands in EVERY repo
 ./scripts/reflect-install-hook.sh --print    # just show the snippet
 ```
-Add `<root>/movements.jsonl` to each target repo's `.gitignore`. The logger never fails a prompt —
-a logging hiccup exits cleanly and never blocks your work. Outcomes aren't captured at log time; Step 2
-reconstructs them by correlating the movement stream against the durable trail.
+The logger never fails a prompt — a logging hiccup exits cleanly and never blocks your work. Outcomes
+aren't captured at log time; Step 2 reconstructs them by correlating the movement stream against the
+durable trail.

@@ -57,4 +57,5 @@ for target in "$@"; do
 done
 
 echo
-echo "Movements will log to <repo>/<root>/movements.jsonl. Add that to each repo's .gitignore."
+echo "Movements log centrally to ${RELAY_MOVEMENTS:-$HOME/.relay/movements.jsonl} — OUTSIDE your"
+echo "project repos, so nothing lands in their git tree. Override the path with RELAY_MOVEMENTS."
