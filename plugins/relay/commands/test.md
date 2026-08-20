@@ -29,15 +29,18 @@ should we click through — including the ways it could break — to trust it?**
 that's the *same shape every time*, so testing a Relay PR is muscle memory — then, if asked,
 take it for a drive in the browser.
 
-This collapses the two asks you'd otherwise type by hand — *"open a PR"* and *"tell me what to
-test"* — into one keystroke, and it's robust to the PR already existing or not: it reuses an
-open PR or opens one, never a second.
+This collapses the asks you'd otherwise type by hand — *"commit this"*, *"open a PR"* and *"tell me
+what to test"* — into one keystroke, and it's robust to the PR already existing or not: it commits a
+dirty tree, then reuses an open PR or opens one, never a second. It never asks whether to commit or
+open — that's the whole point. (Not ready to commit yet? Use **`plan-only`**, which touches nothing.)
 
 **Modes** (from `$ARGUMENTS`):
-- **Default (PR mode)** — ensure a PR (reuse or open) and write the plan into it. Then, unless
-  the caller already said otherwise, **ask once** whether to drive it (Step 6).
-- **`plan-only`** — just produce the plan and print it; **do not open, touch, or require a PR**.
-  Use when the work isn't PR-ready, or you only asked for "what to test". No drive, no ask.
+- **Default (PR mode)** — ensure a PR: **commit the slice** if the tree is dirty, reuse or open the
+  PR, write the plan into it. Then, unless the caller already said otherwise, **ask once** whether to
+  drive it (Step 6). Committing and opening the PR are *not* asks — only driving is.
+- **`plan-only`** — just produce the plan and print it; **do not commit, open, touch, or require a
+  PR**. Use when the work isn't PR-ready, or you only asked for "what to test". No commit, no drive,
+  no ask.
 - **`drive`/`run`** — do PR mode, then **drive the plan in the browser** (Step 6) without asking.
 
 This is NOT `/ship`. `/ship` ships (merges). `/test` **stops at a tested-but-unmerged
@@ -49,20 +52,27 @@ most expensive phase in the loop; running it on a change nobody has clicked thro
 this command exists to prevent. `/next` and `/continue` point here when a slice is built, and
 `/ship` checks for a pass from here before it spends the review.
 
-## Step 1 — Ensure a PR (committed work only; never merge here)
-**`plan-only` mode → skip this whole step.** Don't open, push, or require anything — go straight
-to Step 2 and emit the plan to the terminal in Step 5. (Still read the diff; the plan is only as
-good as Step 2, PR or no PR.)
+## Step 1 — Ensure a PR (commit the slice if needed; never merge here)
+**`plan-only` mode → skip this whole step.** Don't commit, open, push, or require anything — go
+straight to Step 2 and emit the plan to the terminal in Step 5. (Still read the diff; the plan is
+only as good as Step 2, PR or no PR.)
 
 1. If `$ARGUMENTS` is a **PR number**, use that PR and skip to Step 2.
 2. `git branch --show-current`. If it's `main`/`master`/the default branch, **STOP** — there's
    nothing to open a PR for.
-3. `gh pr view --json number,url,state,isDraft` — if a PR already exists for this branch, use it.
-4. No PR yet:
-   a. `git status`. **If the tree is dirty, STOP** — committing is the user's call. Ask them to
-      commit (or stash), then re-run. Don't commit for them.
-   b. Clean tree: push if needed (`git push -u origin <branch>`), then `gh pr create --fill
-      --draft`. Keep it a **draft** — this command's whole point is a *pre-merge* test pass.
+3. **Dirty tree? Commit it — don't ask.** Getting the slice onto a PR is the whole point of the
+   command, and in Relay's worktree-per-session model the tree *is* this session's slice waiting to
+   be captured. `git status`; if anything is uncommitted or untracked:
+   - Author a **Conventional-Commits** message grounded in the real diff (`git diff HEAD` +
+     `git status --porcelain`): `type(scope): summary` subject, then a short body — what changed and
+     why, in the repo's existing commit voice. Read the scope from the paths touched; don't invent one.
+   - `git add -A && git commit`. This **never asks**: committing is additive and reversible (a
+     `git reset` undoes it), not the destructive tree operation a safety gate guards
+     ([[conventions]] → autonomy). If the driver isn't ready to commit, that's what `plan-only` is for.
+4. `gh pr view --json number,url,state,isDraft` — **PR already exists?** Push any commits it's
+   missing (`git push`) so it reflects what you just committed, then use it.
+5. **No PR yet:** push (`git push -u origin <branch>`), then `gh pr create --fill --draft`. Keep it a
+   **draft** — this command's whole point is a *pre-merge* test pass.
 
 ## Step 2 — Read the change (ground every step in the real diff, not guesses)
 A plan invented from the PR title is worthless. Read what actually changed — from the **right**

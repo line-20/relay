@@ -7,6 +7,25 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.15.0 — commit is not a question
+
+`/test` and `/ship` promised to open a PR for you, then stopped short: on an uncommitted tree they
+handed the commit back — and "hand it back" has no single shape, so each run improvised. One time a
+report, one time instructions for making a PR yourself, one time a "say go" proposal. Now they commit
+the slice themselves and carry on, so the step reads the same every time.
+
+**Changed**
+- **`/test` and `/ship` commit a dirty tree automatically** as part of ensuring a PR — they author a
+  Conventional-Commits message from the actual diff, `git add -A && git commit`, then open the draft
+  PR. No more asking you to commit first, no improvised hand-off. In Relay's worktree-per-session
+  model the tree *is* the slice under test, so capturing it is the point of the command, not a
+  decision to defer. Not ready to commit? **`plan-only`** still touches nothing — that's the escape
+  hatch.
+- **The dirty-tree safety gate is redrawn around what it actually protects.** *Discarding* or
+  overwriting uncommitted work (stash, reset, force-checkout) stays a hard STOP at every autonomy
+  level. *Committing* a dirty tree is additive and reversible (a `git reset` undoes it), so it is no
+  longer gated — losing work is the thing worth stopping for, not capturing it.
+
 ## 1.14.0 — some days you feel like security
 
 The `/next` shortlist told you *which* items to pick up, never *what kind* of work each one is — so if

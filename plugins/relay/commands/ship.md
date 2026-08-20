@@ -43,12 +43,17 @@ DB-backed integration tests behind a fixture stack, bring it up and run them too
 - **If anything fails, STOP.** Report the failing suites and don't touch the PR.
 - If green, continue. (Tear down any throwaway fixture at the very end, after handover.)
 
-## Phase 2 — Ensure a PR (committed work only)
+## Phase 2 — Ensure a PR (commit the slice if needed)
 1. `git branch --show-current`. If it's `main`/`master`/the default branch, **STOP**.
-2. `gh pr view --json number,url,state` — if an OPEN PR exists for this branch, use it and go to Phase 2.5.
-3. No PR:
-   a. `git status`. **If the tree is dirty, STOP** — committing is the user's call. Ask them to commit (or stash), then re-run.
-   b. Clean tree: push committed work if needed (`git push -u origin <branch>`), then `gh pr create --fill --draft`.
+2. **Dirty tree? Commit it — don't ask.** Getting the slice onto a PR is the point; in Relay's
+   worktree-per-session model the tree *is* this session's slice. `git status`; if anything is
+   uncommitted or untracked, author a **Conventional-Commits** message from the real diff
+   (`type(scope): summary` + short body, in the repo's commit voice), then `git add -A && git commit`.
+   This never asks: committing is additive and reversible, not the destructive tree operation a safety
+   gate guards ([[conventions]] → autonomy).
+3. `gh pr view --json number,url,state` — if an OPEN PR exists for this branch, push any commits it's
+   missing (`git push`), use it, and go to Phase 2.5.
+4. No PR: push (`git push -u origin <branch>`), then `gh pr create --fill --draft`.
 
 ## Phase 2.5 — Verify gate (has anyone actually exercised this?)
 A green suite is not the same as *someone clicked through it*. The review fan-out in Phase 3 is the
