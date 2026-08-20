@@ -177,9 +177,12 @@ decision to the driver, never instead of it — and record the answer (all three
 `relay.config.local.json`, so the offer never repeats. Whichever fires first silences the other:
 one gate per repo, not one per command. Setting `decide` ahead of time, or passing a
 per-call word, means it never fires. Same shape as the per-lap trim gate: ask at the moment it's
-answerable, with the real thing on screen, then remember. **This governs judgment gates only, never safety gates:** a dirty tree, a red
-suite, an unresolved 🔴 blocker, a stale merge base or a destructive operation stays a STOP at every
-level.
+answerable, with the real thing on screen, then remember. **This governs judgment gates only, never safety gates:** a red
+suite, an unresolved 🔴 blocker, a stale merge base, or a **destructive** operation — *discarding* or
+overwriting uncommitted work (stash, reset, force-checkout) — stays a STOP at every level.
+*Committing* a dirty tree to put a slice on a PR is **additive and reversible** (a `git reset` undoes
+it), not destructive: `/test` and `/ship` do it without a gate as part of ensuring a PR (see their
+Step 1 / Phase 2). Losing work is the thing gated, not capturing it.
 
 ### Per-call overrides (the "case by case")
 Any command accepts these words in its arguments and they win over the files, for that one run:
