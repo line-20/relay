@@ -88,14 +88,21 @@ the write). Give it the delta, the findings Step 3 just closed, and this brief:
 > only papered over — does the cited issue still reproduce? **(2) Did the fix break a neighbouring
 > invariant** — a concurrency guard, a co-located contract, a rule the touched code already stated,
 > an adjacent path the diff never exercised? Read the whole file around each change, not just the
-> hunk. Return each concern as `{ file:line, problem, severity }`, or `clean` if none.
+> hunk. **Grade each concern `blocker`** (the closed finding is not actually closed, or the fix
+> introduced a real regression — a broken invariant, a security/data/concurrency hole) **`should-fix`
+> or `nit`**. Return each as `{ file:line, problem, severity }`, or `clean` if none.
 
-- **Clean ⇒ proceed to Step 5.**
-- **Concerns ⇒ feed them back into Step 2** as new claims to verify-then-fix (they are findings like
-  any other), then re-run this step on the new delta.
-- **Bound the loop — at most 2 re-review rounds.** If a third would be needed, **STOP** and hand the
-  outstanding concerns to the user rather than spinning: the fix is fighting itself and wants a human
-  eye.
+Act on the result **by severity** — the same discipline `/review`'s Step 2.5 uses (only a
+merge-deciding blocker escalates; a nit never loops):
+- **Clean, or only `should-fix`/`nit` concerns ⇒ proceed to Step 5.** Record those lower-severity
+  concerns in the fix-pass summary so the user sees them, but **do NOT loop on them** — a re-review
+  that bounces `/fix` back on nits becomes a nag and gets skipped, which is the whole failure this
+  step must avoid.
+- **A `blocker`-class concern ⇒ feed it back into Step 2** as a new claim to verify-then-fix (the
+  finding isn't closed, or the fix broke something real), then re-run this step on the new delta.
+- **Bound the loop — at most 2 re-review rounds** of blocker-class concerns. If a third would be
+  needed, **STOP** and hand the outstanding concerns to the user rather than spinning: the fix is
+  fighting itself and wants a human eye.
 
 **Fail safe.** If this step cannot run (the agent errors, the delta can't be computed), do **not**
 report green — say the fix delta is **unverified** and why, and carry it as a needs-judgment item into
@@ -104,6 +111,6 @@ this step exists to remove.
 
 ## Step 5 — Update the report & report back
 1. In the report file, tick each handled box: `[x]` fixed, `[~]` stale, `[x] ~~...~~` rejected — each with a one-line note and the commit SHA where relevant.
-2. Append a `## Fix pass <date>` section summarizing: fixed N, stale N, rejected N, needs-judgment N, and the **fix-delta re-review** result (clean / N concerns fixed over M rounds / unverified).
+2. Append a `## Fix pass <date>` section summarizing: fixed N, stale N, rejected N, needs-judgment N, and the **fix-delta re-review** result (clean / N blocker-concerns fixed over M rounds / unverified), plus any `should-fix`/`nit` the re-review reported but did not loop on.
 3. Commit the updated report. Do NOT auto-push; print a summary and the suggested `git push` so the user reviews first.
 4. List anything left for the user: needs-judgment items, any reverted fixes, and an **unverified fix delta** (Step 4.5 could not run) if there is one.
