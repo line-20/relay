@@ -1,7 +1,7 @@
 ---
 description: Read the latest PR review, re-verify each finding against the current code, fix, and tick off
 argument-hint: "[a review report filename — omit for the most recent in <root>/reviews/]"
-allowed-tools: Bash(ls:*), Bash(cat:*), Bash(gh pr diff:*), Bash(git:*), Bash(pnpm:*), Bash(npm:*), Read, Edit, Write, Glob, Grep
+allowed-tools: Bash(ls:*), Bash(cat:*), Bash(gh pr diff:*), Bash(git:*), Bash(pnpm:*), Bash(npm:*), Read, Edit, Write, Glob, Grep, Task
 ---
 
 ## Usage
@@ -68,8 +68,46 @@ different question from whether the claim was true when it was made.
 2. Run the relevant tests for the touched area.
 3. If a fix broke either, resolve it before moving on. If it can't be resolved cleanly, revert that fix and flag it.
 
+## Step 4.5 — Re-review the fix delta (the fix is the most defect-dense diff)
+The gate above proves the suite is green — but that is not enough. **A fix pass is the most
+defect-dense diff in the loop:** the change made to satisfy one finding routinely breaks a
+*neighbouring* invariant, and a green suite hides it because the new tests are sequential and
+happy-path. So before reporting, re-review **the fix delta itself** — only what this pass changed,
+never the original PR diff (the review already covered that).
+
+Scope it to this pass: `git diff origin/main...HEAD` narrowed to the fix commits from Step 3 (the
+delta you just added, not the whole branch).
+
+Launch **one independent `general-purpose` agent** over that delta — *independent* because the
+author confirms its own work, the same rule `/review`'s Step 2.5 follows (never let the writer grade
+the write). Give it the delta, the findings Step 3 just closed, and this brief:
+> Re-review this fix delta. Two questions: **(1) Did each closed finding actually get fixed**, or
+> only papered over — does the cited issue still reproduce? **(2) Did the fix break a neighbouring
+> invariant** — a concurrency guard, a co-located contract, a rule the touched code already stated,
+> an adjacent path the diff never exercised? Read the whole file around each change, not just the
+> hunk. **Grade each concern `blocker`** (the closed finding is not actually closed, or the fix
+> introduced a real regression — a broken invariant, a security/data/concurrency hole) **`should-fix`
+> or `nit`**. Return each as `{ file:line, problem, severity }`, or `clean` if none.
+
+Act on the result **by severity** — the same discipline `/review`'s Step 2.5 uses (only a
+merge-deciding blocker escalates; a nit never loops):
+- **Clean, or only `should-fix`/`nit` concerns ⇒ proceed to Step 5.** Record those lower-severity
+  concerns in the fix-pass summary so the user sees them, but **do NOT loop on them** — a re-review
+  that bounces `/fix` back on nits becomes a nag and gets skipped, which is the whole failure this
+  step must avoid.
+- **A `blocker`-class concern ⇒ feed it back into Step 2** as a new claim to verify-then-fix (the
+  finding isn't closed, or the fix broke something real), then re-run this step on the new delta.
+- **Bound the loop — at most 2 re-review rounds** of blocker-class concerns. If a third would be
+  needed, **STOP** and hand the outstanding concerns to the user rather than spinning: the fix is
+  fighting itself and wants a human eye.
+
+**Fail safe.** If this step cannot run (the agent errors, the delta can't be computed), do **not**
+report green — say the fix delta is **unverified** and why, and carry it as a needs-judgment item into
+Step 5. A false all-clear here is worse than an honest "couldn't check": it is the exact silent-green
+this step exists to remove.
+
 ## Step 5 — Update the report & report back
 1. In the report file, tick each handled box: `[x]` fixed, `[~]` stale, `[x] ~~...~~` rejected — each with a one-line note and the commit SHA where relevant.
-2. Append a `## Fix pass <date>` section summarizing: fixed N, stale N, rejected N, needs-judgment N.
+2. Append a `## Fix pass <date>` section summarizing: fixed N, stale N, rejected N, needs-judgment N, and the **fix-delta re-review** result (clean / N blocker-concerns fixed over M rounds / unverified), plus any `should-fix`/`nit` the re-review reported but did not loop on.
 3. Commit the updated report. Do NOT auto-push; print a summary and the suggested `git push` so the user reviews first.
-4. List anything left for the user: needs-judgment items and any reverted fixes.
+4. List anything left for the user: needs-judgment items, any reverted fixes, and an **unverified fix delta** (Step 4.5 could not run) if there is one.
