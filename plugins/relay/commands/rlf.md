@@ -92,6 +92,26 @@ the write). Give it the delta, the findings Step 3 just closed, and this brief:
 > introduced a real regression — a broken invariant, a security/data/concurrency hole) **`should-fix`
 > or `nit`**. Return each as `{ file:line, problem, severity }`, or `clean` if none.
 
+**Escalate to the real specialists when the fix delta is high-risk.** A generalist re-read is enough
+for most deltas, but the fix pass's worst escapes — an auth bypass, a lost-update, a broken
+migration — live in a few dimensions where a domain specialist sees what a generalist misses.
+Classify the *fix delta* exactly as `/review` Step 1 does (its content gates, read against the delta,
+not the whole PR), and when it trips a **safety-core** dimension, also launch that dimension's
+specialist over the delta — in the same contributor mode `/review` uses (findings only, no report, no
+verdict):
+
+| Delta touches (per `/review` Step 1 gates) | Also launch |
+|---|---|
+| auth / access-control / SQL / secrets / untrusted input | `security-specialist` |
+| a migration, seed, or hand-maintained DB type | `dbms-specialist` |
+| backend / server / data-access code | `backend-developer` |
+
+Nothing high-risk in the delta ⇒ the generalist floor is the whole check; don't spend a specialist on
+a copy or docs fix. The specialists review the **fix delta only**, never the original PR diff — so
+this never re-does the Phase-3 review that `/ship` already ran; it reviews only what the fix *added*.
+Merge their findings with the generalist's into one severity-graded set (dedupe an issue both raise),
+then act on that set below.
+
 Act on the result **by severity** — the same discipline `/review`'s Step 2.5 uses (only a
 merge-deciding blocker escalates; a nit never loops):
 - **Clean, or only `should-fix`/`nit` concerns ⇒ proceed to Step 5.** Record those lower-severity
@@ -104,13 +124,15 @@ merge-deciding blocker escalates; a nit never loops):
   needed, **STOP** and hand the outstanding concerns to the user rather than spinning: the fix is
   fighting itself and wants a human eye.
 
-**Fail safe.** If this step cannot run (the agent errors, the delta can't be computed), do **not**
-report green — say the fix delta is **unverified** and why, and carry it as a needs-judgment item into
-Step 5. A false all-clear here is worse than an honest "couldn't check": it is the exact silent-green
-this step exists to remove.
+**Fail safe.** If this step cannot run (the generalist or an escalated specialist errors, the delta
+can't be computed), do **not** report green — say the fix delta is **unverified** and why, and carry
+it as a needs-judgment item into Step 5. A false all-clear here is worse than an honest "couldn't
+check": it is the exact silent-green this step exists to remove. An escalation specialist that its
+gate selected but that could not launch is named in the summary, never silently dropped — same rule
+`/review` holds for a skipped specialist.
 
 ## Step 5 — Update the report & report back
 1. In the report file, tick each handled box: `[x]` fixed, `[~]` stale, `[x] ~~...~~` rejected — each with a one-line note and the commit SHA where relevant.
-2. Append a `## Fix pass <date>` section summarizing: fixed N, stale N, rejected N, needs-judgment N, and the **fix-delta re-review** result (clean / N blocker-concerns fixed over M rounds / unverified), plus any `should-fix`/`nit` the re-review reported but did not loop on.
+2. Append a `## Fix pass <date>` section summarizing: fixed N, stale N, rejected N, needs-judgment N, and the **fix-delta re-review** result (clean / N blocker-concerns fixed over M rounds / unverified) — noting which specialists escalated (Step 4.5) or that only the generalist ran — plus any `should-fix`/`nit` the re-review reported but did not loop on.
 3. Commit the updated report. Do NOT auto-push; print a summary and the suggested `git push` so the user reviews first.
 4. List anything left for the user: needs-judgment items, any reverted fixes, and an **unverified fix delta** (Step 4.5 could not run) if there is one.
