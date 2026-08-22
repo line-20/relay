@@ -5,3 +5,6 @@ relay/roadmap/
 # Maintainer usage-analysis (/reflect) — local cross-project data, never committed
 reflect.repos
 reflect/
+
+# Git worktrees created by Claude Code sessions (never part of the repo)
+.claude/worktrees/
