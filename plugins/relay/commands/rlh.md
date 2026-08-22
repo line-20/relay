@@ -243,8 +243,15 @@ If there are none, print `❓ Open questions: none.`
 If the push failed in Step 4, replace the `(pushed to main: …)` note with
 `(NOT pushed — commit it yourself)` and say why.
 
-Finally, hint the next step:
-`→ Next session: /continue picks this up from main.`
+Finally, print the **ready-to-paste continuation line** as the very last thing —
+the exact command the next session runs, carrying this handover's real path so the
+cold session picks up *this* thread with no hunting:
+`→ Next session (after /clear): /rlc <root>/handover/next-$TS.md`
+
+Emit the literal path (e.g. `/rlc relay/handover/next-2026-08-22-0821.md`), never the
+`<root>`/`$TS` placeholders. If Step 4's push FAILED, still print the line — the file
+exists locally — but add ` (commit it to main first)` so the cold session isn't reading
+a handover that never shipped.
 
 ## Step 6 — Leave a clean tree and release the worktree
 End the session with **nothing stray left behind** — no orphaned handover file, no
