@@ -7,6 +7,20 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.17.0 — the handover hands you the next command
+
+`/handover` ended on a generic nudge — "`/continue` picks this up from main" — which still left
+the cold session to work out *which* handover was the latest before it could start. The last thing
+you read is now the exact command to run next.
+
+**Changed**
+- **`/handover` prints the ready-to-paste continuation line as its final output.** Instead of a
+  generic hint, the last line is the literal command the next session runs, carrying this handover's
+  real path — e.g. `/rlc relay/handover/next-2026-08-22-0821.md`. `/clear`, paste, and the cold
+  session lands on *this* thread with no hunting for which file is the latest. If the handover didn't
+  make it to main, the line still prints but tells you to commit it first, so you are never pointed
+  at a handover that never shipped. `/ship` inherits this, since it ends by running `/handover`.
+
 ## 1.16.0 — mind your own work
 
 Two steps in the loop stopped taking themselves on trust. `/fix` used to apply a review's fixes and
