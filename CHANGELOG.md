@@ -7,6 +7,29 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.16.0 — mind your own work
+
+Two steps in the loop stopped taking themselves on trust. `/fix` used to apply a review's fixes and
+report success on a green suite — but the fix pass is the most defect-dense diff in the loop, and a fix
+that quietly breaks a neighbour sails through because the new tests only cover the happy path. And
+`/persist` used to hold the whole end-of-lap harvest behind one approval prompt, so the step that banks
+lessons was the one most often skipped.
+
+**Added**
+- **`/fix` re-reviews its own fixes before reporting green.** After applying a review's fixes, it
+  re-reviews just the fix diff with an independent agent — did each finding actually close, and did the
+  fix break something next to it? Only a blocker-class problem loops it back (bounded, then handed to
+  you); a check that can't run reports **unverified**, never a false green. When the fix touched
+  something risky — auth, SQL, a migration, backend data-access — it also pulls in the matching review
+  specialist over that diff.
+
+**Changed**
+- **`/persist` banks what you steered instead of asking you to approve it.** The end-of-lap harvest no
+  longer stops behind one approval prompt. Everything additive — memory notes, release notes, guardrail
+  and design-guide additions — writes straight away, and you get a one-line summary of what landed. The
+  only pause is when it would drop wording saved nowhere else. Lessons that used to get stranded at the
+  approval step now just land.
+
 ## 1.15.0 — commit is not a question
 
 `/test` and `/ship` promised to open a PR for you, then stopped short: on an uncommitted tree they

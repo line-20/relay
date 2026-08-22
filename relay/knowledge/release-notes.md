@@ -2,7 +2,7 @@
 
 _Human-readable notes on what changed, in plain language. The dev-facing detail lives in `CHANGELOG.md`; this is its companion._
 
-## Unreleased
+## 1.16.0
 
 ### Improved
 
