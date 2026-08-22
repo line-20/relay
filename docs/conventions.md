@@ -376,6 +376,7 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
              "commit": "commit",
              "env": { "up": "stack-up", "down": "stack-down" },
              "deploy": "deploy-preview",
+             "affects": "affected-check",
              "release": "release" } }
 ```
 - A command that has a hook for its phase **runs the hooked command/skill** at that point.
@@ -388,7 +389,28 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
 | `commit` | `/ship`, `/handover` | This project's way of committing |
 | `env.up` / `env.down` | `/test` (local target) · `/ship` (teardown) | Bring a **local test environment** up / take it down |
 | `deploy` | `/deploy` | Trigger the project's **PR preview** |
+| `affects` | `/ship` (Phase 5, merge gate) | Judge whether a base that moved since your green **overlaps** this PR — so a disjoint sibling merge doesn't force a wasted CI re-run |
 | `release` | `/ship` (Phase 5.6, post-merge) | Cut a release for what just landed — one release per lap |
+
+`affects` is the one **predicate** hook — it answers a question rather than running an action, and so
+it's the one hook **exec'd deterministically** rather than dispatched to the session as an LLM skill:
+`/ship` runs its value as a **shell command line** (a multi-word value like `node scripts/affects.mjs`
+works) with **two git range expressions appended as arguments** — the base delta
+`<old-base>..origin/<base>` (what landed since your green), then the PR's own diff
+`origin/<base>...HEAD` — and reads the verdict from **stdout + exit status**, with no model judgment in
+the loop, because a boolean safety gate must be reproducible. It runs inside the repo, so it resolves
+each range to its own affected scope itself — Relay hands it ranges, not file lists. It prints
+**`disjoint`** to stdout **and exits 0** when the base change cannot affect this PR's test result;
+**anything else — `overlap`, a non-zero exit, an error, an empty or unrecognised answer — means
+re-verify**. Only an unambiguous disjoint verdict earns the skip; every ambiguity falls back to the
+safe unconditional re-verify. It lives in the project because only the project knows its dependency
+graph (a pnpm `--filter` closure, a Cargo workspace, a single package…), and its contract requires
+reporting `overlap` for anything that invalidates *every* package — a repo-root / CI-config / lockfile
+change, a DB migration. **No hook ⇒ `/ship` re-verifies unconditionally, exactly as before**; the skip
+is strictly opt-in, because a wrong `disjoint` is the only failure mode that matters and Relay never
+guesses overlap on the project's behalf. Safe because `main` runs the full suite after every merge —
+that post-merge run is the real backstop, and the per-PR re-verify it gates is belt-and-braces that
+catches nothing for a genuinely disjoint change.
 
 **Relay never owns an environment.** This is the same boundary `/deploy` states for deployment,
 generalised: Relay names the *verify* phase and sequences it, the project owns the *mechanics*. That
