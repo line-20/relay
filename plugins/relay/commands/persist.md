@@ -35,8 +35,8 @@ starts smarter — and so a human can see what shipped. This is phase (j), the c
 > **What it writes, what it retires, and what it never writes.** Target surfaces are the **guardrails**
 > overlay, the **design system**, **AI memory**, **release notes**, and — when the level enables them —
 > **ADRs**, **procedures**, and **how-tos**. It is also the **only** command that removes an AI memory,
-> and only ever the one **this lap superseded** by writing its content somewhere better (Steps 4–6) —
-> approved at the Step 5 gate like every other write. For guardrails it only ever writes the **`extends` overlay** (the
+> and only ever the one **this lap superseded** by writing its content somewhere better (Steps 4–6) — a
+> full retire lands automatically after that write; only a lossy **trim** whispers first (Step 5). For guardrails it only ever writes the **`extends` overlay** (the
 > project's house rules) — **never a shipped baseline**. Establishing guardrails from scratch is
 > `/guardrails`' job; `/persist` only grows the overlay. **Durable output lives OUTSIDE `<root>/`** (see
 > [[conventions]] → *Persistence*) — `/persist` writes it to the project's docs tree via `paths.*`, so
@@ -162,32 +162,43 @@ memory index and open anything whose subject matches. Classify each hit:
 A memory whose content now lives in a guide is not harmless clutter: it is a *second, weaker copy of a
 rule*, and the next session may read either one.
 
-## Step 5 — Present the harvest plan and confirm — **STOP**
-The knowledge layer is **project truth** — committed, shared, main-owned. **Offer, don't auto-write.**
-Show a compact table and **wait for approval**:
+## Step 5 — Bank the harvest, then report it — whisper only on a lossy trim
+You steered this content in-session, so `/persist` does **not** stop to re-approve a shared learning.
+It **writes the harvest** and **tells you what landed**, compactly. The axis is **reversibility**, not
+blast radius: an *addition* is cheap to undo, so it auto-writes; only a genuinely *lossy* edit pauses.
+(A wrong rule that slips through is adapted when it bites — the gate exists to prevent *data loss*, not
+a wrong rule.)
 
-> | Output | → Target | Line to add | Evidence |
-> |---|---|---|---|
-> | Tenant filter must be in the query, not the app layer | `security` overlay (`docs/security-house.md`) | "Every tenant-scoped query filters by tenant_id in SQL; app-layer filtering is a 🔴." | B2 in pr-471 review |
-> | New `<StatusPill>` states | design system (`knowledge/ui-design.md`) | pill token + the four interactive states | pr-471 `StatusPill.tsx:1` |
-> | **Release note** | **release notes (`knowledge/release-notes.md`)** | **New — "Export a workspace to CSV from its ⋯ menu."** | **pr-471** |
+**Auto-write — no gate, every addition.** Write **now**, without stopping, everything Step 3 routed as
+an ADD: AI-memory additions, the release note, and (at `standard`/`full`) the guardrails-`extends`
+overlay and design-system additions, plus any ADR/procedure/how-to at `full`. The Step-2 non-obvious
+filter + Step-4 dedupe still decide *what* is worth writing (that is the real sprawl guard, not the
+STOP), and writes stay **idempotent**. Fires **regardless of `autonomy.decide`** — additive and
+reversible. **Fail safe:** a write that cannot complete is reported **unwritten**, never as harvested.
+The release note is user-facing copy — write it to the project's voice (British English, Step 2.5's
+rules); the user may reword it afterwards.
 
-Then, **under the same table, a Retiring block** — every memory Step 4 found superseded, so removals
-are approved in the same breath as the writes that cause them, never silently:
+**Retire — no gate.** A **full retire** (Step 4 found the memory *fully* carried by a durable write
+that just landed) is removed **last, after that write commits** — its content already lives elsewhere,
+so nothing is lost and the digest lets you catch a mis-judged one. Never retire a memory this lap did
+not supersede.
 
-> | Memory | Verdict | Because |
-> |---|---|---|
-> | `tenant-filter-in-sql` | **retire** | fully carried by the `security` overlay line above |
-> | `staging-box-quirks` | **trim** | its query rule moves to the overlay; the box's IP and login stay |
+**Trim — the one whisper.** A **trim** drops part of a memory's wording on the claim the durable
+surface now carries it — the only genuinely lossy call, because a wrong claim loses the dropped wording
+with no copy. So **before a trim, ask once, terse** (regardless of autonomy — this is a data-loss
+guard, not a decision):
+> trim `staging-box-quirks` → «box IP + login only», dropping «the query rule» (now in the security overlay) — ok?
 
-Show the **drafted release note verbatim** (it's user-facing copy — the user should approve the exact
-words), name any **ADR / procedure / how-to** to be written (at `full`) with its destination path, note
-which briefs will get the **Distilled** marker, list the **deferred** lessons under the table, and note
-if there's **no release note** (an internal-only lap). **STOP for the go-ahead** — the user may cut a
-lesson, reword the note, redirect a target, or **keep a memory you proposed retiring**.
+**The digest replaces the wall of text.** Report what landed as a **compact, reversible** list —
+honour `terse`, one clause per surface, never a re-summary of the session:
+> Banked (pr-471): security overlay +1 rule · design-system +`<StatusPill>` · memory +1 · release note · retired `tenant-filter-in-sql`. Reverse any: edit the doc, or restore the memory from git.
+Note the **deferred** lessons and the **Distilled** marker set on each brief. If the lap produced
+nothing durable and nothing user-visible, say **"nothing to persist"** — don't manufacture a digest.
 
-## Step 6 — Write the approved harvest
-On approval, write **surgically and idempotently** — update in place, never clobber hand-authored content:
+## Step 6 — Write mechanics
+Step 5 decided *what* happens to each surface (auto-write, full retire, or a whispered trim); this
+section is the **how** for each. Write **surgically and idempotently** — update in place, never clobber
+hand-authored content:
 - **Guardrails (`extends` overlay ONLY):** append the rule to the dimension's house-rules file (the
   path in its `extends`). If the dimension has **no** `extends` file yet, create one
   (`<root>/knowledge/<dim>-house.md`), add the rule, and register it by **surgically merging** the
@@ -195,17 +206,19 @@ On approval, write **surgically and idempotently** — update in place, never cl
   the merge pattern `/init` uses). **Never touch a baseline.**
 - **Design system:** append the pattern/token to the design-system doc (`<root>/knowledge/ui-design.md`,
   honouring a `paths.design-system` override) in its Relay-managed section.
-- **AI memory:** write each non-obvious decision as one fact (decision + why + how-to-apply) via the
-  harness's memory mechanism, if available — and **only for facts with no repo home** (Step 3's
-  *one fact, one home*).
-- **Retire what this lap superseded — do it LAST, and only for writes that actually landed.** For each
-  approved **retire** row, remove the memory *and its index entry* through the same mechanism you write
-  memory with; for each **trim** row, rewrite the memory to the reduced text. Order matters: a memory
-  is removed only after the durable write that replaces it is committed, so a failed write never
-  costs you the copy you had. If a durable write was skipped or rejected, its retire row is dropped
-  too — say so rather than removing anyway. **Never retire a memory this lap did not supersede**;
-  general tidying of the memory layer is not `/persist`'s job.
-- **Release notes:** add the drafted note to `$RELEASE_NOTES` (create the file with a top-level
+- **AI memory (additions — auto, no gate):** write each non-obvious decision as one fact
+  (decision + why + how-to-apply) via the harness's memory mechanism, if available — and **only for
+  facts with no repo home** (Step 3's *one fact, one home*). Additive and reversible, so they land
+  without a STOP; **removals are handled in the retire/trim bullet.**
+- **Retire / trim — do it LAST, and only for writes that actually landed.** For each **full retire**
+  (auto, per Step 5), remove the memory *and its index entry* through the same mechanism you write
+  memory with; for each **trim**, rewrite the memory to the reduced text **only after Step 5's whisper
+  returned ok** (a declined trim leaves the memory untouched). Order matters: a memory is removed only
+  after the durable write that replaces it is committed, so a failed write never costs you the copy you
+  had. If a durable write was skipped or failed, its retire/trim is dropped too — say so in the digest
+  rather than removing anyway. **Never retire a memory this lap did not supersede**; general tidying of
+  the memory layer is not `/persist`'s job.
+- **Release notes (auto, no gate):** add the drafted note to `$RELEASE_NOTES` (create the file with a top-level
   heading if it's the first note). Group under the **current release heading** — the project's version
   (from its version manifest or the latest tag) or an **`## Unreleased`** section that accretes until a
   release cuts. Newest release on top; within a release, group by **New / Improved / Fixed** if the
