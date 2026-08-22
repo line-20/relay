@@ -7,6 +7,34 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.18.0 — the poor-man's merge queue
+
+Run ten sessions in parallel and they all race to land on `main`. The moment any one merges, every
+other in-flight PR's green run no longer describes the merged result — so `/ship`'s merge gate made
+them all rebase and re-run the full suite before merging. Most of those re-runs were wasted: the
+sibling's work was in a package the re-running PR never touched. On a capacity-limited CI those wasted
+runs queue up and *become* the bottleneck. The real cure is a GitHub merge queue, which a private repo
+on the Team plan can't have. This is the substitute — merge optimistically, gated on real overlap,
+backstopped by the full-suite run `main` already does after every merge.
+
+**Added**
+- **`/ship` skips the re-run when a sibling merge doesn't overlap your PR.** When the base moves after
+  your green, the merge gate no longer re-verifies unconditionally — it asks whether what landed
+  actually touches your PR's build and tests, and if it's disjoint, merges on the green you already
+  have. A sibling landing eight commits in `module-invoicing` no longer stalls your `module-shipping`
+  PR behind another full CI run. Safe because `main` runs the full suite after every merge — that
+  post-merge run is the real backstop, and the skipped per-PR re-verify was belt-and-braces that
+  catches nothing for a genuinely disjoint change. Every other merge condition — blockers resolved,
+  mergeable, checks green — is untouched.
+- **A new optional `hooks.affects` answers the overlap question.** `/ship` is stack-agnostic and can't
+  know what "affected scope" means in your project (a pnpm `--filter` closure, a Cargo workspace, a
+  single package), so the project owns the call: given what landed on the base and the PR's own diff,
+  the hook reports `disjoint` or `overlap`, and must report `overlap` for anything that invalidates
+  *every* package — a repo-root, CI-config or lockfile change, a migration. **No hook configured ⇒
+  `/ship` re-verifies unconditionally, exactly as before.** The optimisation is strictly opt-in; a
+  wrong `disjoint` is the one failure mode that matters, so Relay never guesses overlap on the
+  project's behalf.
+
 ## 1.17.0 — the handover hands you the next command
 
 `/handover` ended on a generic nudge — "`/continue` picks this up from main" — which still left
