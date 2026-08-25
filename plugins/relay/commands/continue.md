@@ -22,6 +22,14 @@ argument-hint: "[optional item slug or handover path; defaults to the thread mat
 
 > **Output** ([[conventions]]): honour `verbosity` (a per-call `terse`/`verbose` word in `$ARGUMENTS`, else `relay.config.local.json` `.verbosity`, else `normal`) — at **terse**, emit only STOP-gate questions and the final landing, no narration or intermediate recaps. Honour `audience` (a per-call `plain`/`informed`/`expert` word in `$ARGUMENTS`, else `relay.config.local.json` `.audience`, else unset) — how much depth surfaces in your **terminal** output; it never thins a **written artifact** (brief, report, ADR, handover), which always keeps full depth. `plain` = executive summary: the decisions and what you need from the user, minimal jargon; `informed` = lead with the decisions and what changed, keep the corrections and open questions that need the user, defer exhaustive evidence/`file:line` tables to the artifact; `expert` = full depth in the terminal too; unset ⇒ today’s default (no shaping). Never drop a STOP-gate question or the decision itself. Render every list (candidates / findings / plan rows) as a **GFM markdown table**, never stacked `Field: value` records or ASCII-rule separators; keep cells terse, overflow to numbered footnotes.
 
+> **Silent setup** ([[conventions]]). Steps 0–2.5 — resolve the root, find the thread, enter
+> the worktree, verify the branch, run setup — are pure mechanics the user needs nothing from.
+> Run them **silently**: no "checking…/let me…/found it/re-baseline now" narration between tool
+> calls, at `normal` as well as `terse`. The **first** thing you emit is the Step 3 orientation
+> — unless a real blocker or STOP-gate needs the user before then (missing board, ambiguous
+> thread, dirty worktree, branch mismatch), which you surface immediately in one line. Only
+> `verbose` narrates these steps.
+
 Continue the next phase of work from a handover file and carry it out.
 
 > **Relay convention.** This command reads durable state from `<root>/board.md`
@@ -68,6 +76,13 @@ main is merged in locally.
 4. **Open its handover:** read the row's `Latest handover` path via
    `git show FETCH_HEAD:<root>/handover/<...>` (no checkout needed). If the row has no
    handover (`—`), work from its detail/brief doc instead.
+   > **Local `main` is assumed stale** — most drivers never `git pull` it, so a handover
+   > lives on `origin/main` before it lives locally. Read handovers — board-resolved **or**
+   > passed explicitly as a path in `$ARGUMENTS` — through `git show FETCH_HEAD:<path>` FIRST
+   > (Step 1.1 already fetched); fall back to a local read only if the path isn't on
+   > `origin/main` (an as-yet-unpushed handover). **Never `Read` the pasted path against the
+   > local checkout first** — on a behind `main` it misses, and you narrate a hunt for
+   > something that was there on the remote all along.
 5. Fallback (no board, or empty): newest handover on main —
    `git ls-tree -r --name-only FETCH_HEAD <root>/handover/ | grep -E 'next-.*\.md$' | sort | tail -1`
    — or newest local `ls -t <root>/handover/next-*.md 2>/dev/null | head -1`. If neither
