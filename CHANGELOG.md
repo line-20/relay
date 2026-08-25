@@ -7,6 +7,27 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.19.0 — the quiet pickup
+
+`/continue` opened with a stream of throat-clearing — "the handover doesn't exist… it's on
+origin/main… reading from FETCH_HEAD… clean tree, re-baselining". None of it is anything the driver
+acts on; the first thing worth reading is the orientation ("this thread is X, the next step is Y").
+Two things caused the noise, and both are now silenced. Local `main` is usually behind — most drivers
+never `git pull` it — so a pasted handover path missed locally before being found on the remote; and
+the mechanical resolve-and-setup steps narrated themselves.
+
+**Changed**
+- **`/continue` resolves handovers against `origin/main` first, so a behind local `main` never sends
+  it hunting.** A handover path you paste — `/rlc relay/handover/next-2026-08-24-2229.md` — now reads
+  through `git show FETCH_HEAD:<path>` on the first try, matching how the board-resolved path already
+  worked, and falls back to a local read only for an as-yet-unpushed handover. The "doesn't exist →
+  fetch → ah, it's on the remote" detour is gone, and you still never have to `git pull` main yourself.
+- **The setup phase runs silent — the first thing you read is the orientation.** Steps 0–2.5 (resolve
+  the root, find the thread, enter the worktree, verify the branch, run setup) no longer narrate
+  between tool calls at `normal` verbosity — only `verbose` does. You type `/rlc` and the next thing
+  on screen is "this thread is X, the next step is Y". Genuine stops still speak up in one line —
+  missing board, ambiguous thread, dirty worktree, branch mismatch — since those need you.
+
 ## 1.18.0 — the poor-man's merge queue
 
 Run ten sessions in parallel and they all race to land on `main`. The moment any one merges, every
