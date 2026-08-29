@@ -201,6 +201,43 @@ class HarvestSliceTest(unittest.TestCase):
         with open(board) as fh:
             self.assertEqual(fh.read().count("disc:d1"), 1)  # replay didn't duplicate
 
+    def test_branch_frontmatter_is_free_text_safe(self):
+        # real handovers carry free-text branch frontmatter — must not yield garbage
+        self.assertFalse(rh._valid_branch("(none"))
+        self.assertFalse(rh._valid_branch("none"))
+        self.assertTrue(rh._valid_branch("worktree-money-evidence-3b-bank-csv"))
+        hv = os.path.join(self.relay, "handover")
+        os.makedirs(hv, exist_ok=True)
+        cases = {
+            "next-none.md": "---\nbranch: (none — docs-only board close)\nitem: a/b\n---\n",
+            "next-real.md": "---\nbranch: real-branch (merged; remote deleted)\nitem: a/b\n---\n",
+            "next-plain.md": "---\nbranch: main\n---\n",
+        }
+        for fn, txt in cases.items():
+            with open(os.path.join(hv, fn), "w") as fh:
+                fh.write(txt)
+        self.assertIsNone(rh._branch_from_handover_file(self.relay, "handover/next-none.md"))
+        self.assertEqual(rh._branch_from_handover_file(self.relay, "handover/next-real.md"), "real-branch")
+        self.assertEqual(rh._branch_from_handover_file(self.relay, "handover/next-plain.md"), "main")
+
+    def test_worker_bootstrap_provider_neutral(self):
+        self._emit_and_apply_all()
+        bs = rh.worker_bootstrap(self.repo, self.relay, "masterdata/import")
+        self.assertEqual(bs["work_item"], "masterdata/import")
+        self.assertTrue(os.path.isdir(bs["worktree_path"]))
+        self.assertEqual(bs["branch"], "wt-masterdata")
+        self.assertTrue(bs["brief_path"].endswith("masterdata__import.md"))
+        self.assertEqual(bs["objective"], "finish masterdata/import slice 2")
+        self.assertTrue(bs["instructions"])
+        blob = json.dumps(bs).lower()
+        for claudeism in ("claude", "/relay:", "session", "transcript"):
+            if claudeism in ("session", "transcript"):  # only the require_* flags may mention these
+                self.assertNotIn(claudeism + "_id_value", blob)  # no actual id
+            else:
+                self.assertNotIn(claudeism, blob)
+        self.assertFalse(bs["requires_transcript"])
+        self.assertFalse(bs["requires_session_id"])
+
     def test_local_checkpoint_commit_no_network(self):
         slug, (branch, path) = "masterdata/import", self.wt["masterdata/import"]
         with open(os.path.join(path, "wip.txt"), "w") as fh:

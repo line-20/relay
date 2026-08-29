@@ -32,6 +32,12 @@ HARVEST_VERSION = 1
 REQUIRED_RESULT_KEYS = ("harvest_version", "lap_id", "work_item", "disposition", "resume_delta")
 DISPOSITIONS = {"advanced", "merged", "parked", "watching", "reflect-back"}  # or "stopped:<gate>"
 ACTIVE_GLYPHS = ("⚙", "🔍")
+_BRANCH_TOKEN = re.compile(r"^[A-Za-z0-9][\w./+-]*$")  # git-ref-ish first token
+
+
+def _valid_branch(tok):
+    """A branch value from free-text frontmatter is trustworthy only if ref-shaped."""
+    return bool(tok) and tok.lower() != "none" and bool(_BRANCH_TOKEN.match(tok))
 
 
 class HarvestError(Exception):
@@ -255,18 +261,38 @@ def _all_item_slugs(relay_root):
 # ---------- 1/6. discover active work from durable sources only ----------
 
 def _parse_board_active(board_path):
-    """Slugs of active (⚙/🔍) rows in the board's Open-threads table."""
+    """Active (⚙/🔍) rows as (slug, handover_rel_path|None). The row's own
+    Latest-handover cell is the authoritative pointer — not 'newest file'."""
     if not board_path or not os.path.exists(board_path):
         return []
-    slugs = []
+    rows = []
     with open(board_path) as fh:
         for line in fh:
             if "|" not in line or not any(g in line for g in ACTIVE_GLYPHS):
                 continue
             m = re.search(r"`([\w./-]+)`", line)  # first backticked cell = the item slug
-            if m:
-                slugs.append(m.group(1))
-    return slugs
+            if not m:
+                continue
+            hv = re.search(r"(handover/[\w./-]+\.md)", line)  # backticked or not
+            rows.append((m.group(1), hv.group(1) if hv else None))
+    return rows
+
+
+def _branch_from_handover_file(relay_root, handover_rel):
+    """First ref-shaped token of the `branch:` frontmatter of a SPECIFIC handover."""
+    if not handover_rel:
+        return None
+    path = os.path.join(relay_root, handover_rel)
+    try:
+        with open(path) as fh:
+            text = fh.read()
+    except OSError:
+        return None
+    m = re.search(r"^branch:\s*(.+)$", text, re.M)
+    if not m:
+        return None
+    tok = m.group(1).strip().split()[0] if m.group(1).strip() else ""
+    return tok if _valid_branch(tok) else None
 
 
 def _git_worktrees(repo_root):
@@ -284,22 +310,32 @@ def _git_worktrees(repo_root):
     return trees
 
 
-def _handover_branch(relay_root, slug):
-    """Fallback branch discovery: the `branch:` frontmatter of the item's handover."""
+def _branch_for(relay_root, slug, handover_rel, cp):
+    """Resolve an item's branch, most-authoritative first:
+    (1) the checkpoint's own reference (a clean git ref emitted by the worker),
+    (2) the board row's designated handover's frontmatter (validated),
+    (3) last-ditch: newest handover mentioning the slug (validated).
+    Returns None rather than a malformed value — a garbage branch is worse than none."""
+    ref = (cp or {}).get("references", {}).get("branch")
+    if _valid_branch(ref):
+        return ref
+    b = _branch_from_handover_file(relay_root, handover_rel)
+    if b:
+        return b
     hv_dir = os.path.join(relay_root, "handover")
-    if not os.path.isdir(hv_dir):
-        return None
-    for fn in sorted(os.listdir(hv_dir), reverse=True):
-        txt = None
-        try:
-            with open(os.path.join(hv_dir, fn)) as fh:
-                txt = fh.read()
-        except OSError:
-            continue
-        if slug in (txt or ""):
-            m = re.search(r"^branch:\s*(\S+)", txt, re.M)
-            if m:
-                return m.group(1)
+    if os.path.isdir(hv_dir):
+        for fn in sorted(os.listdir(hv_dir), reverse=True):
+            try:
+                with open(os.path.join(hv_dir, fn)) as fh:
+                    txt = fh.read()
+            except OSError:
+                continue
+            if slug in txt:
+                m = re.search(r"^branch:\s*(.+)$", txt, re.M)
+                tok = (m.group(1).strip().split()[0] if m and m.group(1).strip() else "")
+                if _valid_branch(tok):
+                    return tok
+                break  # this is the item's newest handover; don't keep scanning older ones
     return None
 
 
@@ -309,9 +345,9 @@ def discover_active(repo_root, relay_root, board_path=None, hints_path=None):
     hints = hints or {}
     worktrees = _git_worktrees(repo_root)
     items = []
-    for slug in _parse_board_active(board_path):
+    for slug, handover_rel in _parse_board_active(board_path):
         cp = _read_json(_checkpoint_path(relay_root, slug))
-        branch = (cp or {}).get("references", {}).get("branch") or _handover_branch(relay_root, slug)
+        branch = _branch_for(relay_root, slug, handover_rel, cp)
         wt = next((w for w in worktrees if branch and w.get("branch") == branch), None)
         items.append({
             "work_item": slug,
@@ -332,7 +368,9 @@ def resume_context(repo_root, relay_root, slug, board_path=None):
     if not cp:
         raise HarvestError(f"no durable checkpoint for {slug!r} — cannot replace from state")
     refs = cp.get("references", {})
-    branch = refs.get("branch") or _handover_branch(relay_root, slug)
+    row = next((r for r in _parse_board_active(board_path or os.path.join(relay_root, "board.md"))
+                if r[0] == slug), (slug, None))
+    branch = _branch_for(relay_root, slug, row[1], cp)
     wt = next((w for w in _git_worktrees(repo_root) if branch and w.get("branch") == branch), None)
     return {
         "work_item": slug,
@@ -344,6 +382,40 @@ def resume_context(repo_root, relay_root, slug, board_path=None):
         "continue_command": f"/relay:continue {slug}",
         "source": "durable-state",
         "requires_transcript": False,      # tier (b): recover from worktree/git only
+        "requires_session_id": False,
+    }
+
+
+# ---------- worker bootstrap: provider-neutral view over resume_context ----------
+
+def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
+    """A provider-NEUTRAL bootstrap any coding agent (Claude, Codex, Mistral, …)
+    could consume to continue recovered work. Constructed entirely from existing
+    authoritative state (resume_context + the brief path) — NOT a new durable
+    contract. Carries no slash-command, no session id, no transcript."""
+    ctx = resume_context(repo_root, relay_root, slug, board_path=board_path)
+    rd = ctx.get("resume_delta") or {}
+    return {
+        "bootstrap_version": 1,
+        "work_item": ctx["work_item"],
+        "repo_root": repo_root,
+        "worktree_path": ctx["worktree_path"],   # cd here; it is a real git worktree
+        "branch": ctx["branch"],                 # already checked out in that worktree
+        "checkpoint_ref": ctx["checkpoint_ref"], # last durable commit, if any
+        "brief_path": ctx.get("brief"),          # a file in the repo; read it
+        "stage": rd.get("stage"),
+        "resume_delta": rd,                      # next_slice / in_flight / scope_edges / open_questions
+        "objective": rd.get("next_slice"),
+        "instructions": [
+            f"Change into the worktree at worktree_path ({ctx['worktree_path']}); "
+            f"it already has branch {ctx['branch']} checked out.",
+            "Read brief_path for the work item's intent, approach and slices.",
+            "Inspect the repository directly (git log/status/diff and the code) — "
+            "you have everything; do NOT look for a previous worker's transcript.",
+            f"Continue from resume_delta (stage '{rd.get('stage')}'): {rd.get('next_slice')}.",
+        ],
+        "recovered_from": "durable-state",
+        "requires_transcript": False,
         "requires_session_id": False,
     }
 
@@ -379,6 +451,8 @@ def main(argv=None):
     sub.add_parser("discover", help="list active work from durable sources")
     rs = sub.add_parser("resume", help="print provider-neutral resume context for a work item")
     rs.add_argument("slug")
+    bs = sub.add_parser("bootstrap", help="print a provider-neutral worker bootstrap for a work item")
+    bs.add_argument("slug")
     cp = sub.add_parser("checkpoint", help="local autosave commit in a worktree")
     cp.add_argument("worktree"); cp.add_argument("lap_id")
     args = p.parse_args(argv)
@@ -398,6 +472,12 @@ def main(argv=None):
     if args.cmd == "resume":
         try:
             print(json.dumps(resume_context(args.repo, relay_root, args.slug), indent=2))
+        except HarvestError as e:
+            print(str(e), file=sys.stderr); return 2
+        return 0
+    if args.cmd == "bootstrap":
+        try:
+            print(json.dumps(worker_bootstrap(args.repo, relay_root, args.slug), indent=2))
         except HarvestError as e:
             print(str(e), file=sys.stderr); return 2
         return 0
