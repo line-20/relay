@@ -267,3 +267,15 @@ These are minimal together because piece 2 reuses the **board as the active-work
 - **Remote-push / replication guarantees** beyond opportunistic best-effort push.
 - **Sub-stage / periodic checkpointing** finer than a checkpoint at stage transitions (start at transition boundaries; add granularity only if forced-loss evidence demands it).
 - A generic liveness/heartbeat service — slice 1's liveness may be as crude as "is a process holding the worktree lock?"; a real heartbeat comes with the supervisor, later.
+
+## R1.9 — Implementation notes (slice 1 as built)
+
+Built in `scripts/relay_harvest.py` (+ `scripts/tests/test_relay_harvest.py`). What implementation confirmed or adjusted vs. the design above:
+
+- **Durable layout (concretises the abstract `checkpoint_ref`):** per work item, `<root>/harvest/<slug>/` holds `results/<lap_id>.json` (the write-ahead log the worker emits, unique per lap → conflict-free), `checkpoint.json` (the single canonical resume state the runtime writes — an upsert, so idempotent by nature), and `applied.json` (the completion marker: the set of applied `lap_id`s). This is the one genuinely-new durable artefact; everything else stays a reference.
+- **Worktree resolution is by branch, not by path-parsing** — `git worktree list --porcelain` → match the checkpoint's `references.branch`. More robust and fully session-independent; the deterministic `.claude/worktrees/<topic>` path is not relied upon.
+- **The Active Work Registry is a *view*, not a file** — `discover_active()` computes it live from the board's active (⚙/🔍) rows + git worktrees + checkpoints. Confirms R1.3's "mostly a view over board + git." The only optional new local artefact is a session-hints file, and it is *never read on the recovery path* (proven by a test with no hints).
+- **Disposition vocabulary** is validated at emit: `advanced|merged|parked|watching|reflect-back|stopped:<gate>` (R1.1 / §2). Work-item status and merge outcome remain references, not copied.
+- **Provider-neutrality is enforced, not just intended:** `validate_result()` rejects any durable result carrying `session_id`/`provider`/`claude_session`. `lap_id` is an opaque string.
+- **Deviation (scope):** the only shared-home *write* moved to the runtime in this slice is **discoveries → board** (deduped by a `<!-- disc:ID -->` marker). Board status/owner updates were deliberately **not** moved — rediscovery only needs the board to *list* active work, which it already does. Ship/Persist are untouched. So "the worker no longer performs the shared write" is demonstrated on one surface (discoveries), not yet all of Handover's writes.
+- **Continue wiring** is a single additive step in `continue.md`: prefer the durable checkpoint via `relay_harvest.py resume <slug>`; the Markdown handover remains as projection/fallback. No procedure was restructured.
