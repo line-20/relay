@@ -35,6 +35,12 @@ if [ -x "scripts/reflect-sessions.sh" ]; then
   ./scripts/reflect-sessions.sh >/dev/null 2>&1 || true
 fi
 
+# Per-command (per-stage) telemetry — the segmented companion (see reflect-commands.py).
+commands="${RELAY_COMMANDS:-$HOME/.relay/commands.jsonl}"
+if [ -x "scripts/reflect-commands.py" ]; then
+  ./scripts/reflect-commands.py >/dev/null 2>&1 || true
+fi
+
 if [ ${#repos[@]} -eq 0 ]; then
   if [ ! -f reflect.repos ]; then
     echo "✗ no repos given and no ./reflect.repos file." >&2
@@ -95,6 +101,12 @@ for repo in "${repos[@]}"; do
     sess="$(jq -c --arg r "$repo" 'select((.cwd // "") | startswith($r))' "$sessions" 2>/dev/null || true)"
     if [ -n "$sess" ]; then
       { echo; echo "#### Session telemetry (central, this repo) — \`$name\`"; echo '```'; printf '%s\n' "$sess"; echo '```'; } >> "$out"
+    fi
+  fi
+  if [ -f "$commands" ]; then
+    cmds="$(jq -c --arg r "$repo" 'select((.cwd // "") | startswith($r))' "$commands" 2>/dev/null || true)"
+    if [ -n "$cmds" ]; then
+      { echo; echo "#### Command/stage telemetry (central, this repo) — \`$name\`"; echo '```'; printf '%s\n' "$cmds"; echo '```'; } >> "$out"
     fi
   fi
   emit_file  "Changelog"        "$repo/CHANGELOG.md"

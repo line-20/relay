@@ -8,3 +8,7 @@ reflect/
 
 # Git worktrees created by Claude Code sessions (never part of the repo)
 .claude/worktrees/
+
+# Python bytecode from scripts/tests
+__pycache__/
+*.pyc
