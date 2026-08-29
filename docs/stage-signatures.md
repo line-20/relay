@@ -280,3 +280,32 @@ Markdown should be a **projection**, not the canonical form. The canonical hando
 - **Deploy** anywhere — too few runs to model empirically.
 
 **Cross-cutting gaps a contract layer will have to solve regardless:** stage *outcome/success* is unavailable (no reliable signal; `errors` is not it); class-C *reads* are invisible (we see what a stage writes, never what it consumed); and class-E *human decisions* are only captured when they happen to be logged to `decisions.md`/`autonomy.log`.
+
+## What must survive a worker's death — and where each kind lives
+
+A worker's death is the **normal, designed event**: sessions are meant to be ephemeral, and context reset is the point, not a failure. The discipline that makes that safe is simple to state and is what every stage above is really doing: **before a worker dies, each kind of information it produced must already have been externalised to its correct durable home.** The one failure mode is information whose *only* home is the dying worker — an uncommitted worktree, an unlogged decision, a discovery mentioned once in a transcript.
+
+So the question decomposes into (a) which categories must outlive the worker, and (b) the single home each belongs in. The homes that outlive any worker are: **git** (code + history), **the brief** (a unit's intent), **the board** (backlog/status/ownership/discoveries), **the roadmap** (phase/strategic intent), **persistent knowledge** (`knowledge/`, `decisions.md`, AI memory, changelog), **the handover** (thread-resume state), and **telemetry** (`~/.relay/*.jsonl`, outside every repo). Two things are explicitly *not* durable homes: the **worktree** (transient scratch) and the **transcript** (the worker's mind).
+
+| Information category | Class | Survive? | Correct home | Lives there today? |
+|---|---|---|---|---|
+| Committed code + its history | A | Yes | **git** (branch / PR / commits) | ✅ durable |
+| Uncommitted work-in-progress | A | Yes — it's real work | **git** (should be a `wip:` commit) | ⚠️ only in the worktree + handover prose — dies if the worktree is pruned |
+| Thread-resume state (next slice, in-flight intent, scope edges, open Qs) | B | Yes | **the handover** (small structured core + references) | ⚠️ present but bloated — should shrink to the core |
+| Unit intent/plan (objective, approach, slices, threat model, done-criteria) | B | Yes | **the brief** | ✅ — handover should *reference*, not copy it |
+| Project knowledge (lessons, guardrail overlays, ADRs, rationale) | C | Yes | **knowledge/ · decisions.md · AI memory · changelog** (Persist writes these) | ⚠️ stranded in handover/transcript when Persist doesn't run |
+| Discoveries & follow-up work found mid-flight | D | Yes — else re-discovered | **the board** (new rows) | ⚠️ often stranded in handover prose or the transcript |
+| Cross-thread coordination (status, ownership, phase) | C | Yes | **board.md · roadmap.md** | ✅ durable — but the concurrency-contended surface |
+| Binding human decisions | E | Yes | **decisions.md · autonomy.log** | ⚠️ captured only when explicitly logged; most die in the transcript |
+| Observability (cost/model/files/transitions) | — | Optional (analysis, not correctness) | **telemetry `~/.relay/*.jsonl`** | ✅ (this instrumentation work) |
+| The worker's reasoning / transcript | — | **No** — distil, then let it die | transcript persists on disk but is **not** authority | ✅ correct *if* value was extracted first |
+
+`[obs]/[impl]` grounding: the ✅ rows are directly evidenced (git, board/roadmap on main, brief in `briefs/`, telemetry files, Persist's surfaces). The ⚠️ rows are `[inf]` from where the analysis above shows information actually sitting — chiefly the handover-decomposition and the compound-span finding. Confidence: High on the homes, Med on the size of each gap.
+
+**Three principles fall out:**
+
+1. **One fact, one home — across homes, not just within one.** Each category has exactly one correct owner; anything appearing in a second place is duplication that will drift. The bloated handover and the "part of the residue belongs to Persist" finding are both this principle being violated.
+2. **A simple routing rule for any piece of information at death:** does it bind work beyond this thread (other threads, the whole project, a future lap)? → a *shared* durable home (board / knowledge / decisions / roadmap). Is it only this thread's resume state? → the *handover*. Is it code? → *git*. Is it the worker's own reasoning? → *let it die*, once its value has been routed to one of the above.
+3. **The transcript is the thing that must die.** Treating "reload the previous context" as the continuation mechanism defeats the point of ephemeral workers. The system's job is to have *extracted* each category into its home *before* death — which is exactly what Persist (knowledge), Handover (resume state), the board (discoveries/coordination), and git (code) each do. The gaps above are the places where extraction is currently incomplete, so something valuable rides on the transcript surviving — which it shouldn't have to.
+
+**Where this meets the concurrency problem.** The categories that must survive into *shared* homes — board, knowledge, decisions, roadmap — are exactly the surfaces that collide when ~10 workers write them at end-of-lap (see §"Global-state writes per stage"). So "what must survive, and where" and "why do parallel workers conflict" have the same answer: **worker death is the harvest moment, and the harvest targets a handful of shared homes.** That is precisely the seam a "workers produce results, the runtime owns global state" design would mediate — the runtime becomes the single writer of those shared homes at the moment each worker dies, while git, the brief, and the per-thread handover stay worker-owned. (Stated as the implication of the empirical model — not a change to build here.)
