@@ -2,6 +2,8 @@
 
 _A design document only. **No code, no lifecycle changes, no contract framework, no runtime** are proposed for building here — this specifies the smallest coherent design and the single slice that would prove it. Evidence base: `docs/stage-signatures.md` and `docs/harvest-result.md`._
 
+> **Revision R1 (below) supersedes parts of §4, §6 and §8** for nomadic/mobile operation, where forced worker loss (lid, network, VS Code crash) is normal. Read §1–§3, §5, §7 as written; take §4, §6 and §8 together with R1.
+
 ## Hypothesis being designed against
 
 > An ephemeral worker may **intentionally** terminate only after every durable result it produced either **(A)** already has an authoritative durable reference, or **(B)** has been successfully persisted into its authoritative home.
@@ -137,7 +139,7 @@ So **Ship/Persist/Handover don't disappear — they split.** Their compute (orch
 1. **A continuous durability floor, not just an end-of-lap harvest:** periodic **autosave-commit-push** (§4) during the lap bounds *code* loss to the last checkpoint regardless of how the worker dies. This is the single most valuable addition the crash case requires.
 2. **The transcript as a crash-recovery log (not as state):** Claude Code persists every transcript on disk — and Relay already mines it (`reflect-sessions.py`/`reflect-commands.py`). So after a crash the runtime can run a **best-effort recovery harvest** from the dead worker's transcript + git, recovering the references, committed code, and (by mining) discoveries/decisions. This reframes the transcript precisely: it is *not* authoritative state, but it *is* a durable write-ahead log for the harvest — which is exactly why it must never be the authority, only a recovery source. The irreducible residue that recovery cannot get back is un-committed code beyond the last autosave and un-verbalised intent — which mitigation 1 minimises.
 
-**Determination:** the crash case requires *one* additional durability mechanism beyond the invariant — periodic autosave-commit-push — plus treating the already-durable transcript as a recovery log. No further durability is required.
+**Determination:** the crash case requires *one* additional durability mechanism beyond the invariant — periodic autosave-commit-push — plus treating the already-durable transcript as a recovery log. No further durability is required. **(Revised by R1.4–R1.6:** in nomadic use the crash case is *normal*, autosave splits into local-commit vs opportunistic-push, and the transcript is demoted to a best-effort tier-(c) source behind a durable-state recovery path that never touches session residue.)**
 
 ---
 
@@ -177,3 +179,91 @@ This demonstrates the whole loop — *ephemeral worker → structured harvest re
 - Removing writes from Ship/Persist — only Handover's board+handover write moves to the runtime step in this slice.
 
 **Why this seam first:** it is the one place where a durable artefact is *already* handed across worker death, its consumer (Continue) is well-understood, and its payload (§1's resume-delta) is the smallest. Adapting it proves single-writer runtime persistence and structured hand-off with the least risk and no lifecycle refactor — a real proof, not a framework.
+
+---
+
+# Revision R1 — nomadic operation (forced loss is normal)
+
+_This revision supersedes parts of §4, §6 and §8. The base design above optimised **intentional** end-of-lap harvest; in real use Relay runs nomadically — lids close, trains drop connectivity, VS Code force-quits with ~10 workers live, terminals get closed by accident, and provider `/resume` does not reliably recover the right session. Forced worker death is **normal operation**, not an edge case. That changes the design in one structural way: worker-continuity must stand entirely on durable state, never on provider session residue._
+
+## R1.1 — Three concerns the base design conflated into "harvest"
+
+| Concern | What it restores | Trigger | Reliability |
+|---|---|---|---|
+| **Reconnect** | the *same* provider session (context intact) | terminal closed, session still alive | **best-effort only** — `/resume` is unreliable; never depended on |
+| **Recover / replace** | a *fresh* worker seeded from durable state (no transcript) | session gone (crash/force-quit) | **the designed normal path** |
+| **Semantic harvest** | knowledge externalised (references + delta + lessons) | clean stage boundary | independent of the above |
+
+Worker-continuity (reconnect / replace) is **not** knowledge-continuity (harvest). The base design only had the third. Nomadic operation requires the first two — and makes *replace* the reliable primary, with *reconnect* a bonus.
+
+## R1.2 — Provider session id is not the identity of work
+
+Durable identity is the **work item** (slug), bound to its branch and topic-keyed worktree. The provider session id is a **volatile reconnect hint** — possibly stale, possibly absent — and must never be the key anything durable is stored under. Grounding: worktrees are deterministically topic-keyed (`.claude/worktrees/<topic>`, branch `<topic>`, discoverable via `git worktree list` with no session id), and the board's **Open threads** table is already the durable index of in-flight work `[impl]`. So work is fully addressable without any session id.
+
+## R1.3 — The Active Work representation
+
+The smallest durable record per active item, split by volatility:
+
+| Field | Layer | Notes |
+|---|---|---|
+| `work_item` (slug) | **durable** — board row | the identity |
+| `branch` | **durable** — git + handover frontmatter | where code lives |
+| `stage` | **durable** — board status / last checkpoint | where in the lifecycle |
+| `checkpoint_ref` (last autosave SHA + last harvest/resume-delta) | **durable** — git | **where to resume from, transcript-free** |
+| `worktree_path` | **local** | machine-specific but *derivable* from topic |
+| `provider_session_id` | **local, hint** | reconnect only; may be null/stale |
+| `liveness` (heartbeat, connectivity) | **local, volatile** | is a worker attached and alive now |
+
+The durable half is **mostly already present** — the board's ⚙ rows carry `work_item` + Owner + Latest-handover (→ branch), git carries the branch and commits. Genuinely new: a per-item **`checkpoint_ref`** so replace-from-state needs no transcript, and a thin **local overlay** (session hint + liveness) that is *rebuilt on restart, never trusted across it*. So the **Active Work Registry is largely a view over board + git + checkpoints**, plus a small local file — not a new database.
+
+## R1.4 — Recovery tiers (revises §6's transcript-as-recovery-log)
+
+The normal recovery path must **not** require locating or interpreting provider-internal session residue. What recovery is possible with:
+
+- **(a) provider session still available** → **reconnect** via the session hint. Cheapest, full context — but unreliable, so treated as an *optimisation*, never a requirement.
+- **(b) only worktree/git available** → **replace**: start a fresh worker from `worktree + branch + checkpoint_ref` (last autosave commit + last resume-delta). Fully durable, **transcript-free and network-free**. This is the **designed normal path**, and the design guarantees it always suffices by always keeping a recent checkpoint (R1.5).
+- **(c) provider session lost *and* no recent checkpoint** → **re-derive**: the replacement worker rebuilds context from durable state (brief + code + board) — slower but correct. Automatic transcript mining (runtime resolves the transcript from the local hint and mines it) is permitted here as *best-effort*, but is never required and never manual.
+
+The transcript is thereby **demoted**: a convenience source the runtime *may* use automatically in tier (c), never something Erik locates, never the authority, never on the normal path. Tier (b) is the reliable floor.
+
+## R1.5 — Continuous checkpoints, not only end-of-lap harvest
+
+For tier (b) to always suffice, a recent durable checkpoint must *always* exist. So harvest is no longer only the end-of-lap act: there is a **lightweight checkpoint stream** written at **stage transitions** (and optionally periodically) — each recording `{stage, autosave commit SHA, minimal resume-delta}`. The end-of-lap harvest is simply the richest checkpoint. Forced death then loses at most the work since the last checkpoint, never a whole lap.
+
+## R1.6 — Autosave: local vs remote durability (revises §4)
+
+Split the guarantee, because requiring the network on every checkpoint would make train/offline operation brittle:
+
+- **Local durability** (against process / session / VS Code loss — the **frequent** cases): a **local git commit**. No network. Always available. A replacement worker on the same machine resumes purely from local git. **This is the primary nomadic guarantee.**
+- **Remote durability** (against machine loss/theft — **rare**): a **push**. Network-dependent, done **opportunistically** when connectivity returns, **never blocking a checkpoint**.
+
+So: **commit locally on every checkpoint (offline-safe); push when online.** `checkpoint_ref` is the local SHA; a separate `replicated` flag tracks remote state. Offline on a train you still have full protection against the common failures; only machine-loss protection waits for connectivity. §4's "commit + push" becomes "commit always, push opportunistically."
+
+## R1.7 — Acceptance scenario
+
+> 10 work items active · VS Code force-quit · Relay/VS Code restarted.
+
+Relay must, with **no** `/resume`, no session-id hunting, no transcript inspection:
+
+1. **Enumerate active work from durable state** — the board's ⚙ Open-threads rows + their branches + `checkpoint_ref`s → all 10 items. No VS Code, no session needed.
+2. **Per item, locate the topic worktree** deterministically (`git worktree list` → `/<topic>`) and read its last checkpoint.
+3. **Reconnect if a live session hint resolves** (best-effort) — **else start a replacement Continue worker seeded from the checkpoint** (worktree + branch + resume-delta).
+4. Erik does nothing.
+
+The reliable path is step 3-*replace*; reconnect is a bonus that never gates recovery.
+
+## R1.8 — Revised first slice (revises §8)
+
+Handover→Continue **stays**, but is **not sufficient alone**: it proves knowledge-continuity, not rediscovery. The acceptance scenario needs a **minimal Active Work Registry + a rediscover-and-replace operation**. So slice 1 is two pieces, minimal *together*:
+
+1. **Harvest + resume on Handover→Continue** (as in §8): structured result → runtime persist → fresh Continue resumes from durable state.
+2. **Minimal Active Work Registry + `rediscover`:** maintain the small per-item record (mostly a **view** over board + git, plus `checkpoint_ref` from piece 1 and a thin local session-hint/liveness file); a `rediscover` operation that lists active work from durable state and, per item, **starts a replacement Continue worker**. **Reconnect is deferred** — the reliable path is replace-from-state, for which piece 1 already produces the durable checkpoint.
+
+These are minimal together because piece 2 reuses the **board as the active-work list**, the **topic-keyed worktree** as the deterministic locator, and the **harvest checkpoint** as the resume point — the only genuinely new artefacts are the thin local overlay and the `rediscover` read. This makes the slice satisfy the acceptance scenario (rediscover 10 items and replace their workers) rather than only proving the resume of a single known thread.
+
+**Added to "NOT in the first slice":**
+- **Reconnect** to a live provider session (optimisation; replace-from-state is the reliable path).
+- **Automatic transcript mining** for tier-(c) recovery (best-effort, later).
+- **Remote-push / replication guarantees** beyond opportunistic best-effort push.
+- **Sub-stage / periodic checkpointing** finer than a checkpoint at stage transitions (start at transition boundaries; add granularity only if forced-loss evidence demands it).
+- A generic liveness/heartbeat service — slice 1's liveness may be as crude as "is a process holding the worktree lock?"; a real heartbeat comes with the supervisor, later.
