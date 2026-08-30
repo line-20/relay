@@ -69,6 +69,14 @@ The bootstrap, worktree, and Codex ingestion were validated headless; only the m
 
 **Bootstrap invariant (now enforced):** every reference the bootstrap presents either resolves to durable readable state or is explicitly absent-with-fallback; `assert_no_dangling` refuses to emit anything else. So the payload handed to Codex has no silent dangling references.
 
-## Environment note
+## Live run result (2026-08-30) — PASS
 
-`codex exec` was exercised end-to-end in this session up to the model call; it accepted the prompt and the read-only sandbox against the real worktree, but returned `401 Unauthorized` because Codex is not logged in here (gap **D**). Run `codex login` first, then the model step completes the proof.
+With Codex logged in (`codex login`, ChatGPT auth), the full experiment ran: a fresh Codex worker was handed **only** the current provider-neutral bootstrap for `pricing/document-model` and read-only access to the real worktree — no Claude transcript, session id, or `/resume`. It correctly:
+
+- **Named the task and the next step:** "document overage billing — permit usage beyond the monthly allowance and charge €0.15 per extra document … the immediate next step is the commercial decision: keep Free hard-capped vs allow overage for every capped tier." Exactly the work item's real next slice.
+- **Read the project instructions** (`CLAUDE.md` from `project_instructions`) and **found the real code from the resume_delta alone** — `documents-allowance.ts` (the hard gate named via `enforceDocumentsAllowance`), the meter under `packages/core/src/platform/metering/` + migration `0148`, the billing groundwork in `platform_billing_account` / `invoicing/`. It even noted git was clean at checkpoint `481887b3` and the branch's remote was gone.
+- **Correctly surfaced the genuine unknowns** from the bootstrap's `open_questions` (the Free-vs-paid commercial decision) and real missing work (no billing engine landed yet).
+
+So the cross-provider handoff works: durable state (bootstrap + repo) was sufficient for a non-Claude worker to resume, with no transcript archaeology.
+
+**One gap found — class B (bootstrap/instruction).** Codex reported it "could not obtain the referenced board-row Detail": the brief-absent `brief_fallback` names "the board row Detail" as a fallback source but the bootstrap gives **no path to the board**, so Codex guessed `docs/` and missed `relay/board.md`. The resume_delta was self-sufficient enough that it didn't block the pickup, but the smallest next improvement is to have the bootstrap resolve a `board_ref` (`<root>/board.md`) — and, for a brief-less item, point at (or carry) that item's board Detail. Not implemented here — recorded for the next step.
