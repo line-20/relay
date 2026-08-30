@@ -58,14 +58,16 @@ HANDOFF: $BOOT"
 
 - **A** genuinely missing durable work state · **B** provider bootstrap/instruction issue · **C** project knowledge/conventions issue · **D** environment/tooling issue · **E** Relay lifecycle assumption.
 
-## Static findings before the model call (from this session)
+## Portability gaps — found, then fixed (before the live run)
 
-The bootstrap, worktree, and Codex ingestion were all validated headless; only the model call was blocked (auth). Two gaps are already visible without the live run:
+The bootstrap, worktree, and Codex ingestion were validated headless; only the model call was blocked (auth). Two portability gaps were found and **fixed at the bootstrap layer** (no checkpoint-schema change) so the live run starts clean:
 
-1. **`brief_path` is a dangling reference — gap C (with an A flavour).** `relay/briefs/pricing-model-brief.md` is **gitignored local scratch**; it is not tracked and not in the worktree, so no fresh worker (Codex *or* Claude) can read it from the tree. The bootstrap references a "durable" artefact that isn't durable. Mitigation already in place: the `resume_delta` is self-contained (names the overage slice, the `enforceDocumentsAllowance` symbol, the scope edges), and that symbol *is* greppable — so orientation is feasible without the brief; the brief's richer context (alternatives, threat model) is simply unavailable.
-2. **Project conventions live in `CLAUDE.md` — gap C.** It is present and readable in the worktree (281 lines, tracked), but Codex won't auto-load it (Codex's convention is `AGENTS.md`, which is absent) and the bootstrap doesn't point at it. So Codex would miss the project's conventions unless told where they are.
+1. **Dangling brief — RESOLVED.** Correction from investigation: briefs **are** durable — tracked on `main` in real projects (the `relay/briefs/` gitignore is *plugin-repo* dogfooding scratch only), and `explore` commits them. The earlier "dangling brief" was a **fabricated filename** in the test harvest result, and some items (`pricing/document-model`) legitimately have **no** brief — their plan lives in the board Detail. Fix: the bootstrap now **resolves** the brief against durable state (worktree → repo → `origin/main`) and either presents a resolvable `brief_path` (with `brief_source`) or marks `brief_status: "absent"` with `brief_fallback: "resume_delta + the board row Detail"` — **never a dangling path**. Real check: `finance/money-evidence` → brief resolved from the worktree; `pricing/document-model` → brief absent + fallback.
+2. **Project conventions not pointed at — RESOLVED.** The bootstrap now carries a provider-neutral `project_instructions` list of project-local instruction/guardrail files that **actually resolve** (e.g. `CLAUDE.md`). It never creates `AGENTS.md`, never duplicates or renames anything — it just points at what the project already has. Real check: `project_instructions: ["CLAUDE.md"]`.
 
-**CLAUDE.md determination (as asked — not solved here):** because `CLAUDE.md` is a normal readable file, simply *pointing the bootstrap at the existing project-instructions file* (whatever its name) is very likely sufficient for Codex — a whole new provider-neutral project-instructions *concept* is **not** yet warranted. The near-term gap is only that the bootstrap currently points at nothing for conventions. (Left unsolved by design.)
+**CLAUDE.md determination (as asked):** since `CLAUDE.md` is a normal readable file, *pointing the bootstrap at the existing project-instructions file* is sufficient — no new provider-neutral project-instructions *concept* was warranted, and none was built beyond the `project_instructions` pointer list. Codex reads whatever files that list names.
+
+**Bootstrap invariant (now enforced):** every reference the bootstrap presents either resolves to durable readable state or is explicitly absent-with-fallback; `assert_no_dangling` refuses to emit anything else. So the payload handed to Codex has no silent dangling references.
 
 ## Environment note
 
