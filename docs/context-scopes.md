@@ -89,6 +89,17 @@ Concretely, this is why the provider-neutral **worker bootstrap currently resolv
 
 A future optional Organisation Context *could* augment this, but **must not** be introduced as part of the current harvest work.
 
+## Validated in practice: continuity is a property of durable state
+
+The claim underneath this whole model — that a worker is a *replaceable executor* and continuity lives in Relay's durable state, not in any provider's session — is not just asserted; it has been demonstrated end to end.
+
+A single real unit of work (`pricing/document-model`) was carried across **three different worker instances of two providers** — **Claude → Codex → a fresh Claude** — where each worker received *only* the provider-neutral bootstrap (resolved Project + Work Item references) plus read/write access to the repository. At every hop there was **no shared transcript, no provider session, no `/resume`, and no manually copied reasoning.**
+
+- The **Codex** worker, from Claude's durable state alone, correctly reconstructed the objective and current code, then produced a genuinely project-aware continuation (a commercial-boundary decision record) — even independently rediscovering the project's own "read the resolved projection, not a tier id" convention.
+- The **fresh Claude** worker, from the harvest of Codex's work alone, correctly reconstructed the objective, what existed before Codex, what Codex changed, the current state, the remaining work, and the correct next action — judging, rightly, that the next step was a human policy decision, not code.
+
+So the loop closed both ways: a foreign provider can **consume** Relay's durable state *and* **produce** provider-neutral durable state a different provider resumes from. The one limitation observed was environmental — a locked-down worker sandbox could not run the harvest CLI to emit its own result, so the runtime did the mechanical emit; that is a sandbox-access concern, **not** a contract or per-provider-adapter one. This is the evidence base for the first principle below. The full experiment log (E1, E2) lives in `harvest-design.md` R1.11.
+
 ## Architectural principles to record
 
 - **Workers are ephemeral. Work is durable.**

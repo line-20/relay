@@ -285,6 +285,45 @@ class HarvestSliceTest(unittest.TestCase):
         self.assertIn("ghost-branch", bs["worktree_fallback"])
         self.assertEqual(rh.validate_bootstrap(self.repo, bs), [])
 
+    def test_board_ref_resolves_and_no_dangling(self):
+        self._emit_and_apply_all()
+        bs = rh.worker_bootstrap(self.repo, self.relay, "masterdata/import")
+        self.assertEqual(bs["board_ref"], "relay/board.md")
+        self.assertIsNotNone(rh._resolve_ref(self.repo, bs["worktree_path"], bs["board_ref"])[0])
+        rh.assert_no_dangling(self.repo, bs)
+
+    def test_board_ref_is_brief_fallback_when_brief_absent(self):
+        slug, (branch, path) = "masterdata/import", self.wt["masterdata/import"]
+        head = git(["rev-parse", "HEAD"], path)
+        r = make_result(slug, branch, "lap-bf", head); r["references"]["brief"] = "relay/briefs/nope.md"
+        rh.emit_result(self.relay, r); rh.apply_pending(self.relay, slug=slug)
+        bs = rh.worker_bootstrap(self.repo, self.relay, slug)
+        self.assertEqual(bs["brief_status"], "absent")
+        self.assertEqual(bs["board_ref"], "relay/board.md")       # brief-less item gets a board pointer
+        self.assertIn("relay/board.md", bs["brief_fallback"])     # fallback names WHERE to look
+        self.assertIn(slug, bs["brief_fallback"])                 # and WHICH row
+        rh.assert_no_dangling(self.repo, bs)
+
+    def test_validate_bootstrap_flags_bad_board_ref(self):
+        self._emit_and_apply_all()
+        bs = rh.worker_bootstrap(self.repo, self.relay, "masterdata/import")
+        bad = dict(bs); bad["board_ref"] = "relay/does-not-exist-board.md"
+        self.assertIn("board_ref presented but does not resolve", rh.validate_bootstrap(self.repo, bad))
+
+    def test_board_ref_absent_when_no_board(self):
+        repo = os.path.join(self.parent, "nb"); os.makedirs(repo)
+        git(["init", "-q", "-b", "main"], repo); git(["config", "user.email", "t@t"], repo); git(["config", "user.name", "t"], repo)
+        relay = os.path.join(repo, "relay"); os.makedirs(relay)
+        open(os.path.join(repo, "f.txt"), "w").write("x"); git(["add", "-A"], repo); git(["commit", "-qm", "init"], repo)
+        wtp = os.path.join(self.parent, "nbwt"); git(["worktree", "add", "-q", wtp, "-b", "nb-branch"], repo)
+        head = git(["rev-parse", "HEAD"], wtp)
+        rh.emit_result(relay, make_result("x/y", "nb-branch", "lap-nb2", head))
+        rh.apply_pending(relay, slug="x/y")
+        bs = rh.worker_bootstrap(repo, relay, "x/y")
+        self.assertIsNone(bs["board_ref"])                        # no board -> absent, not dangling
+        self.assertEqual(bs["brief_fallback"], "resume_delta")
+        rh.assert_no_dangling(repo, bs)
+
     def test_branch_for_fallback_tiers(self):
         hv = os.path.join(self.relay, "handover"); os.makedirs(hv, exist_ok=True)
         with open(os.path.join(hv, "next-t2.md"), "w") as fh:
