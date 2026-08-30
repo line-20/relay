@@ -195,6 +195,9 @@ search can be token-heavy. These are the next places to sharpen, not solved prob
 - **[docs/quickstart.md](docs/quickstart.md)** — install to first loop, in ten minutes.
 - **[docs/the-board-model.md](docs/the-board-model.md)** — the board, threads, tracks, and
   why "newest handover wins" is a trap. The core mental model.
+- **[docs/context-scopes.md](docs/context-scopes.md)** — Relay's context boundary: the
+  required Project ⇅ Work Item scopes, the optional (externally-owned) Organisation scope,
+  and the principles that keep Relay's core uncoupled. The architectural boundary.
 - **[docs/a-day-in-the-loop.md](docs/a-day-in-the-loop.md)** — one item walked end to end,
   from `/next` to merged-and-handed-over, annotated.
 - **[docs/authoring-skills.md](docs/authoring-skills.md)** — add your own commands and agents.
