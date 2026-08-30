@@ -7,6 +7,41 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.20.0 — seeing the seams, surviving the loss
+
+Two additions, both about what happens *between* sessions rather than inside one.
+
+First, Relay can now **see its own movements**. `/reflect` already pooled the durable trail; this adds
+per-session and per-command telemetry mined from the transcripts Claude Code already keeps on disk —
+which model ran a lap, what it cost, which commands it issued, which files and review specialists it
+touched — read out of band, so there's zero impact on a live session (no hook in the hot path). A lap
+that ran `/rlc → /rlt → /rls` in one session is now three attributable command spans, not one blur.
+
+Second, an **experimental worker-harvest / durable-recovery runtime**. A worker emits a small
+provider-neutral result when it stops; a thin runtime persists it idempotently; a fresh worker then
+rediscovers active work from the board + git + a durable checkpoint and resumes — with no Claude
+`/resume` and no transcript archaeology. Built and validated against real work (and a read-only
+cross-provider dry run with Codex CLI), but deliberately **not yet wired into the lifecycle** — the
+one user-visible touch is an additive `/continue` step.
+
+**Added**
+- **Session + per-command telemetry** feeding `/reflect` (`scripts/reflect-sessions.sh`,
+  `scripts/reflect-commands.py`): `~/.relay/sessions.jsonl` and `~/.relay/commands.jsonl`, backfilled
+  from on-disk transcripts, provider-neutral, central (outside every repo).
+- **Worker-harvest runtime** (`scripts/relay_harvest.py`): emit → apply (idempotent, write-ahead +
+  completion marker) → discover → resume/bootstrap → local checkpoint. Durable state carries no
+  provider fields; bootstrap references resolve to durable state or are explicitly absent-with-fallback
+  (no silent dangling references).
+- **Design & architecture docs**: empirical stage signatures, the smallest-lossless harvest result and
+  its first-slice design, and the **context-scope boundary** — Relay's required Project ⇅ Work Item
+  scopes and the optional, externally-owned Organisation scope (EKR parked).
+- A **`python-tests` CI job** running the new telemetry + harvest test suites on every push/PR.
+
+**Changed**
+- **`/continue`** gains an additive step: when a durable checkpoint exists for the thread, it is the
+  authoritative resume state and the Markdown handover is treated as a projection of it. No existing
+  behaviour changes when there's no checkpoint.
+
 ## 1.19.0 — the quiet pickup
 
 `/continue` opened with a stream of throat-clearing — "the handover doesn't exist… it's on
