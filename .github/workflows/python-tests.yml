@@ -1,0 +1,25 @@
+name: python-tests
+
+# Run the maintainer-tooling test suites (telemetry segmentation + worker-harvest
+# recovery). These build their own temp git repos, so they need only python3 + git.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Configure git identity (worktree fixtures need one)
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+      - name: reflect-commands segmentation tests
+        run: python3 scripts/tests/test_reflect_commands.py
+      - name: relay_harvest recovery tests
+        run: python3 scripts/tests/test_relay_harvest.py

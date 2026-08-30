@@ -4,8 +4,8 @@
 #
 # The maintainer half of /reflect (phase 1). Relay is improved today from memory — someone
 # recalls a friction. This gathers the evidence instead: every repo's durable Relay trail
-# (board, decisions, handovers, reviews, audits, movements log, CHANGELOG) plus its git
-# history, concatenated into a single pooled markdown file a session can then analyse.
+# (board, decisions, handovers, reviews, audits, movements log, session telemetry, CHANGELOG)
+# plus its git history, concatenated into a single pooled markdown file a session can analyse.
 #
 # It reads OTHER repos on your disk. The output is LOCAL maintainer data — gitignored, never
 # committed (it contains your cross-project work).
@@ -27,6 +27,19 @@ repos=("$@")
 
 # Phase-2 movement log — central, outside all repos (see reflect-log.sh).
 central="${RELAY_MOVEMENTS:-$HOME/.relay/movements.jsonl}"
+
+# Session telemetry — central, outside all repos (see reflect-sessions.sh). Refresh it from the
+# on-disk transcripts before pooling so the report carries this lap's model/cost/duration.
+sessions="${RELAY_SESSIONS:-$HOME/.relay/sessions.jsonl}"
+if [ -x "scripts/reflect-sessions.sh" ]; then
+  ./scripts/reflect-sessions.sh >/dev/null 2>&1 || true
+fi
+
+# Per-command (per-stage) telemetry — the segmented companion (see reflect-commands.py).
+commands="${RELAY_COMMANDS:-$HOME/.relay/commands.jsonl}"
+if [ -x "scripts/reflect-commands.py" ]; then
+  ./scripts/reflect-commands.py >/dev/null 2>&1 || true
+fi
 
 if [ ${#repos[@]} -eq 0 ]; then
   if [ ! -f reflect.repos ]; then
@@ -82,6 +95,18 @@ for repo in "${repos[@]}"; do
     moves="$(jq -c --arg r "$repo" 'select(.cwd | startswith($r))' "$central" 2>/dev/null || true)"
     if [ -n "$moves" ]; then
       { echo; echo "#### Movements (central log, this repo) — \`$name\`"; echo '```'; printf '%s\n' "$moves"; echo '```'; } >> "$out"
+    fi
+  fi
+  if [ -f "$sessions" ]; then
+    sess="$(jq -c --arg r "$repo" 'select((.cwd // "") | startswith($r))' "$sessions" 2>/dev/null || true)"
+    if [ -n "$sess" ]; then
+      { echo; echo "#### Session telemetry (central, this repo) — \`$name\`"; echo '```'; printf '%s\n' "$sess"; echo '```'; } >> "$out"
+    fi
+  fi
+  if [ -f "$commands" ]; then
+    cmds="$(jq -c --arg r "$repo" 'select((.cwd // "") | startswith($r))' "$commands" 2>/dev/null || true)"
+    if [ -n "$cmds" ]; then
+      { echo; echo "#### Command/stage telemetry (central, this repo) — \`$name\`"; echo '```'; printf '%s\n' "$cmds"; echo '```'; } >> "$out"
     fi
   fi
   emit_file  "Changelog"        "$repo/CHANGELOG.md"
