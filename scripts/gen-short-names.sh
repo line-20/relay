@@ -31,7 +31,7 @@ pairs=(
   "rln|next|Short name for /relay:next — a ranked shortlist from the board, then start the pick in a worktree."
   "rlc|continue|Short name for /relay:continue — resume an in-flight thread from its handover."
   "rlt|test|Short name for /relay:test — the verify step between build and ship: a PR and a structured test plan."
-  "rls|ship|Short name for /relay:ship — the end-of-session loop: test → PR → review → fix → merge → handover."
+  "rls|ship|Short name for /relay:ship — the end-of-session loop: sync → test → PR → review → fix → merge → handover."
   "rlrv|review|Short name for /relay:review — domain specialists review a PR or the current branch, merged into one report."
   "rlf|fix|Short name for /relay:fix — re-verify the latest review's findings against the code, fix them, tick them off."
   "rlh|handover|Short name for /relay:handover — write the cold-start handover for the next phase and commit it to main."

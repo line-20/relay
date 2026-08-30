@@ -7,6 +7,33 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.21.0 — meet the base before the review
+
+One addition to `/relay:ship`, and it comes straight out of the trail.
+
+The merge gate already re-checks the base at the *end* of a lap — but the telemetry showed that lands
+too late and costs too much. On these repos `main` moves on most laps (median ~47 min between merges;
+26 on a busy day), and a single lap was seen absorbing *"22, then 10, then 4 commits"* of drift while
+it ran. Discovering that only at the merge gate means the expensive review fan-out reviewed a **stale**
+diff, the merge then shipped code **no reviewer saw**, and you paid a full-suite re-verify at the
+finish line.
+
+So the base-currency check is now a **bracket**, not just an end-gate. New **Phase 0.5** syncs the
+branch from its base *before* the test-and-review middle — but only when the base actually moved, and
+(where a `hooks.affects` predicate exists) only when what landed can reach this PR. It **merges, never
+rebases**: by ship time a PR usually carries pushed commits, review threads and test-drive evidence
+anchored to them, and a rebase would force-push and orphan all of it. A conflict stops the loop *here*,
+before the review spend, rather than at the merge gate after it. The end-gate stays — `main` keeps
+moving *during* a lap — but its usual job now collapses to the cheap disjoint no-op.
+
+**Added**
+- **`/relay:ship` Phase 0.5 — Sync from base if it moved.** Fires only when
+  `git rev-list --count HEAD..origin/<base>` ≠ 0; reuses the Phase 5 `hooks.affects` predicate to skip
+  on `disjoint`; merges (or `gh pr update-branch`), never rebases; conflict ⇒ STOP. New `no-sync`
+  argument skips it. With no `hooks.affects` configured it syncs whenever the base moved — the
+  deliberate opposite of Phase 5's conservative default, because here there is no *extra* CI run to
+  guard, only which tree the one run tests.
+
 ## 1.20.0 — seeing the seams, surviving the loss
 
 Two additions, both about what happens *between* sessions rather than inside one.
