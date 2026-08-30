@@ -475,6 +475,24 @@ def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
     wt_ok = bool(wt) and os.path.isdir(wt)
     instr = _project_instructions(repo_root, wt, relay_root)
 
+    # Resolved durable reference to the project board (the coordination home).
+    # Never duplicates the board Detail — it points a worker at where the item's
+    # authoritative row lives, keyed by the work_item slug. Derived in the view.
+    rel_root = os.path.relpath(relay_root, repo_root) if repo_root else "relay"
+    board_rel = f"{rel_root}/board.md"
+    board_abs, board_src = _resolve_ref(repo_root, wt, board_rel)
+    board_ref = board_rel if board_abs else None
+    slug = ctx["work_item"]
+
+    # A brief-less item's fallback must deterministically locate its board Detail.
+    if brief_ok:
+        brief_fallback = None
+    elif board_ref:
+        brief_fallback = (f"resume_delta + the `{slug}` row Detail in {board_ref} "
+                          f"(the row whose Item cell is `{slug}`)")
+    else:
+        brief_fallback = "resume_delta"
+
     steps = []
     if wt_ok:
         steps.append(f"Change into the worktree at worktree_path ({wt}); "
@@ -487,16 +505,18 @@ def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
     if brief_ok:
         steps.append(f"Read the brief ({brief_src}): {ctx.get('brief')}"
                      + (f" — via `git show {brief_abs}`" if brief_src == "origin/main" else ""))
+    elif board_ref:
+        steps.append(f"No brief file for this item — its plan is the resume_delta below plus its "
+                     f"board Detail: open {board_ref} and read the row whose Item cell is `{slug}`.")
     else:
-        steps.append("No brief file for this item — its plan is the resume_delta "
-                     "below plus the item's board row Detail; use those.")
+        steps.append("No brief file and no resolvable board — its plan is the resume_delta below.")
     steps.append("Inspect the repository directly (git log/status/diff and the code) — "
                  "you have everything; do NOT look for a previous worker's transcript.")
     steps.append(f"Continue from resume_delta (stage '{rd.get('stage')}'): {rd.get('next_slice')}.")
 
     return {
         "bootstrap_version": 1,
-        "work_item": ctx["work_item"],
+        "work_item": slug,
         "repo_root": repo_root,
         "worktree_path": wt if wt_ok else None,
         "worktree_status": "resolved" if wt_ok else "absent",
@@ -506,7 +526,9 @@ def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
         "brief_path": ctx.get("brief") if brief_ok else None,   # never a dangling path
         "brief_status": "resolved" if brief_ok else "absent",
         "brief_source": brief_src,                              # worktree | repo | origin/main | None
-        "brief_fallback": None if brief_ok else "resume_delta + the board row Detail",
+        "brief_fallback": brief_fallback,
+        "board_ref": board_ref,                                 # resolved <root>/board.md, or None
+        "board_source": board_src,
         "project_instructions": instr,                          # resolved files to read first
         "stage": rd.get("stage"),
         "resume_delta": rd,
@@ -539,6 +561,8 @@ def validate_bootstrap(repo_root, bs):
     for name in bs.get("project_instructions", []):
         if not _resolve_ref(repo_root, wt, name)[0]:
             v.append(f"project instruction {name!r} does not resolve")
+    if bs.get("board_ref") and not _resolve_ref(repo_root, wt, bs["board_ref"])[0]:
+        v.append("board_ref presented but does not resolve")
     if not bs.get("branch"):
         v.append("no branch reference")
     return v
