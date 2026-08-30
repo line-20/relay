@@ -238,6 +238,32 @@ class HarvestSliceTest(unittest.TestCase):
         self.assertFalse(bs["requires_transcript"])
         self.assertFalse(bs["requires_session_id"])
 
+    def test_board_parser_is_cell_aware(self):
+        board = os.path.join(self.parent, "b.md")
+        with open(board, "w") as fh:
+            fh.write(
+                "# Board\n\n## Open threads\n\n"
+                "| Item | Status | Owner | Latest handover | Detail |\n"
+                "|------|--------|-------|-----------------|--------|\n"
+                # (a) glyph ⚙ ONLY in Detail prose -> must NOT be active
+                "| `a/done` | ✅ done | — | handover/next-a.md | still ⚙ churning per the notes |\n"
+                # (b) handover-like path in Detail prose; col-4 is the real one
+                "| `b/active` | ⚙ in-progress | w | handover/next-real.md | see old `handover/next-OLD.md` |\n"
+                # (c) completed item with misleading in-progress-sounding text
+                "| `c/done` | ✅ | — | — | in-progress-sounding work that is actually finished |\n"
+                # (d) active with a valid handover reference (backticked)
+                "| `d/active` | 🔍 in-review | — | `handover/next-d.md` | review pending |\n"
+                # (e) malformed/partial row (too few cells) -> skipped safely
+                "| junk | ⚙ |\n"
+                "not a table row with a ⚙ glyph and handover/next-x.md in it\n"
+            )
+        rows = dict(rh._parse_board_active(board))
+        self.assertNotIn("a/done", rows)                 # (a) glyph in Detail ignored
+        self.assertNotIn("c/done", rows)                 # (c) misleading prose ignored
+        self.assertEqual(set(rows), {"b/active", "d/active"})
+        self.assertEqual(rows["b/active"], "handover/next-real.md")  # (b) col-4, not prose
+        self.assertEqual(rows["d/active"], "handover/next-d.md")     # (d) valid ref
+
     def test_local_checkpoint_commit_no_network(self):
         slug, (branch, path) = "masterdata/import", self.wt["masterdata/import"]
         with open(os.path.join(path, "wip.txt"), "w") as fh:

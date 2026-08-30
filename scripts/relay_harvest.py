@@ -260,21 +260,47 @@ def _all_item_slugs(relay_root):
 
 # ---------- 1/6. discover active work from durable sources only ----------
 
+def _board_cells(line):
+    """Split a board table row into cells. The board schema is
+    `| Item | Status | Owner | Latest handover | Detail… |`, so columns 1-4 are
+    structured and column 5+ (Detail, which contains free prose incl. pipes,
+    glyphs and handover-like paths) is merged back together — never parsed for
+    structured values. Returns None for a non-row line."""
+    s = line.rstrip("\n")
+    if not s.lstrip().startswith("|"):
+        return None
+    parts = [c.strip() for c in s.strip().strip("|").split("|")]
+    if len(parts) < 4:
+        return None  # partial/malformed row — fail safe (caller skips)
+    item, status, owner, handover = parts[0], parts[1], parts[2], parts[3]
+    return {"item": item, "status": status, "owner": owner, "handover": handover}
+
+
+def _slug_from_item_cell(cell):
+    m = re.search(r"`([^`]+)`", cell)          # prefer the backticked identity
+    tok = (m.group(1) if m else cell).strip()
+    tok = tok.split()[0] if tok else ""
+    return tok if re.match(r"^[\w][\w./-]*$", tok) and tok.lower() != "item" else None
+
+
 def _parse_board_active(board_path):
-    """Active (⚙/🔍) rows as (slug, handover_rel_path|None). The row's own
-    Latest-handover cell is the authoritative pointer — not 'newest file'."""
+    """Active (⚙/🔍) rows as (slug, handover_rel|None) — decided ONLY from the
+    authoritative cells (Item / Status / Latest-handover), never from Detail prose."""
     if not board_path or not os.path.exists(board_path):
         return []
     rows = []
     with open(board_path) as fh:
         for line in fh:
-            if "|" not in line or not any(g in line for g in ACTIVE_GLYPHS):
+            cells = _board_cells(line)
+            if not cells:
                 continue
-            m = re.search(r"`([\w./-]+)`", line)  # first backticked cell = the item slug
-            if not m:
+            slug = _slug_from_item_cell(cells["item"])
+            if not slug:                                    # header/separator/no identity
                 continue
-            hv = re.search(r"(handover/[\w./-]+\.md)", line)  # backticked or not
-            rows.append((m.group(1), hv.group(1) if hv else None))
+            if not any(g in cells["status"] for g in ACTIVE_GLYPHS):  # STATUS cell only
+                continue
+            hv = re.search(r"(handover/[\w./-]+\.md)", cells["handover"])  # 4th cell only
+            rows.append((slug, hv.group(1) if hv else None))
     return rows
 
 
