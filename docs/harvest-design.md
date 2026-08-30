@@ -287,4 +287,17 @@ Relay has two required durable scopes — **Project → Work Item** (an Organisa
 - **Brief authoritative home = `<root>/briefs/<slug>.md`, committed to `main`** (durable; `explore` commits it). The `relay/briefs/` gitignore exists **only in the Relay plugin repo** (maintainer dogfooding scratch) and must not be copied into a managed project. A brief is **optional per item** — some items carry their plan in the board Detail. The bootstrap therefore *resolves* the brief (worktree → repo → `origin/main`) and, when absent, states a fallback (`resume_delta` + board Detail) rather than emitting a path that doesn't resolve.
 - **Project instructions** are exposed provider-neutrally as `project_instructions`: the project-local instruction/guardrail files that actually resolve (today `CLAUDE.md`, plus the relay guardrails doc when present). This is a *pointer list to existing files*, not a new concept, not a provider-specific file, not a duplication — a fresh worker of any provider reads whatever it names.
 
-**Bootstrap invariant (enforced):** every reference presented to a replacement worker either (A) resolves to durable readable state, or (B) is explicitly absent with a defined fallback — no silent dangling references. `validate_bootstrap` / `assert_no_dangling` guard it, over brief, project instructions, worktree, and branch. Organisation-context/EKR handling is explicitly not designed here.
+**Bootstrap invariant (enforced):** every reference presented to a replacement worker either (A) resolves to durable readable state, or (B) is explicitly absent with a defined fallback — no silent dangling references. `validate_bootstrap` / `assert_no_dangling` guard it, over brief, project instructions, board reference, worktree, and branch. Organisation-context/EKR handling is explicitly not designed here.
+
+## R1.11 — Empirical validation log
+
+Not a procedure (that's `docs/harvest-xprovider-codex.md` and `docs/harvest-manual-test.md`) — the recorded evidence.
+
+### E1 · Claude → durable state → fresh Codex (2026-08-30) — validated
+
+- **Experiment:** `Claude → durable Relay state → fresh Codex`.
+- **Constraints:** Codex received the provider-neutral bootstrap + read-only worktree access only — **no transcript, no provider session, no `/resume`, no manually supplied Claude context.**
+- **Observed:** on real item `pricing/document-model`, Codex correctly reconstructed the objective (document-overage billing), the implementation state (found `documents-allowance.ts` / the meter / migration 0148 from the resume-delta symbol, read `CLAUDE.md` via `project_instructions`), the current repo state (clean at checkpoint `481887b3`), and the genuine open questions (the Free-vs-paid commercial decision; the absent billing engine) — rather than inventing them.
+- **Observed gap:** for the brief-less item the bootstrap named "the board row Detail" as fallback but gave no path to the board, so Codex missed `relay/board.md`. **Classification B** (durable state existed; bootstrap omitted how to find it). Fixed by R1's `board_ref` (above).
+- **Conclusion the evidence supports:** *a fresh worker from another provider can reconstruct and continue meaningful work from Relay's durable Project + Work Item state.* Worker continuity can be a property of Relay's durable state rather than of the AI provider's session.
+- **What it does NOT prove:** that a foreign worker can *produce* Relay-compatible durable state for a different provider to consume (the reverse direction — see E2 when run). Nor anything about Organisation-scope context.
