@@ -103,6 +103,8 @@ def validate_result(result: dict):
         raise HarvestError("resume_delta must be an object")
     if not isinstance(result["lap_id"], str) or not result["lap_id"]:
         raise HarvestError("lap_id must be a non-empty opaque string")
+    if _slug_key(result["work_item"]) in (".", ".."):     # would resolve harvest/<slug> to a parent dir
+        raise HarvestError(f"invalid work_item {result['work_item']!r}")
     # provider-neutrality guard: reject obvious provider leakage in durable state
     for banned in ("session_id", "claude_session", "provider"):
         if banned in result:
@@ -140,14 +142,17 @@ def _append_discoveries(board_path, discoveries):
         return 0
     with open(board_path) as fh:
         board = fh.read()
+    def _cell(s):  # keep a discovery to a single, well-formed table cell
+        return re.sub(r"[\r\n|]+", " ", str(s)).strip()
+
     added = 0
     lines = []
     for d in discoveries:
-        did = d.get("id")
+        did = _cell(d.get("id"))
         if not did or f"disc:{did}" in board:  # already on the board
             continue
-        title = d.get("title", "(untitled)")
-        one = d.get("one_line", "")
+        title = _cell(d.get("title", "(untitled)"))
+        one = _cell(d.get("one_line", ""))
         lines.append(f"| 💡 {title} | {one} | discovered | <!-- disc:{did} -->")
         added += 1
     if added:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for reflect-commands.py segmentation. Run: python3 scripts/tests/test_reflect_commands.py"""
 import importlib.util
+import json
 import os
 import unittest
 
@@ -118,6 +119,43 @@ class CommandOfTest(unittest.TestCase):
 
     def test_assistant_turn_is_none(self):
         self.assertIsNone(rc.command_of({"type": "assistant", "message": {"content": []}}))
+
+
+class ScanTranscriptFileTest(unittest.TestCase):
+    def test_scan_real_file_skips_garbage_lines(self):
+        import tempfile, shutil
+        d = tempfile.mkdtemp()
+        try:
+            tp = os.path.join(d, "sess-1.jsonl")
+            rows = [
+                {"type": "user", "timestamp": "2026-08-01T10:00:00Z", "cwd": "/repo", "gitBranch": "b",
+                 "message": {"content": "<command-name>/relay:rls</command-name>"}},
+                "{ this is not valid json",     # line noise — must be tolerated/skipped
+                {"type": "assistant", "timestamp": "2026-08-01T10:01:00Z", "cwd": "/repo",
+                 "message": {"model": "claude-opus-4-8", "usage": {"output_tokens": 50},
+                             "content": [{"type": "tool_use", "name": "Edit", "input": {"file_path": "/repo/a.ts"}}]}},
+            ]
+            with open(tp, "w") as fh:
+                for r in rows:
+                    fh.write((r if isinstance(r, str) else json.dumps(r)) + "\n")
+            spans = rc.scan_transcript(tp)
+            self.assertEqual(len(spans), 1)
+            self.assertEqual(spans[0]["command"], "/relay:rls")
+            self.assertEqual(spans[0]["tokens"]["output"], 50)   # good lines still parsed
+            self.assertEqual(spans[0]["files"], ["a.ts"])
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_non_relay_transcript_yields_nothing(self):
+        import tempfile, shutil
+        d = tempfile.mkdtemp()
+        try:
+            tp = os.path.join(d, "sess-2.jsonl")
+            with open(tp, "w") as fh:
+                fh.write(json.dumps({"type": "user", "message": {"content": "<command-name>/clear</command-name>"}}) + "\n")
+            self.assertEqual(rc.scan_transcript(tp), [])   # pre-filter: no Relay command
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
 
 
 if __name__ == "__main__":

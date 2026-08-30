@@ -229,12 +229,13 @@ class HarvestSliceTest(unittest.TestCase):
         self.assertTrue(bs["brief_path"].endswith("masterdata__import.md"))
         self.assertEqual(bs["objective"], "finish masterdata/import slice 2")
         self.assertTrue(bs["instructions"])
-        blob = json.dumps(bs).lower()
-        for claudeism in ("claude", "/relay:", "session", "transcript"):
-            if claudeism in ("session", "transcript"):  # only the require_* flags may mention these
-                self.assertNotIn(claudeism + "_id_value", blob)  # no actual id
-            else:
-                self.assertNotIn(claudeism, blob)
+        # structural provider-neutrality: no provider value, no identity key —
+        # only the two boolean flag keys may legitimately mention session/transcript
+        self.assertNotIn("claude", json.dumps(bs).lower())
+        self.assertNotIn("/relay:", json.dumps(bs))
+        self.assertEqual(set(bs) & {"session_id", "transcript_path", "claude_session_id"}, set())
+        self.assertEqual([k for k in bs if "session" in k.lower()], ["requires_session_id"])
+        self.assertEqual([k for k in bs if "transcript" in k.lower()], ["requires_transcript"])
         self.assertFalse(bs["requires_transcript"])
         self.assertFalse(bs["requires_session_id"])
 
@@ -283,6 +284,84 @@ class HarvestSliceTest(unittest.TestCase):
         self.assertIsNone(bs["worktree_path"])
         self.assertIn("ghost-branch", bs["worktree_fallback"])
         self.assertEqual(rh.validate_bootstrap(self.repo, bs), [])
+
+    def test_branch_for_fallback_tiers(self):
+        hv = os.path.join(self.relay, "handover"); os.makedirs(hv, exist_ok=True)
+        with open(os.path.join(hv, "next-t2.md"), "w") as fh:
+            fh.write("---\nbranch: tier2-branch (merged; deleted)\nitem: a/b\n---\n")
+        # tier 2: checkpoint branch invalid -> the board row's designated handover frontmatter
+        self.assertEqual(
+            rh._branch_for(self.relay, "a/b", "handover/next-t2.md", {"references": {"branch": "(none"}}),
+            "tier2-branch")
+        # tier 3: no checkpoint, no handover_rel -> newest handover mentioning the slug
+        with open(os.path.join(hv, "next-t3.md"), "w") as fh:
+            fh.write("---\nbranch: tier3-branch\n---\ncontinuing ghost/tier3 here\n")
+        self.assertEqual(rh._branch_for(self.relay, "ghost/tier3", None, None), "tier3-branch")
+
+    def test_resolve_ref_origin_main(self):
+        r = os.path.join(self.parent, "orig"); os.makedirs(r)
+        git(["init", "-q", "-b", "main"], r); git(["config", "user.email", "t@t"], r); git(["config", "user.name", "t"], r)
+        open(os.path.join(r, "base.txt"), "w").write("base"); git(["add", "-A"], r); git(["commit", "-qm", "base"], r)
+        open(os.path.join(r, "only-main.md"), "w").write("durable"); git(["add", "-A"], r); git(["commit", "-qm", "add"], r)
+        git(["update-ref", "refs/remotes/origin/main", "HEAD"], r)   # keep the commit as origin/main
+        git(["reset", "--hard", "HEAD~1"], r)                        # but drop it from the working tree
+        self.assertFalse(os.path.exists(os.path.join(r, "only-main.md")))
+        self.assertEqual(rh._resolve_ref(r, None, "only-main.md"), ("origin/main:only-main.md", "origin/main"))
+        self.assertEqual(rh._resolve_ref(r, None, "nope.md"), (None, None))
+
+    def test_apply_pending_mixed_batch_does_not_abort(self):
+        slug, (branch, path) = "masterdata/import", self.wt["masterdata/import"]
+        head = git(["rev-parse", "HEAD"], path)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))
+        # a valid-JSON but INVALID result, sorting between the two good ones
+        with open(os.path.join(rh._results_dir(self.relay, slug), "lap-2.json"), "w") as fh:
+            json.dump({"harvest_version": 1, "lap_id": "lap-2"}, fh)   # missing required keys
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-3", head))
+        rh.apply_pending(self.relay, slug=slug, board_path=os.path.join(self.relay, "board.md"))
+        applied = json.load(open(rh._applied_path(self.relay, slug)))["applied"]
+        self.assertIn("lap-1", applied)     # before the bad one
+        self.assertIn("lap-3", applied)     # after the bad one — batch did not abort
+        self.assertNotIn("lap-2", applied)  # bad one skipped, not applied
+
+    def test_validate_result_rejection_branches(self):
+        base = lambda: {"harvest_version": 1, "lap_id": "x", "work_item": "a/b",
+                        "disposition": "advanced", "resume_delta": {}}
+        for mutate in (lambda r: r.update(harvest_version=99),
+                       lambda r: r.update(disposition="weird"),
+                       lambda r: r.update(resume_delta="notdict"),
+                       lambda r: r.update(lap_id="")):
+            r = base(); mutate(r)
+            with self.assertRaises(rh.HarvestError):
+                rh.validate_result(r)
+        rh.validate_result(base())                                   # clean passes
+        r = base(); r["disposition"] = "stopped:tests-red"; rh.validate_result(r)   # gate form accepted
+
+    def test_validate_bootstrap_more_violations(self):
+        self._emit_and_apply_all()
+        bs = rh.worker_bootstrap(self.repo, self.relay, "masterdata/import")
+        b1 = dict(bs); b1["worktree_path"] = "/no/such/dir"
+        self.assertTrue(rh.validate_bootstrap(self.repo, b1))        # resolved but missing
+        b2 = dict(bs); b2["project_instructions"] = ["definitely-not-a-file.md"]
+        self.assertTrue(rh.validate_bootstrap(self.repo, b2))        # unresolved instruction
+        b3 = dict(bs); b3.update(worktree_status="absent", worktree_fallback=None, worktree_path=None)
+        self.assertTrue(rh.validate_bootstrap(self.repo, b3))        # absent without fallback
+
+    def test_dotdot_work_item_rejected(self):
+        for bad in ("..", "."):
+            with self.assertRaises(rh.HarvestError):
+                rh.emit_result(self.relay, make_result(bad, "b", "lap-d", "0" * 40))
+
+    def test_discovery_newline_cannot_forge_board_row(self):
+        slug, (branch, path) = "masterdata/import", self.wt["masterdata/import"]
+        head = git(["rev-parse", "HEAD"], path)
+        # a discovery whose title smuggles a whole active board row via a newline
+        evil = [{"id": "e1", "title": "x |\n| `evil/injected` | ⚙ in-progress | — | h.md",
+                 "one_line": "pwn"}]
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-e", head, discoveries=evil))
+        board = os.path.join(self.relay, "board.md")
+        rh.apply_pending(self.relay, slug=slug, board_path=board)
+        active = dict(rh._parse_board_active(board))
+        self.assertNotIn("evil/injected", active)   # newline stripped -> no forged active row
 
     def test_board_parser_is_cell_aware(self):
         board = os.path.join(self.parent, "b.md")
