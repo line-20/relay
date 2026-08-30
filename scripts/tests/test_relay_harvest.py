@@ -238,6 +238,52 @@ class HarvestSliceTest(unittest.TestCase):
         self.assertFalse(bs["requires_transcript"])
         self.assertFalse(bs["requires_session_id"])
 
+    def test_bootstrap_brief_absent_no_dangling(self):
+        slug, (branch, path) = "masterdata/import", self.wt["masterdata/import"]
+        head = git(["rev-parse", "HEAD"], path)
+        r = make_result(slug, branch, "lap-nb", head)
+        r["references"]["brief"] = "relay/briefs/does-not-exist.md"   # dangling in the result
+        rh.emit_result(self.relay, r); rh.apply_pending(self.relay, slug=slug)
+        bs = rh.worker_bootstrap(self.repo, self.relay, slug)
+        self.assertEqual(bs["brief_status"], "absent")
+        self.assertIsNone(bs["brief_path"])            # never a dangling path
+        self.assertTrue(bs["brief_fallback"])
+        self.assertEqual(rh.validate_bootstrap(self.repo, bs), [])
+        rh.assert_no_dangling(self.repo, bs)
+
+    def test_bootstrap_project_instructions_resolved(self):
+        slug, (branch, path) = "masterdata/import", self.wt["masterdata/import"]
+        with open(os.path.join(path, "CLAUDE.md"), "w") as fh:
+            fh.write("# project rules\n")
+        head = git(["rev-parse", "HEAD"], path)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-pi", head))
+        rh.apply_pending(self.relay, slug=slug)
+        bs = rh.worker_bootstrap(self.repo, self.relay, slug)
+        self.assertIn("CLAUDE.md", bs["project_instructions"])
+        for name in bs["project_instructions"]:                 # every one resolves
+            self.assertIsNotNone(rh._resolve_ref(self.repo, bs["worktree_path"], name)[0])
+        rh.assert_no_dangling(self.repo, bs)
+
+    def test_bootstrap_invariant_catches_dangling(self):
+        slug, (branch, path) = "masterdata/import", self.wt["masterdata/import"]
+        head = git(["rev-parse", "HEAD"], path)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-inv", head))
+        rh.apply_pending(self.relay, slug=slug)
+        bs = rh.worker_bootstrap(self.repo, self.relay, slug)
+        rh.assert_no_dangling(self.repo, bs)                    # valid passes
+        bad = dict(bs); bad["brief_status"] = "resolved"; bad["brief_path"] = "relay/briefs/nope.md"
+        with self.assertRaises(rh.HarvestError):
+            rh.assert_no_dangling(self.repo, bad)
+
+    def test_bootstrap_worktree_absent_has_fallback(self):
+        rh.emit_result(self.relay, make_result("ghost/item", "ghost-branch", "lap-g", "0" * 40))
+        rh.apply_pending(self.relay, slug="ghost/item")
+        bs = rh.worker_bootstrap(self.repo, self.relay, "ghost/item")
+        self.assertEqual(bs["worktree_status"], "absent")
+        self.assertIsNone(bs["worktree_path"])
+        self.assertIn("ghost-branch", bs["worktree_fallback"])
+        self.assertEqual(rh.validate_bootstrap(self.repo, bs), [])
+
     def test_board_parser_is_cell_aware(self):
         board = os.path.join(self.parent, "b.md")
         with open(board, "w") as fh:

@@ -412,38 +412,138 @@ def resume_context(repo_root, relay_root, slug, board_path=None):
     }
 
 
+# ---------- reference resolution (durably-resolvable guarantee) ----------
+
+# Provider-neutral project-instruction filenames. We only ever LIST ones that
+# already exist — we never create any (so no AGENTS.md-for-Codex, no duplication).
+_INSTRUCTION_CANDIDATES = ("CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules")
+
+
+def _resolve_ref(repo_root, worktree_path, rel):
+    """Where a repo-relative reference is DURABLY readable, or None. Checks the
+    worker's worktree first (what it will actually read), then the repo root,
+    then origin/main (durable even if this branch predates the file)."""
+    if not rel:
+        return (None, None)
+    if os.path.isabs(rel):
+        return (rel, "abs") if os.path.exists(rel) else (None, None)
+    for base, src in ((worktree_path, "worktree"), (repo_root, "repo")):
+        if base and os.path.exists(os.path.join(base, rel)):
+            return (os.path.join(base, rel), src)
+    if repo_root and _run_git(["cat-file", "-e", f"origin/main:{rel}"], repo_root).returncode == 0:
+        return (f"origin/main:{rel}", "origin/main")   # read via `git show`
+    return (None, None)
+
+
+def _project_instructions(repo_root, worktree_path, relay_root):
+    """Resolved project-local instruction/guardrail files a fresh worker must read
+    before continuing. Returns only files that actually resolve — never a name that
+    doesn't exist, never a provider-specific file we invented."""
+    found = []
+    for name in _INSTRUCTION_CANDIDATES:
+        path, _ = _resolve_ref(repo_root, worktree_path, name)
+        if path:
+            found.append(name)
+    rel_root = os.path.relpath(relay_root, repo_root) if repo_root else "relay"
+    guardrails = f"{rel_root}/knowledge/guardrails.md"
+    if _resolve_ref(repo_root, worktree_path, guardrails)[0]:
+        found.append(guardrails)
+    return found
+
+
 # ---------- worker bootstrap: provider-neutral view over resume_context ----------
 
 def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
     """A provider-NEUTRAL bootstrap any coding agent (Claude, Codex, Mistral, …)
-    could consume to continue recovered work. Constructed entirely from existing
-    authoritative state (resume_context + the brief path) — NOT a new durable
-    contract. Carries no slash-command, no session id, no transcript."""
+    could consume to continue recovered work. Constructed from existing
+    authoritative state (resume_context + resolved references) — NOT a new durable
+    contract, no checkpoint-schema change. No slash-command, no session id, no
+    transcript. INVARIANT: every reference it presents either resolves to durable
+    readable state, or is explicitly absent with a defined fallback — never a
+    silent dangling path (enforce with validate_bootstrap / assert_no_dangling)."""
     ctx = resume_context(repo_root, relay_root, slug, board_path=board_path)
     rd = ctx.get("resume_delta") or {}
+    wt = ctx["worktree_path"]
+
+    brief_abs, brief_src = _resolve_ref(repo_root, wt, ctx.get("brief"))
+    brief_ok = brief_abs is not None
+    wt_ok = bool(wt) and os.path.isdir(wt)
+    instr = _project_instructions(repo_root, wt, relay_root)
+
+    steps = []
+    if wt_ok:
+        steps.append(f"Change into the worktree at worktree_path ({wt}); "
+                     f"branch {ctx['branch']} is already checked out.")
+    else:
+        steps.append(f"No live worktree; create one from the branch: "
+                     f"git worktree add <path> {ctx['branch']}, then work there.")
+    if instr:
+        steps.append(f"Read the project instructions first: {', '.join(instr)}.")
+    if brief_ok:
+        steps.append(f"Read the brief ({brief_src}): {ctx.get('brief')}"
+                     + (f" — via `git show {brief_abs}`" if brief_src == "origin/main" else ""))
+    else:
+        steps.append("No brief file for this item — its plan is the resume_delta "
+                     "below plus the item's board row Detail; use those.")
+    steps.append("Inspect the repository directly (git log/status/diff and the code) — "
+                 "you have everything; do NOT look for a previous worker's transcript.")
+    steps.append(f"Continue from resume_delta (stage '{rd.get('stage')}'): {rd.get('next_slice')}.")
+
     return {
         "bootstrap_version": 1,
         "work_item": ctx["work_item"],
         "repo_root": repo_root,
-        "worktree_path": ctx["worktree_path"],   # cd here; it is a real git worktree
-        "branch": ctx["branch"],                 # already checked out in that worktree
-        "checkpoint_ref": ctx["checkpoint_ref"], # last durable commit, if any
-        "brief_path": ctx.get("brief"),          # a file in the repo; read it
+        "worktree_path": wt if wt_ok else None,
+        "worktree_status": "resolved" if wt_ok else "absent",
+        "worktree_fallback": None if wt_ok else f"git worktree add <path> {ctx['branch']}",
+        "branch": ctx["branch"],
+        "checkpoint_ref": ctx["checkpoint_ref"],
+        "brief_path": ctx.get("brief") if brief_ok else None,   # never a dangling path
+        "brief_status": "resolved" if brief_ok else "absent",
+        "brief_source": brief_src,                              # worktree | repo | origin/main | None
+        "brief_fallback": None if brief_ok else "resume_delta + the board row Detail",
+        "project_instructions": instr,                          # resolved files to read first
         "stage": rd.get("stage"),
-        "resume_delta": rd,                      # next_slice / in_flight / scope_edges / open_questions
+        "resume_delta": rd,
         "objective": rd.get("next_slice"),
-        "instructions": [
-            f"Change into the worktree at worktree_path ({ctx['worktree_path']}); "
-            f"it already has branch {ctx['branch']} checked out.",
-            "Read brief_path for the work item's intent, approach and slices.",
-            "Inspect the repository directly (git log/status/diff and the code) — "
-            "you have everything; do NOT look for a previous worker's transcript.",
-            f"Continue from resume_delta (stage '{rd.get('stage')}'): {rd.get('next_slice')}.",
-        ],
+        "instructions": steps,
         "recovered_from": "durable-state",
         "requires_transcript": False,
         "requires_session_id": False,
     }
+
+
+def validate_bootstrap(repo_root, bs):
+    """Enforce the bootstrap invariant: every presented reference either resolves
+    to durable readable state, or is explicitly marked absent with a fallback.
+    Returns a list of violations (empty == valid)."""
+    v = []
+    wt = bs.get("worktree_path")
+    if bs.get("worktree_status") == "resolved" and not (wt and os.path.isdir(wt)):
+        v.append("worktree_path presented but does not resolve")
+    if bs.get("worktree_status") == "absent" and not bs.get("worktree_fallback"):
+        v.append("worktree absent without a fallback")
+    if bs.get("brief_status") == "resolved":
+        if not _resolve_ref(repo_root, wt, bs.get("brief_path"))[0]:
+            v.append("brief_path presented but does not resolve")
+    elif bs.get("brief_status") == "absent":
+        if bs.get("brief_path") is not None:
+            v.append("brief marked absent but a path is still present (dangling risk)")
+        if not bs.get("brief_fallback"):
+            v.append("brief absent without a fallback")
+    for name in bs.get("project_instructions", []):
+        if not _resolve_ref(repo_root, wt, name)[0]:
+            v.append(f"project instruction {name!r} does not resolve")
+    if not bs.get("branch"):
+        v.append("no branch reference")
+    return v
+
+
+def assert_no_dangling(repo_root, bs):
+    issues = validate_bootstrap(repo_root, bs)
+    if issues:
+        raise HarvestError("bootstrap invariant violated: " + "; ".join(issues))
+    return bs
 
 
 # ---------- 7. local checkpoint: a local git commit; NO network ----------
@@ -503,7 +603,8 @@ def main(argv=None):
         return 0
     if args.cmd == "bootstrap":
         try:
-            print(json.dumps(worker_bootstrap(args.repo, relay_root, args.slug), indent=2))
+            bs = assert_no_dangling(args.repo, worker_bootstrap(args.repo, relay_root, args.slug))
+            print(json.dumps(bs, indent=2))
         except HarvestError as e:
             print(str(e), file=sys.stderr); return 2
         return 0
