@@ -31,6 +31,8 @@ import argparse, json, os, re, subprocess, sys, time
 HARVEST_VERSION = 1
 REQUIRED_RESULT_KEYS = ("harvest_version", "lap_id", "work_item", "disposition", "resume_delta")
 DISPOSITIONS = {"advanced", "merged", "parked", "watching", "reflect-back"}  # or "stopped:<gate>"
+RESUME_STATES = {"done", "remaining"}  # per-path in_flight state (the whole tree uses the IN_FLIGHT_CLEAN sentinel)
+IN_FLIGHT_CLEAN = "clean"              # string form of in_flight for a clean tree (list form: omit or [])
 ACTIVE_GLYPHS = ("⚙", "🔍")
 _BRANCH_TOKEN = re.compile(r"^[A-Za-z0-9][\w./+-]*$")  # git-ref-ish first token
 
@@ -88,6 +90,44 @@ def _applied_path(relay_root, slug):
 
 # ---------- 1. emit (worker side): write the harvest result to the WAL ----------
 
+def _validate_resume_delta(rd: dict):
+    """Field-level shape of resume_delta — the resume-state contract (docs/harvest-design.md).
+    Each field is checked WHEN PRESENT; none is required, because a merged/parked lap
+    legitimately has nothing to resume (an empty resume_delta is valid). The point is to reject
+    a *malformed* delta at emit time, so a cold resumer never inherits a broken one at read time.
+    Matches what the worker emits and _render_handover_md consumes."""
+    ns = rd.get("next_slice")
+    if ns is not None and (not isinstance(ns, str) or not ns.strip()):
+        raise HarvestError("resume_delta.next_slice must be a non-empty string when present")
+    inflight = rd.get("in_flight")
+    if inflight is not None:
+        if isinstance(inflight, str):
+            if inflight != IN_FLIGHT_CLEAN:
+                raise HarvestError(
+                    f"resume_delta.in_flight string must be {IN_FLIGHT_CLEAN!r}, got {inflight!r}")
+        elif isinstance(inflight, list):
+            for i, entry in enumerate(inflight):
+                if not isinstance(entry, dict):
+                    raise HarvestError(f"resume_delta.in_flight[{i}] must be an object")
+                if not isinstance(entry.get("path"), str) or not entry["path"].strip():
+                    raise HarvestError(f"resume_delta.in_flight[{i}].path must be a non-empty string")
+                if entry.get("state") not in RESUME_STATES:
+                    raise HarvestError(
+                        f"resume_delta.in_flight[{i}].state must be one of {sorted(RESUME_STATES)}, "
+                        f"got {entry.get('state')!r}")
+        else:
+            raise HarvestError(
+                f"resume_delta.in_flight must be the string {IN_FLIGHT_CLEAN!r} or a list of "
+                "{path, state} objects")
+    for key in ("scope_edges", "open_questions"):
+        val = rd.get(key)
+        if val is not None and not isinstance(val, list):
+            raise HarvestError(f"resume_delta.{key} must be a list when present")
+    stage = rd.get("stage")
+    if stage is not None and (not isinstance(stage, str) or not stage.strip()):
+        raise HarvestError("resume_delta.stage must be a non-empty string when present")
+
+
 def validate_result(result: dict):
     if not isinstance(result, dict):
         raise HarvestError("harvest result must be a JSON object")
@@ -101,6 +141,7 @@ def validate_result(result: dict):
         raise HarvestError(f"unknown disposition {disp!r}")
     if not isinstance(result["resume_delta"], dict):
         raise HarvestError("resume_delta must be an object")
+    _validate_resume_delta(result["resume_delta"])
     if not isinstance(result["lap_id"], str) or not result["lap_id"]:
         raise HarvestError("lap_id must be a non-empty opaque string")
     if _slug_key(result["work_item"]) in (".", ".."):     # would resolve harvest/<slug> to a parent dir

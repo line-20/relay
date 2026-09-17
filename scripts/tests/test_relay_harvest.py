@@ -375,6 +375,39 @@ class HarvestSliceTest(unittest.TestCase):
         rh.validate_result(base())                                   # clean passes
         r = base(); r["disposition"] = "stopped:tests-red"; rh.validate_result(r)   # gate form accepted
 
+    def test_resume_delta_shape_contract(self):
+        # The resume-state contract: each resume_delta field is validated WHEN PRESENT,
+        # none required (empty is valid for merged/parked). Malformed -> HarvestError at emit.
+        base = lambda: {"harvest_version": 1, "lap_id": "x", "work_item": "a/b",
+                        "disposition": "advanced", "resume_delta": {}}
+        def with_rd(rd):
+            r = base(); r["resume_delta"] = rd; return r
+
+        # accepted shapes
+        for ok in ({},                                                   # empty (nothing to resume)
+                   {"in_flight": "clean"},                               # string sentinel
+                   {"in_flight": []},                                    # empty list
+                   {"in_flight": [{"path": "src/x.ts", "state": "done"},
+                                  {"path": "src/y.ts", "state": "remaining"}],
+                    "next_slice": "finish slice 2", "scope_edges": ["no billing"],
+                    "open_questions": ["q-1"], "stage": "build"}):
+            rh.validate_result(with_rd(ok))                              # must not raise
+
+        # rejected shapes — a malformed delta fails before any write
+        for bad in ({"in_flight": "dirty"},                             # non-sentinel string
+                    {"in_flight": 5},                                    # wrong type
+                    {"in_flight": [{"path": "x"}]},                      # missing state
+                    {"in_flight": [{"state": "done"}]},                  # missing path
+                    {"in_flight": [{"path": "x", "state": "wip"}]},      # unknown state
+                    {"in_flight": [{"path": "", "state": "done"}]},      # empty path
+                    {"scope_edges": "nope"},                             # not a list
+                    {"open_questions": "nope"},                          # not a list
+                    {"next_slice": ""},                                  # empty string
+                    {"next_slice": 5},                                   # wrong type
+                    {"stage": ""}):                                      # empty string
+            with self.assertRaises(rh.HarvestError):
+                rh.validate_result(with_rd(bad))
+
     def test_validate_bootstrap_more_violations(self):
         self._emit_and_apply_all()
         bs = rh.worker_bootstrap(self.repo, self.relay, "masterdata/import")
