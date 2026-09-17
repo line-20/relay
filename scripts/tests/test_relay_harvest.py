@@ -443,10 +443,18 @@ class HarvestSliceTest(unittest.TestCase):
         # Replace path fails CLOSED: a malformed/legacy checkpoint must raise HarvestError
         # (not TypeError), never seed a resumer from broken state.
         self._emit_and_apply_all()
-        for bad_rd in (None, "clean", {"in_flight": [{"path": "x"}]}, {"next_slice": ""}):
+        # present-null (the legacy target) raises with an ACTIONABLE message
+        self._corrupt_checkpoint("masterdata/import", None)
+        with self.assertRaisesRegex(rh.HarvestError, "regenerate the handover"):
+            rh.resume_context(self.repo, self.relay, "masterdata/import")
+        for bad_rd in ("clean", {"in_flight": [{"path": "x"}]}, {"next_slice": ""}):
             self._corrupt_checkpoint("masterdata/import", bad_rd)
             with self.assertRaises(rh.HarvestError):
                 rh.resume_context(self.repo, self.relay, "masterdata/import")
+        # an empty delta (nothing to resume — merged/parked) still resumes, does NOT raise
+        self._corrupt_checkpoint("masterdata/import", {})
+        self.assertEqual(
+            rh.resume_context(self.repo, self.relay, "masterdata/import")["resume_delta"], {})
         # the untouched item still resumes fine
         ctx = rh.resume_context(self.repo, self.relay, "platform/operator")
         self.assertEqual(ctx["resume_delta"]["next_slice"], "finish platform/operator slice 2")
@@ -462,6 +470,17 @@ class HarvestSliceTest(unittest.TestCase):
         self.assertIsNone(active["masterdata/import"]["stage"])                    # no crash, no magic stage
         self.assertEqual(active["platform/operator"]["checkpoint_status"], "valid")
         self.assertEqual(active["platform/operator"]["stage"], "build")
+
+    def test_discover_flags_unparseable_checkpoint(self):
+        # A checkpoint file that exists but isn't valid JSON is 'invalid' (regenerate me),
+        # not silently 'absent'.
+        self._emit_and_apply_all()
+        with open(rh._checkpoint_path(self.relay, "masterdata/import"), "w") as fh:
+            fh.write("{not json")
+        a = {x["work_item"]: x for x in rh.discover_active(self.repo, self.relay)}["masterdata/import"]
+        self.assertTrue(a["has_checkpoint"])                 # a file is present
+        self.assertEqual(a["checkpoint_status"], "invalid")  # ...just unreadable
+        self.assertIsNone(a["stage"])
 
     def test_validate_bootstrap_more_violations(self):
         self._emit_and_apply_all()

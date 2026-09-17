@@ -445,24 +445,28 @@ def discover_active(repo_root, relay_root, board_path=None, hints_path=None):
     worktrees = _git_worktrees(repo_root)
     items = []
     for slug, handover_rel in _parse_board_active(board_path):
-        cp = _read_json(_checkpoint_path(relay_root, slug))
-        # Enumerate path (R1.7 step 1): resilient listing — one corrupt checkpoint must NOT
-        # blind the whole active-work view, so validate per-item and degrade, never raise.
+        cpp = _checkpoint_path(relay_root, slug)
+        cp = _read_json(cpp)
+        cp_present = os.path.exists(cpp)
+        # Enumerate path (R1.7 step 1): resilient listing — one bad checkpoint must NOT blind the
+        # whole active-work view, so validate per-item and degrade to a status, never raise.
         cp_status, rd = None, {}
         if cp is not None:
             try:
                 rd = _checkpoint_resume_delta(cp, slug)
                 cp_status = "valid"
-            except Exception:
+            except HarvestError:          # a contract violation degrades; a real bug still surfaces
                 cp_status = "invalid"
+        elif cp_present:
+            cp_status = "invalid"         # file on disk but unparseable JSON — corrupt; regenerate it
         branch = _branch_for(relay_root, slug, handover_rel, cp)
         wt = next((w for w in worktrees if branch and w.get("branch") == branch), None)
         items.append({
             "work_item": slug,
             "branch": branch,
             "worktree": wt["path"] if wt else None,
-            "has_checkpoint": bool(cp),
-            "checkpoint_status": cp_status,            # None (no checkpoint) | valid | invalid
+            "has_checkpoint": cp_present,              # a file exists (parseable or not)
+            "checkpoint_status": cp_status,            # None (no file) | valid | invalid
             "stage": rd.get("stage"),                  # None on invalid — never a present-null crash
             "disposition": (cp or {}).get("disposition"),
             "session_hint": hints.get(slug),           # optional; never required
