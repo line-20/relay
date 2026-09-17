@@ -96,11 +96,16 @@ def _validate_resume_delta(rd: dict):
     legitimately has nothing to resume (an empty resume_delta is valid). The point is to reject
     a *malformed* delta at emit time, so a cold resumer never inherits a broken one at read time.
     Matches what the worker emits and _render_handover_md consumes."""
-    ns = rd.get("next_slice")
-    if ns is not None and (not isinstance(ns, str) or not ns.strip()):
-        raise HarvestError("resume_delta.next_slice must be a non-empty string when present")
-    inflight = rd.get("in_flight")
-    if inflight is not None:
+    # Gate on key PRESENCE, not on a non-None value: rd.get(k) can't tell an absent key from a
+    # present `null`, but the renderer can (rd.get(k, default) only falls back when k is absent), so
+    # a present null would pass here and then crash _render_handover_md. Absent keys stay valid (an
+    # empty resume_delta is fine for a merged/parked lap); a present key must be well-formed.
+    if "next_slice" in rd:
+        ns = rd["next_slice"]
+        if not isinstance(ns, str) or not ns.strip():
+            raise HarvestError("resume_delta.next_slice must be a non-empty string when present")
+    if "in_flight" in rd:
+        inflight = rd["in_flight"]
         if isinstance(inflight, str):
             if inflight != IN_FLIGHT_CLEAN:
                 raise HarvestError(
@@ -115,17 +120,22 @@ def _validate_resume_delta(rd: dict):
                     raise HarvestError(
                         f"resume_delta.in_flight[{i}].state must be one of {sorted(RESUME_STATES)}, "
                         f"got {entry.get('state')!r}")
-        else:
+        else:  # None (present null), or any non-str/non-list
             raise HarvestError(
                 f"resume_delta.in_flight must be the string {IN_FLIGHT_CLEAN!r} or a list of "
                 "{path, state} objects")
     for key in ("scope_edges", "open_questions"):
-        val = rd.get(key)
-        if val is not None and not isinstance(val, list):
+        if key in rd and not isinstance(rd[key], list):
             raise HarvestError(f"resume_delta.{key} must be a list when present")
-    stage = rd.get("stage")
-    if stage is not None and (not isinstance(stage, str) or not stage.strip()):
-        raise HarvestError("resume_delta.stage must be a non-empty string when present")
+    if "stage" in rd:
+        stage = rd["stage"]
+        if not isinstance(stage, str) or not stage.strip():
+            raise HarvestError("resume_delta.stage must be a non-empty string when present")
+    # Provider-neutrality applies inside resume_delta too — durable state carries no provider identity
+    # (the top-level result is already scanned in validate_result; the nested object must be as well).
+    for banned in ("session_id", "claude_session", "provider"):
+        if banned in rd:
+            raise HarvestError(f"durable resume_delta must not carry provider field {banned!r}")
 
 
 def validate_result(result: dict):
@@ -208,13 +218,15 @@ def _render_handover_md(cp: dict) -> str:
     """§4 — the Markdown handover as a PROJECTION of the checkpoint (never canonical)."""
     rd = cp.get("resume_delta", {})
     refs = cp.get("references", {})
-    inflight = rd.get("in_flight", "clean")
+    inflight = rd.get("in_flight")
+    if inflight is None:  # absent, or a legacy checkpoint with an explicit null (pre-validation)
+        inflight = "clean"
     if isinstance(inflight, list):
         inflight = "\n".join(f"- `{i.get('path')}` — {i.get('state','?')}" for i in inflight) or "None."
     scope = rd.get("scope_edges") or []
     oq = rd.get("open_questions") or []
     return "\n".join([
-        f"# Handover: {rd.get('next_slice', cp['work_item'])}",
+        f"# Handover: {rd.get('next_slice') or cp['work_item']}",
         "",
         "_Projection of the durable checkpoint — not canonical. Regenerated from "
         f"harvest/{_slug_key(cp['work_item'])}/checkpoint.json._",
@@ -225,7 +237,7 @@ def _render_handover_md(cp: dict) -> str:
         f"- checkpoint_ref: `{cp.get('checkpoint_ref') or '(none)'}`",
         f"- brief: `{refs.get('brief','?')}`" + (f"  ·  PR #{refs['pr']}" if refs.get("pr") else ""),
         "",
-        "## Next objective", rd.get("next_slice", "(see brief)"),
+        "## Next objective", rd.get("next_slice") or "(see brief)",
         "",
         "## In flight", inflight,
         "",
