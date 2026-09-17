@@ -2,6 +2,12 @@
 
 _Human-readable notes on what changed, in plain language. The dev-facing detail lives in `CHANGELOG.md`; this is its companion._
 
+## Unreleased
+
+### New
+
+- **Pick a task back up on another device.** When you hand off or ship a piece of work, Relay now saves its resume state to `main` automatically. So you can open a fresh clone on another machine — a second laptop, or your phone — run `/rlc <slug>`, and carry straight on from where the last session stopped, with no access to the original working copy. If the save can't reach the remote (you're offline), the handover still completes exactly as before; the cross-device part simply catches up on the next hand-off.
+
 ## 1.16.0
 
 ### Improved
