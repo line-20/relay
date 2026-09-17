@@ -375,6 +375,63 @@ class HarvestSliceTest(unittest.TestCase):
         rh.validate_result(base())                                   # clean passes
         r = base(); r["disposition"] = "stopped:tests-red"; rh.validate_result(r)   # gate form accepted
 
+    def test_resume_delta_shape_contract(self):
+        # The resume-state contract: each resume_delta field is validated WHEN PRESENT,
+        # none required (empty is valid for merged/parked). Malformed -> HarvestError at emit.
+        base = lambda: {"harvest_version": 1, "lap_id": "x", "work_item": "a/b",
+                        "disposition": "advanced", "resume_delta": {}}
+        def with_rd(rd):
+            r = base(); r["resume_delta"] = rd; return r
+
+        # accepted shapes
+        for ok in ({},                                                   # empty (nothing to resume)
+                   {"in_flight": "clean"},                               # string sentinel
+                   {"in_flight": []},                                    # empty list
+                   {"in_flight": [{"path": "src/x.ts", "state": "done"},
+                                  {"path": "src/y.ts", "state": "remaining"}],
+                    "next_slice": "finish slice 2", "scope_edges": ["no billing"],
+                    "open_questions": ["q-1"], "stage": "build"}):
+            rh.validate_result(with_rd(ok))                              # must not raise
+
+        # rejected shapes — a malformed delta fails before any write
+        for bad in ({"in_flight": "dirty"},                             # non-sentinel string
+                    {"in_flight": 5},                                    # wrong type
+                    {"in_flight": None},                                 # present null (would crash render)
+                    {"in_flight": ["not-a-dict"]},                       # list entry not an object
+                    {"in_flight": [{"path": "x"}]},                      # missing state
+                    {"in_flight": [{"state": "done"}]},                  # missing path
+                    {"in_flight": [{"path": "x", "state": "wip"}]},      # unknown state
+                    {"in_flight": [{"path": "", "state": "done"}]},      # empty path
+                    {"scope_edges": "nope"},                             # not a list
+                    {"open_questions": "nope"},                          # not a list
+                    {"next_slice": ""},                                  # empty string
+                    {"next_slice": 5},                                   # wrong type
+                    {"next_slice": None},                                # present null (would crash render)
+                    {"stage": ""},                                       # empty string
+                    {"stage": 5},                                        # wrong type
+                    {"session_id": "s-1"},                               # provider leak inside resume_delta
+                    {"provider": "claude"}):                             # provider leak inside resume_delta
+            with self.assertRaises(rh.HarvestError):
+                rh.validate_result(with_rd(bad))
+
+    def test_malformed_resume_delta_fails_safe_via_emit(self):
+        # The fail-safe proven through the REAL write path (mirrors test_malformed_result_fails_safe):
+        # a malformed resume_delta raises in emit_result and writes NOTHING to the WAL.
+        slug, branch = "masterdata/import", "wt-masterdata"
+        bad = make_result(slug, branch, "lap-bad", "0" * 40)
+        bad["resume_delta"] = {"in_flight": None}   # present null — accepted before this fix
+        with self.assertRaises(rh.HarvestError):
+            rh.emit_result(self.relay, bad)
+        self.assertFalse(os.path.exists(rh._results_dir(self.relay, slug)))  # nothing written
+
+    def test_present_null_in_flight_would_not_crash_render(self):
+        # Defence in depth: even a legacy checkpoint with in_flight: null (written before validation
+        # existed) must render, not raise — the renderer treats a present null as "clean".
+        cp = {"work_item": "a/b", "disposition": "advanced", "checkpoint_ref": None,
+              "references": {"branch": "b"}, "resume_delta": {"in_flight": None, "next_slice": None}}
+        md = rh._render_handover_md(cp)   # must not raise
+        self.assertIn("## In flight", md)
+
     def test_validate_bootstrap_more_violations(self):
         self._emit_and_apply_all()
         bs = rh.worker_bootstrap(self.repo, self.relay, "masterdata/import")
