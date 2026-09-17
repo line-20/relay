@@ -2,11 +2,13 @@
 
 _An empirical model of the **current** Relay lifecycle, built to inform the next step: designing versioned stage contracts. It describes what stages **do today** — it invents no future architecture, defines no schema, and changes no behaviour._
 
+> **Re-derived 2026-09-17** against the refreshed corpus (859 spans / 307 sessions, 17 Aug → 17 Sep 2026 — up from 741 / 282 at the 29 Aug cut). The dominant paths and the contract analysis held; what changed most is that standalone **Review / Persist / Handover / Fix** spans have all but vanished (they now run inside Ship almost every lap), so their `[obs]` evidence has collapsed and their confidence is downgraded accordingly. The compound-span caveat below is now the single most load-bearing fact in the model.
+
 ## Method & how to read this
 
 Two evidence sources, kept separate:
 
-- **`[obs]` observed** — from the command-level telemetry corpus (`~/.relay/commands.jsonl`, 741 spans / 282 sessions, incl. backfilled history). Says what stages *actually did*.
+- **`[obs]` observed** — from the command-level telemetry corpus (`~/.relay/commands.jsonl`, 859 spans / 307 sessions, 17 Aug – 17 Sep 2026; ~88% CastlesERP, with `declarant-assist-poc` now a secondary source and a handful from `relay` itself). Says what stages *actually did*.
 - **`[impl]` implementation** — from the command specs in `plugins/relay/commands/*.md`. Says what stages are *designed to* consume, read, and hand on — including things telemetry can't see (a stage *reading* a file leaves no trace; only *writes* do).
 - **`[inf]` inference** — a reading of the two above, flagged so it isn't mistaken for evidence.
 
@@ -16,7 +18,7 @@ Alias note: short and long names are merged to one stage (`/rlt`+`/test` → Tes
 
 ### The caveat that frames everything: compound spans
 
-The segmentation boundary is the **invoked command**, not the **logical stage**. `/ship` runs Test → Review → Fix → Merge → Persist → Handover *inline* — it spawns the review specialists and edits the review report directly, rather than typing `/relay:review`. So those sub-stages create **no span of their own**; their telemetry is absorbed into the Ship span. This is why standalone Review (2 spans) and Persist (22) look rare while Ship shows their surfaces (reviews 31, knowledge 34, handover 29 writes). **Consequence for contracts:** the observable, artefact-bearing seams are *between* commands run in sequence (Explore→Refine→Next→Test→Ship); the seams *inside* Ship are real logical boundaries but are not observable as transitions and have no artefact handed across a session.
+The segmentation boundary is the **invoked command**, not the **logical stage**. `/ship` runs Test → Review → Fix → Merge → Persist → Handover *inline* — it spawns the review specialists and edits the review report directly, rather than typing `/relay:review`. So those sub-stages create **no span of their own**; their telemetry is absorbed into the Ship span. This is why standalone Review (**0** spans now), Persist (**2**), Handover (**1**) and Fix (**1**) are essentially unobserved while Ship — 232 spans — shows their surfaces (board 53, briefs 53, reviews 52, handover 50, knowledge 49 writes). The gap has widened sharply since the August cut: standalone Handover was 35 spans then and is 1 now, Persist 22 → 2. **Consequence for contracts:** the observable, artefact-bearing seams are *between* commands run in sequence (Explore→Refine→Next→Test→Ship); the seams *inside* Ship are real logical boundaries but are not observable as transitions and have no artefact handed across a session.
 
 ## The five result classes (A–E)
 
@@ -38,12 +40,12 @@ Each table uses the requested columns. "Writes" = all files (class A+B+C); "Glob
 |---|---|
 | **Consumes** | `[impl]` a rough idea string (args); no prior artefact — front of the loop. Deliberately context-free. |
 | **Reads** | `[impl]` `relay.config.json` only; **never** code/CLAUDE.md/conventions. Optional `reference/<topic>.md`. |
-| **Produces** | `[obs]` a brief (15/18 spans wrote `briefs/`); `[impl]` + one board row. Class **B/C**. |
-| **Writes** | `[obs]` `briefs/` + `board.md`; ~1 non-relay file. |
-| **Global mutations** | `[obs]` 56% of spans write shared state — `briefs/` (15), `board` (7). `[impl]` board is main-owned (fetch → surgical row → temp-index push). |
-| **Typical next** | `[obs]` **Refine** (9/18 = 50%), else session ends (6/18). |
+| **Produces** | `[obs]` a brief (11/12 spans wrote `briefs/`); `[impl]` + one board row. Class **B/C**. |
+| **Writes** | `[obs]` `briefs/` + `board.md`; ~2 non-relay files (reference notes). |
+| **Global mutations** | `[obs]` 92% of spans write shared state — `briefs/` (11), `board` (8). `[impl]` board is main-owned (fetch → surgical row → temp-index push). |
+| **Typical next** | `[obs]` **Refine** (10/12 = 83%), else session ends (2/12). |
 | **Alt transitions** | `[impl]` idea not worth building → write nothing, stop (class D: a kill is a valid result); decompose → several briefs; → `/next` directly if small. |
-| **Evidence / confidence** | Med — small n (18), but telemetry and spec agree tightly. |
+| **Evidence / confidence** | Med — n still small (12) and shrank, but telemetry and spec agree tightly; the Refine share rose (50%→83%). |
 | **Unknowns** | Whether a brief was *accepted* or discarded (both leave/leave-no file, but "killed idea" is invisible). |
 
 Decisions/discoveries `[impl]`: chosen approach + alternatives-beaten → brief `## Approach`; open questions → `## Open questions`.
@@ -54,10 +56,10 @@ Decisions/discoveries `[impl]`: chosen approach + alternatives-beaten → brief 
 |---|---|
 | **Consumes** | `[impl]` `track/slug` + optional session-size; **precondition: an existing brief** (else → Explore). |
 | **Reads** | `[impl]` board+brief (from main), **project code**, `CLAUDE.md`, `knowledge/`, resolved guardrails + design-system, **AI memory**. The first stage that reads the codebase. |
-| **Produces** | `[obs]` extends the brief in place (15/31 wrote `briefs/`); adds `## Project grounding / Guardrail requirements / Threat model / Slices`. Class **B**. |
-| **Writes** | `[obs]` `briefs/` (15), `board` (8), ~2 files; `[obs]` spawns agents in **68%** of spans (challenger / cross-check). |
-| **Global mutations** | `[obs]` 45% write shared state (`briefs/`+`board`). `[impl]` **reads** the knowledge layer but only **notes** a guardrail gap — never writes it (that's `/guardrails`). |
-| **Typical next** | `[obs]` **Next** (16/31 = 52%). |
+| **Produces** | `[obs]` extends the brief in place (24/39 wrote `briefs/`); adds `## Project grounding / Guardrail requirements / Threat model / Slices`. Class **B**. |
+| **Writes** | `[obs]` `briefs/` (24), `board` (16), ~4 files; `[obs]` spawns agents in **56%** of spans (challenger / cross-check). |
+| **Global mutations** | `[obs]` 67% write shared state (`briefs/`+`board`). `[impl]` **reads** the knowledge layer but only **notes** a guardrail gap — never writes it (that's `/guardrails`). |
+| **Typical next** | `[obs]` **Next** (18/39 = 46%), else session ends (10/39) or straight to Test (7/39). |
 | **Alt transitions** | `[impl]` no brief → Explore; re-refine → update in place; no guardrails → defaults + offer `/guardrails`; no threat surface → write "none" + skip. |
 | **Evidence / confidence** | High — spec explicit, telemetry consistent (agent-spawn + brief-write signature is distinctive). |
 | **Unknowns** | Which guardrail/memory items were *read* (class-C inputs) — reads are invisible. |
@@ -70,12 +72,12 @@ Decisions/discoveries `[impl]`: threat mitigations → per-slice requirements; g
 |---|---|
 | **Consumes** | `[impl]` optional track/slug bias + level (`verify`/`audit`) + autonomy + session word; **precondition: a board with startable items** (excludes in-flight ⚙/🔍). |
 | **Reads** | `[impl]` board (from main), shortlist briefs via **Detail** column, `git log`/`grep`; at L2/L3 fans out agents over `reviews/`, `handover/`, code, `gh` PR/issue history. |
-| **Produces** | `[obs]` worker-local **code** (mean 8 files); `[impl]` L3 → a dated `audits/<ts>.md`. Class **A** (+B: the started branch). |
-| **Writes** | `[obs]` code in a topic worktree; global only 7%. |
-| **Global mutations** | `[obs]` low (7%). `[impl]` board drift-fixes + L3 compaction are **offer-don't-auto-write**; autonomy → `decisions.md`. |
-| **Typical next** | `[obs]` **Test** (37/54 = 69%) — "point at verify, not ship". |
+| **Produces** | `[obs]` worker-local **code** (mean 6 files, median 4); `[impl]` L3 → a dated `audits/<ts>.md`. Class **A** (+B: the started branch). |
+| **Writes** | `[obs]` code in a topic worktree; global only 8%. |
+| **Global mutations** | `[obs]` low (8%). `[impl]` board drift-fixes + L3 compaction are **offer-don't-auto-write**; autonomy → `decisions.md`. |
+| **Typical next** | `[obs]` **Test** (52/80 = 65%) — "point at verify, not ship". |
 | **Alt transitions** | `[impl]` dep on sibling's unlanded work + hold → `/watch`; missing board → `/init`; dirty worktree → STOP. |
-| **Evidence / confidence** | High. |
+| **Evidence / confidence** | High (80 spans). |
 | **Unknowns** | Which board item was picked vs offered (the shortlist→pick decision, class E, is ephemeral). |
 
 ### Continue — resume an in-flight thread from a handover
@@ -84,12 +86,12 @@ Decisions/discoveries `[impl]`: threat mitigations → per-slice requirements; g
 |---|---|
 | **Consumes** | `[impl]` optional slug/handover-path + autonomy; **precondition: an existing handover** (or brief-only thread) + board row. Resumes, doesn't select. |
 | **Reads** | `[impl]` **the thread's latest handover** (from main), board, brief-if-no-handover, project `CLAUDE.md`/README, sibling worktrees for deps. The handover is its primary input. |
-| **Produces** | `[obs]` worker-local **code** (mean 7 files). Class **A**. |
-| **Writes** | `[obs]` code on the topic branch; global 14% (mostly folded in later by Handover, not by Continue itself `[impl]`). |
+| **Produces** | `[obs]` worker-local **code** (mean 7 files, median 5). Class **A**. |
+| **Writes** | `[obs]` code on the topic branch; global 18% (mostly folded in later by Handover, not by Continue itself `[impl]`). |
 | **Global mutations** | `[impl]` does **not** edit board — defers to `/handover` at session end. Autonomy → `decisions.md`. |
-| **Typical next** | `[obs]` **Test** (83/137 = 61%). |
+| **Typical next** | `[obs]` **Test** (135/218 = 61%). |
 | **Alt transitions** | `[impl]` shipped-shape handover (branch merged) → re-baseline off main, cut next slice (the `/next` path); dep + hold → `/watch`. |
-| **Evidence / confidence** | High (137 spans). |
+| **Evidence / confidence** | High (218 spans — now the second-largest stage; the 61% Test share is unchanged from the August cut). |
 | **Unknowns** | Which handover fields were actually *used* vs ignored — the core question for a Coding-input contract. |
 
 ### Test — verify between build and ship
@@ -99,12 +101,12 @@ Decisions/discoveries `[impl]`: threat mitigations → per-slice requirements; g
 | **Consumes** | `[impl]` focus/area **or** PR number + mode (`plan-only`/`drive`) + env (`preview`/`local`); config `test.target`, `hooks`. Precondition: a built slice; not on default branch. |
 | **Reads** | `[impl]` **the diff** (`git diff origin/main...HEAD` or `gh pr diff`), project `CLAUDE.md` for invariants, config. |
 | **Produces** | `[impl]` commits the slice, opens/reuses a **draft PR**, writes the `## 🧪 Test drive` plan into the PR body; optional GIF + PR comment. Class **B** (the PR+plan), **A** (commit). |
-| **Writes** | `[obs]` browser-driven (`computer` 2310 uses — distinctive), code fixes, PR body; **no relay-root writes**. |
-| **Global mutations** | `[obs]` ~none (7% noise). `[impl]` only offer-once `hooks.env` config wiring; may bring a **local env up** (recorded so Ship tears down only what this session started). |
-| **Typical next** | `[obs]` **Ship** (128/165 = 78%). |
-| **Alt transitions** | `[obs]/[impl]` drive turned red → **Fix** (3); reflect-signal (broken assumption) → back to **Refine/Explore**; `plan-only` → print, no PR. |
-| **Evidence / confidence** | High (165 spans). |
-| **Unknowns** | Pass/fail outcome — `errors>0` appears in 118/165 spans (routine failed tool calls), so it is **not** a success signal. |
+| **Writes** | `[obs]` browser-driven (`mcp__claude-in-chrome__computer` 3584 uses corpus-wide — distinctive; 52% of Test spans drive a browser), code fixes, PR body; **no relay-root writes**. |
+| **Global mutations** | `[obs]` ~none (6% noise). `[impl]` only offer-once `hooks.env` config wiring; may bring a **local env up** (recorded so Ship tears down only what this session started). |
+| **Typical next** | `[obs]` **Ship** (190/235 = 80%). |
+| **Alt transitions** | `[obs]/[impl]` drive turned red → **Fix**; reflect-signal (broken assumption) → back to **Refine/Explore**; `plan-only` → print, no PR. |
+| **Evidence / confidence** | High (235 spans — the largest stage). |
+| **Unknowns** | Pass/fail outcome — `errors>0` appears in 160/235 spans (routine failed tool calls), so it is **not** a success signal. |
 
 ### Review — multi-specialist PR review (usually inside Ship)
 
@@ -113,12 +115,12 @@ Decisions/discoveries `[impl]`: threat mitigations → per-slice requirements; g
 | **Consumes** | `[impl]` optional PR number (else current branch) + session + `audit` flag; config `review.agents/verify`. |
 | **Reads** | `[impl]` diffstat + diff content for gate signals, repo layout from `CLAUDE.md`; specialists read the PR/code themselves. |
 | **Produces** | `[impl]` **one merged report** `reviews/pr-<n>-<date>.md` with graded findings (🔴/🟡/🟢) + verdict. Class **B**. |
-| **Writes** | `[obs]` `reviews/`; spawns specialists (security + test-engineer always-on; others content-gated). |
+| **Writes** | `[obs]` `reviews/`; spawns specialists (security + test-engineer always-on; others content-gated — a `packaging-reviewer` now appears in the gated set, 50 spawns across Ship spans). |
 | **Global mutations** | writes only under `reviews/` (per-PR artefact). Escalation answer → `autonomy.log`. |
-| **Typical next** | **Fix** (findings feed `/fix`) `[impl]`; standalone n too small to observe. |
+| **Typical next** | **Fix** (findings feed `/fix`) `[impl]`; **0 standalone spans** now — impossible to observe directly. |
 | **Alt transitions** | `[impl]` docs-only diff → short-circuit, no report; last-🔴 refuted → **STOP, escalate to human** regardless of autonomy. |
-| **Evidence / confidence** | Med — spec explicit; only 2 standalone spans (runs inside Ship 89% of the time). |
-| **Unknowns** | Standalone behaviour under-observed; refute-drop rates. |
+| **Evidence / confidence** | Low (was Med) — spec explicit, but standalone spans have dropped from 2 to **0**; Review is now seen only as a surface of Ship (which spawns review specialists in 93% of spans, mean 5.8 subagents each). |
+| **Unknowns** | Standalone behaviour now entirely unobserved; refute-drop rates. |
 
 Discoveries/decisions `[impl]`: refute-before-report (both refuters kill a finding → *Refuted findings*); last-blocker drop is a **merge-gate human decision** (class E).
 
@@ -129,11 +131,11 @@ Discoveries/decisions `[impl]`: refute-before-report (both refuters kill a findi
 | **Consumes** | `[impl]` optional `no-verify`/`audit`; config `persist.cadence`, `tidy.level`, many `hooks`. Precondition: a built slice on a feature branch. |
 | **Reads** | `[impl]` PR state + body/comments (for test-drive evidence), the review report, `gh pr checks`, merged diff. |
 | **Produces** | `[obs]` code (fix, mean 9 files) + **merges to main**; via delegation the review report, handover, and persist outputs. Class **A+B+C**, all of them. |
-| **Writes** | `[obs]` the widest of any stage — `knowledge` (34), `reviews` (31), `handover` (29), `board` (24), `briefs` (17), `decisions` (4). **89% spawn subagents.** |
-| **Global mutations** | `[obs]` 23% + **the only stage that merges to main**. Note: much of its `knowledge/handover/reviews` writes are the *delegated* Persist/Handover/Review running inside the span (compound-span caveat). |
-| **Typical next** | `[obs]` **session end** (109/159 = 69% — Ship is terminal), then Persist (14) / Handover (13) when run separately. |
+| **Writes** | `[obs]` the widest of any stage — `board` (53), `briefs` (53), `reviews` (52), `handover` (50), `knowledge` (49), `decisions` (8). **93% spawn subagents** (mean 5.8 each). |
+| **Global mutations** | `[obs]` 31% + **the only stage that merges to main**. Note: much of its `knowledge/handover/reviews` writes are the *delegated* Persist/Handover/Review running inside the span (compound-span caveat) — and since those stages barely run standalone any more, Ship is now effectively where all end-of-lap global state is written. |
+| **Typical next** | `[obs]` **session end** (196/232 = 84% — Ship is terminal, up from 69%); Persist/Handover almost never follow separately now (2 and 1 standalone spans total). |
 | **Alt transitions** | `[impl]` docs-only → skip verify+review; last-blocker / needs-judgment → STOP; **merges only on clean-green path**, else STOP; stale merge-base (via `hooks.affects`) → re-verify. |
-| **Evidence / confidence** | High for *what it touches*; Low for *internal phase boundaries* (not separately observable). |
+| **Evidence / confidence** | High for *what it touches* (232 spans); Low for *internal phase boundaries* (not separately observable — and now the only place those phases appear at all). |
 | **Unknowns** | The internal Test→Review→Fix→Merge→Persist→Handover seams — invisible as transitions. |
 
 ### Fix — re-verify review findings, fix, tick off (usually inside Ship)
@@ -142,12 +144,12 @@ Discoveries/decisions `[impl]`: refute-before-report (both refuters kill a findi
 |---|---|
 | **Consumes** | `[impl]` optional report filename (else most recent `reviews/`); **precondition: a review report with unchecked findings**. |
 | **Reads** | `[impl]` the report + frontmatter (`pr`, `blockers`, `verified`), `gh pr diff` + cited files, nearest `CLAUDE.md`. |
-| **Produces** | `[obs]` **code** edits (mean 9 files) + ticks the report boxes, appends `## Fix pass <date>`. Class **A+B**. |
+| **Produces** | `[obs]` **code** edits + ticks the report boxes, appends `## Fix pass <date>`. Class **A+B**. |
 | **Writes** | `[obs]` code + `reviews/` report; **no push, no merge** standalone. |
-| **Global mutations** | `[obs]` 29% (`reviews/`). No board/memory writes. |
-| **Typical next** | `[obs]` **Ship** (4/7) / Test (2/7) — re-verify. |
+| **Global mutations** | `[obs]` the 1 standalone span wrote `reviews/`. No board/memory writes. |
+| **Typical next** | `[obs]` **Ship** (1/1) — re-verify. |
 | **Alt transitions** | `[impl]` blocker-class fix-delta → re-review loop (max 2 rounds, then STOP); wrong finding → reject, don't change code; can't resolve → revert + flag (never false-green). |
-| **Evidence / confidence** | Med — 7 standalone spans; rest inside Ship. |
+| **Evidence / confidence** | Low (was Med) — standalone spans dropped 7 → **1**; Fix now runs inside Ship almost every time. |
 | **Unknowns** | Per-finding confirmed/stale/wrong/needs-judgment split (class D/E, in-report only). |
 
 ### Persist — harvest a lap's knowledge (the knowledge writer)
@@ -157,11 +159,11 @@ Discoveries/decisions `[impl]`: refute-before-report (both refuters kill a findi
 | **Consumes** | `[impl]` PR/slug (else most recent merge); config `persist.level/cadence/kinds`, `paths.adr/design-system`. Precondition: a merged lap. |
 | **Reads** | `[impl]` the lap's diff, **the review report incl. refuted findings**, **the brief** (threat model, alternatives, decisions), handovers, **AI memory index** for dedupe/supersede. |
 | **Produces** | `[obs]/[impl]` guardrail `extends` overlay, design-system doc, **AI memory**, release notes; at `full` → ADRs. Class **C** (durable knowledge). |
-| **Writes** | `[obs]` `knowledge/` (8), `briefs/` (5, the `Distilled:` stamp); most durable writes land **outside** the relay root via `paths.*`. |
+| **Writes** | `[impl]` `knowledge/`, `briefs/` (the `Distilled:` stamp); most durable writes land **outside** the relay root via `paths.*`. (Standalone `[obs]` now too thin to quantify — see confidence.) |
 | **Global mutations** | `[impl]` **the knowledge-layer writer** and the **only stage that removes an AI memory** (retires what this lap superseded — "one fact, one home"). Auto-writes additions; whispers once before a lossy trim. |
-| **Typical next** | `[obs]` **Handover** (13/22 = 59%). |
+| **Typical next** | `[obs]` only 2 standalone spans (→ Next, → Ship); the real Persist runs inside Ship, which writes `knowledge/` in 49 spans. |
 | **Alt transitions** | `[impl]` `level:none` → stop; nothing durable + nothing user-visible → "nothing to persist"; ADR-worthy below `full` → **deferred + listed**, not written. |
-| **Evidence / confidence** | Med-High. |
+| **Evidence / confidence** | Low for standalone (was Med-High) — spans dropped 22 → **2**; the stage is now almost exclusively a Ship phase. `[impl]` unchanged. |
 | **Unknowns** | Which memories were retired vs added (removal not captured); ADR deferrals. |
 
 ### Handover — write the cold-start handover (the cross-session carrier)
@@ -171,11 +173,11 @@ Discoveries/decisions `[impl]`: refute-before-report (both refuters kill a findi
 | **Consumes** | `[impl]` optional focus (else infers next item from board); config `tidy.level`. Standalone or as Ship Phase 6. |
 | **Reads** | `[impl]` **board (Open threads = source of truth)**, `roadmap.md`, the item's linked handover, git log/status/diff, **this session's own memory**. |
 | **Produces** | `[obs]/[impl]` `handover/next-<ts>.md` (9 structured sections, see below) + updates the board row. Class **B+C**. |
-| **Writes** | `[obs]` `handover/` (3) + `board` (2), ~1 file; commits **both to main**. |
+| **Writes** | `[impl]` `handover/` + `board`, ~1 file; commits **both to main**. Observed as a Ship surface: `handover` written in 50 Ship spans. |
 | **Global mutations** | `[impl]` board main-owned; Step 4.5 tidy archives superseded handovers/reviews + trims done rows (gated by `tidy.level`). |
-| **Typical next** | `[obs]` **session end** (30/35 = 86%); prints a ready-to-paste `/rlc <path>` line → next session's **Continue**. |
+| **Typical next** | `[obs]` the 1 standalone span ended the session `[impl]`; prints a ready-to-paste `/rlc <path>` line → next session's **Continue**. |
 | **Alt transitions** | `[impl]` PR still open/closed unexpectedly → warn + STOP; stray unrelated worktree work → STOP, don't auto-delete. |
-| **Evidence / confidence** | High. |
+| **Evidence / confidence** | Low for standalone (was High) — spans dropped 35 → **1**; Handover now runs inside Ship. This is the awkward one: the model's strongest contract candidate is now its least-observed stage. `[impl]` is unchanged and the between-command Handover→Continue seam is still real (via `/rlc`, 213 Continue spans downstream). |
 | **Unknowns** | Whether the next Continue actually used each field. |
 
 ### Deploy — gate the project's PR preview (rarely run)
@@ -197,11 +199,11 @@ Discoveries/decisions `[impl]`: refute-before-report (both refuters kill a findi
 The dominant path, from the transition matrix (share of each stage's outgoing edges):
 
 ```
-Explore ─50%→ Refine ─52%→ Next ─69%→ Test ─78%→ Ship ─(69% end)
-                              Continue ─61%→ Test              │
-                                                      Persist ←┘ 
-                                                         └13/22→ Handover ─86%→ (end → next session Continue)
+Explore ─83%→ Refine ─46%→ Next ─65%→ Test ─80%→ Ship ─(84% end)
+                              Continue ─61%→ Test
 ```
+
+Persist and Handover no longer appear as their own outgoing edges — at 2 and 1 standalone spans they run *inside* Ship, so the lap now terminates at Ship (84% → session end) and resumes next session via Continue. The old Ship→Persist→Handover tail is now entirely internal to the Ship span.
 
 Conditions on the alternatives `[impl]`, where the data shows a fork:
 
@@ -210,9 +212,9 @@ Conditions on the alternatives `[impl]`, where the data shows a fork:
 - **Continue → Next-path** (re-baseline): the handover was shipped-shape (branch merged/gone).
 - **→ Watch**: a dependency on a sibling's unlanded work + user says hold.
 - **Ship → STOP** (no forward edge): tests red, last-blocker, needs-judgment, or not-clean-green.
-- **∅ end** dominates Ship (69%) and Handover (86%): these are the natural lap terminals — the session stops, and the thread resumes later via Continue.
+- **∅ end** dominates Ship (84%): Ship is now the near-universal lap terminal — the session stops, and the thread resumes later via Continue. (Handover no longer shows as its own terminal; it fires inside Ship.)
 
-Backward/loop edges exist but are rare (Test→Test 6, Ship→Test 9, Fix→Test 2), consistent with re-verify loops rather than churn.
+Backward/loop edges exist but are rare (Test→Ship 190 dominant; Test→Test 11, Ship→Test 12, Ship→Ship 7, Fix→Ship 1), consistent with re-verify loops rather than churn.
 
 ## The handover contract, from its actual consumer (a fresh AI session)
 
@@ -222,7 +224,7 @@ Backward/loop edges exist but are rare (Test→Test 6, Ship→Test 9, Fix→Test
 
 ### The enabling fact: the consumer is not context-starved about artefacts
 
-Handover keeps the topic worktree alive (`ExitWorktree keep`, never `remove`; uncommitted work is deliberately left in place) and Continue always resumes in **that same worktree**, with the board and handovers committed to main so a fresh checkout still finds them `[impl]`. So before it reads a single word of prose, the resuming session already has: the **repository**, the **branch**, the **uncommitted diff** (`git status`/`git diff` in the live worktree), the **brief**, the **board row**, **git history**, and the **PR** (diff, checks, comments). The handover's job is therefore not to *carry* any of that — it is to **point** at it, **select** within it (which slice is next), and **interpret** the parts that aren't self-evident. This is consistent with what the stage already does `[obs]`: a Handover span writes ~1 file and ~14k output — it is already a light pointer stage, not a payload.
+Handover keeps the topic worktree alive (`ExitWorktree keep`, never `remove`; uncommitted work is deliberately left in place) and Continue always resumes in **that same worktree**, with the board and handovers committed to main so a fresh checkout still finds them `[impl]`. So before it reads a single word of prose, the resuming session already has: the **repository**, the **branch**, the **uncommitted diff** (`git status`/`git diff` in the live worktree), the **brief**, the **board row**, **git history**, and the **PR** (diff, checks, comments). The handover's job is therefore not to *carry* any of that — it is to **point** at it, **select** within it (which slice is next), and **interpret** the parts that aren't self-evident. This is consistent with what the stage is designed to do `[impl]` (the standalone `[obs]` signal has thinned to a single span this window, ~25k output, ~2 files, as Handover moved inside Ship) — it is already a light pointer stage, not a payload.
 
 ### Field-by-field: what's durable state vs what's reconstructable
 
@@ -267,15 +269,15 @@ Markdown should be a **projection**, not the canonical form. The canonical hando
 **Clearest (real span seam + a well-defined durable artefact + observed high-frequency transition):**
 
 1. **Handover → Continue** — the single strongest candidate. Carrier is **not** the 9-field prose doc but a small **structured-state + references** core (item/branch/base-ref, next-slice pointer, in-flight paths+status, scope edges) that mostly *points* into artefacts the resuming session already has (brief, board, PR, git, the live worktree). Markdown becomes a projection of it. See the consumer-centric analysis above — its durable payload is a fraction of the current document, and part of the residue actually belongs to Persist.
-2. **Explore → Refine** — carrier: the brief (`## Approach`, `## Open questions`). Explore writes it, Refine reads+extends it. 50% transition.
-3. **Refine → Next** — carrier: the refined brief (`## Slices`, `## Threat model`, `## Guardrail requirements`). Next reads it. 52% transition.
-4. **Next/Continue → Test** — carrier: the PR diff + commits. Test reads the diff. 69%/61%, high volume.
-5. **Test → Ship** — carrier: the PR + `## 🧪 Test drive` plan + drive evidence in the PR body. Ship reads the body for evidence. 78%, highest-volume edge.
+2. **Explore → Refine** — carrier: the brief (`## Approach`, `## Open questions`). Explore writes it, Refine reads+extends it. 83% transition.
+3. **Refine → Next** — carrier: the refined brief (`## Slices`, `## Threat model`, `## Guardrail requirements`). Next reads it. 46% transition (the rest split to session-end or straight to Test).
+4. **Next/Continue → Test** — carrier: the PR diff + commits. Test reads the diff. 65%/61%, high volume (Continue alone is 218 spans).
+5. **Test → Ship** — carrier: the PR + `## 🧪 Test drive` plan + drive evidence in the PR body. Ship reads the body for evidence. 80%, highest-volume edge (190 spans).
 
 **Ambiguous / not yet contract-ready:**
 
 - **Everything inside Ship** (Test→Review→Fix→Merge→Persist→Handover) — real logical boundaries, but executed inline as one compound span with no artefact handed across a session, so unobservable as transitions. Contract-ising these means contract-ising Ship's *internal phases*, a different exercise than the between-command seams.
-- **Review → Fix** — the artefact (the graded review report with checkboxes) is clean and well-defined, but the transition is under-observed (both run inside Ship; only 2 + 7 standalone spans). Good artefact, thin evidence.
+- **Review → Fix** — the artefact (the graded review report with checkboxes) is clean and well-defined, but the transition is now **unobserved as a transition**: both run inside Ship, and standalone spans have fallen to 0 (Review) and 1 (Fix). Good artefact, essentially no direct evidence.
 - **Ship → Persist → Handover** — the artefacts are well-defined (merged diff, review report, brief → durable knowledge; then handover), but they usually run inside Ship, so the seam rarely appears as a transition.
 - **Deploy** anywhere — too few runs to model empirically.
 
