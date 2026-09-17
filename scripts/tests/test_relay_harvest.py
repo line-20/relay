@@ -7,7 +7,7 @@ replace -> resume without any session id or transcript.
 
 Run: python3 scripts/tests/test_relay_harvest.py
 """
-import importlib.util, json, os, shutil, subprocess, tempfile, unittest
+import contextlib, importlib.util, io, json, os, shutil, subprocess, tempfile, unittest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location("relay_harvest", os.path.join(_HERE, "..", "relay_harvest.py"))
@@ -589,6 +589,18 @@ class CheckpointDurabilityTest(unittest.TestCase):
     def _cp_rel(self, slug):
         return os.path.relpath(rh._checkpoint_path(self.relay, slug), self.repo)
 
+    # The checkpoint is pushed to the durable branch on the BARE ORIGIN via a temp index; it never
+    # advances the local `main` of the checkout that ran apply (that's the parallel-worktree-safe
+    # property). So "what landed" is read from the origin, the ground truth — not from local `main`.
+    def _origin_files(self):
+        return git(["ls-tree", "-r", "--name-only", "main"], self.origin).split("\n")
+    def _origin_top(self):  # paths touched by the newest commit on the durable branch
+        return git(["show", "--name-only", "--format=", "main"], self.origin).split()
+    def _origin_count(self):
+        return int(git(["rev-list", "--count", "main"], self.origin))
+    def _origin_top_msg(self):
+        return git(["log", "-1", "--format=%B", "main"], self.origin)
+
     def test_checkpoint_recoverable_from_git_after_worktree_gone(self):
         # Acceptance: after a lap, the checkpoint is recoverable from git without the original worktree.
         slug, branch = "masterdata/import", "topic-md"
@@ -596,14 +608,14 @@ class CheckpointDurabilityTest(unittest.TestCase):
         summary = self._apply(slug, branch, "lap-1", head)
         rep = summary["replication"][0]
         self.assertTrue(rep["committed"])
-        # committed to the durable branch with a marked message
-        self.assertIn("Relay-Checkpoint: lap-1", git(["log", "-1", "--format=%B", "main"], self.repo))
+        # pushed to the durable branch on origin with a marked message
+        self.assertIn("Relay-Checkpoint: lap-1", self._origin_top_msg())
         # now the topic worktree/branch is gone — the checkpoint must still be recoverable from git
         git(["worktree", "remove", "--force", path], self.repo)
         git(["branch", "-D", branch], self.repo)
-        # even after wiping the working copy, git holds the checkpoint on main
+        # even after wiping the working copy, the origin holds the checkpoint on main
         os.remove(rh._checkpoint_path(self.relay, slug))
-        recovered = git(["show", f"main:{self._cp_rel(slug)}"], self.repo)
+        recovered = git(["show", f"main:{self._cp_rel(slug)}"], self.origin)
         self.assertEqual(json.loads(recovered)["work_item"], slug)
 
     def test_checkpoint_pushed_and_resumable_from_fresh_clone(self):
@@ -620,52 +632,55 @@ class CheckpointDurabilityTest(unittest.TestCase):
         self.assertEqual(cp["resume_delta"]["next_slice"], f"finish {slug} slice 2")
 
     def test_replication_offline_is_non_fatal(self):
-        # No reachable remote: the local commit still lands (the floor), replicated is False with a
-        # reason, and the apply itself does NOT fail — state is written regardless.
+        # No reachable remote: nothing is pushed and no local ref moves, but the on-disk checkpoint
+        # (the floor) is written, replicated is False with a reason, and the apply does NOT fail.
         slug, branch = "masterdata/import", "topic-md"
         _, head = self._topic_wip(slug, branch)
         git(["remote", "set-url", "origin", os.path.join(self.parent, "does-not-exist.git")], self.repo)
         summary = self._apply(slug, branch, "lap-1", head)
         rep = summary["replication"][0]
-        self.assertTrue(rep["committed"])            # local floor holds
-        self.assertFalse(rep["replicated"])          # push failed
-        self.assertTrue(rep["reason"])               # ...with a reason
+        self.assertFalse(rep["committed"])           # temp-index builds nothing without the remote tip
+        self.assertFalse(rep["replicated"])          # push never happened
+        self.assertTrue(rep["reason"])               # ...with a reason (offline fetch)
         self.assertEqual(summary["applied"], 1)      # apply succeeded anyway
         self.assertTrue(json.load(open(rh._applied_path(self.relay, slug)))["applied"])
+        self.assertTrue(os.path.exists(rh._checkpoint_path(self.relay, slug)))  # the on-disk floor holds
 
-    def test_replication_refuses_topic_branch(self):
-        # Guard against the case-B trap: never commit the checkpoint onto a non-durable branch (it
-        # would vanish on merge and be invisible to a fresh clone's working tree).
+    def test_replication_works_from_any_checked_out_branch(self):
+        # The temp-index primitive builds on the fetched remote tip, so replication succeeds even when
+        # the checkout that runs apply is on a topic branch (the /handover-from-a-worktree shape) — and
+        # the checkpoint still lands on the DURABLE branch, never on the topic branch or local main.
         slug, branch = "masterdata/import", "topic-md"
         _, head = self._topic_wip(slug, branch)
-        git(["checkout", "-q", "-b", "some-feature"], self.repo)   # main checkout now off the durable branch
+        git(["checkout", "-q", "-b", "some-feature"], self.repo)   # checkout is off the durable branch
         summary = self._apply(slug, branch, "lap-1", head)
         rep = summary["replication"][0]
-        self.assertFalse(rep["committed"])
-        self.assertFalse(rep["replicated"])
-        self.assertEqual(rep["current_branch"], "some-feature")    # structured, not a prose substring
-        self.assertIn(f"'{rh._durable_branch(self.repo)}'", rep["reason"])  # names the durable branch
-        self.assertEqual(git(["rev-list", "--count", "some-feature"], self.repo), "1")  # no checkpoint commit
+        self.assertTrue(rep["committed"])                          # built from the remote tip regardless
+        self.assertTrue(rep["replicated"])                         # ...and pushed to origin/main
+        self.assertIn(self._cp_rel(slug), self._origin_files())    # landed on the durable branch on origin
+        self.assertEqual(git(["rev-list", "--count", "some-feature"], self.repo), "1")  # topic branch untouched
+        self.assertIn("Relay-Checkpoint: lap-1", self._origin_top_msg())
 
     def test_reapply_makes_no_second_checkpoint_commit(self):
         # Idempotent: replaying an already-applied lap adds no new commit on the durable branch.
         slug, branch = "masterdata/import", "topic-md"
         _, head = self._topic_wip(slug, branch)
         self._apply(slug, branch, "lap-1", head)
-        before = git(["rev-list", "--count", "main"], self.repo)
+        before = self._origin_count()
         again = rh.apply_pending(self.relay, slug=slug, board_path=self.board, repo_root=self.repo)
         self.assertEqual(again["applied"], 0)                      # nothing re-applied
-        self.assertEqual(git(["rev-list", "--count", "main"], self.repo), before)  # no new commit
+        self.assertTrue(again["replication"][0]["replicated"])     # already durable (tree matches remote)
+        self.assertEqual(self._origin_count(), before)             # no new commit on origin
 
     def test_no_replicate_flag_writes_state_only(self):
-        # replicate=False (the --no-replicate escape hatch): state is written, git is untouched.
+        # replicate=False (the --no-replicate escape hatch): state is written, origin is untouched.
         slug, branch = "masterdata/import", "topic-md"
         _, head = self._topic_wip(slug, branch)
-        before = git(["rev-list", "--count", "main"], self.repo)
+        before = self._origin_count()
         summary = self._apply(slug, branch, "lap-1", head, replicate=False)
         self.assertEqual(summary["applied"], 1)
         self.assertNotIn("replication", summary)
-        self.assertEqual(git(["rev-list", "--count", "main"], self.repo), before)  # no commit
+        self.assertEqual(self._origin_count(), before)             # nothing pushed
         self.assertTrue(os.path.exists(rh._checkpoint_path(self.relay, slug)))     # ...but state exists
 
     def test_discover_reports_replicated(self):
@@ -684,15 +699,16 @@ class CheckpointDurabilityTest(unittest.TestCase):
         self.assertFalse(a["platform/operator"]["replicated"])
 
     def test_checkpoint_commit_excludes_foreign_staged_files(self):
-        # The isolation guarantee behind the scoped commit: apply runs in the SHARED main checkout,
-        # so a sibling session's unrelated staged file must NOT be swept into (and pushed with) the
-        # checkpoint commit, nor unstaged from under them.
+        # The isolation guarantee: apply may run in a checkout where a sibling session has staged an
+        # unrelated file, so that file must NOT be swept into (and pushed with) the checkpoint commit,
+        # nor unstaged from under them. The temp index makes this structural — the real index is never
+        # read — but the property is what matters, so assert it directly.
         slug, branch = "masterdata/import", "topic-md"
         _, head = self._topic_wip(slug, branch)
         open(os.path.join(self.repo, "SECRET.txt"), "w").write("do-not-commit")
         git(["add", "SECRET.txt"], self.repo)                       # a foreign change "another session" staged
         self._apply(slug, branch, "lap-1", head)
-        touched = git(["show", "--name-only", "--format=", "main"], self.repo).split()
+        touched = self._origin_top()                               # the checkpoint commit pushed to origin
         self.assertNotIn("SECRET.txt", touched)                    # not swept into the checkpoint commit
         self.assertTrue(any(f.startswith("relay/harvest/") for f in touched))  # our files were
         self.assertIn("SECRET.txt", git(["diff", "--cached", "--name-only"], self.repo).split())  # still staged, untouched
@@ -744,12 +760,12 @@ class CheckpointDurabilityTest(unittest.TestCase):
         _, head = self._topic_wip("masterdata/import", "topic-md")
         rh.emit_result(self.relay, make_result("masterdata/import", "topic-md", "lap-a", head))
         rh.emit_result(self.relay, make_result("platform/operator", "topic-op", "lap-b", head))
-        before = int(git(["rev-list", "--count", "main"], self.repo))
+        before = self._origin_count()
         summary = rh.apply_pending(self.relay, board_path=self.board, repo_root=self.repo)  # slug=None
         self.assertEqual(summary["applied"], 2)
         self.assertEqual(len(summary["replication"]), 2)
         self.assertTrue(all(r["committed"] and r["replicated"] for r in summary["replication"]))
-        self.assertEqual(int(git(["rev-list", "--count", "main"], self.repo)), before + 2)  # two commits
+        self.assertEqual(self._origin_count(), before + 2)  # two commits pushed to origin
 
     def test_reconcile_pushes_applied_but_undurable_checkpoint(self):
         # The crash-between-marker-and-commit case: a checkpoint applied locally but never committed
@@ -764,6 +780,144 @@ class CheckpointDurabilityTest(unittest.TestCase):
         self.assertEqual(summary["applied"], 0)                    # nothing new to apply...
         self.assertTrue(summary["replication"][0]["committed"])    # ...but the stranded checkpoint is reconciled
         self.assertTrue(rh._checkpoint_on_remote(self.repo, self.relay, slug))   # now durable on the remote
+
+    def test_handover_shape_no_projection_still_replicates(self):
+        # The /handover wiring shape: apply is driven against the main checkout (work sits in a
+        # separate worktree) with --no-projection, because /handover authors its own richer handover.
+        # The checkpoint must still commit + push; the thin projection must NOT be written or committed.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))
+        summary = rh.apply_pending(self.relay, slug=slug, repo_root=self.repo,
+                                   write_projection=False, board_path=None)
+        self.assertTrue(summary["replication"][0]["replicated"])                 # checkpoint pushed
+        proj_rel = os.path.relpath(
+            os.path.join(self.relay, "handover", f"next-{rh._slug_key('lap-1')}.md"), self.repo)
+        self.assertFalse(os.path.exists(os.path.join(self.repo, proj_rel)))      # not written locally
+        tracked = self._origin_files()
+        self.assertIn(self._cp_rel(slug), tracked)                               # checkpoint IS on origin/main
+        self.assertNotIn(proj_rel, tracked)                                      # projection is NOT
+
+    def test_handover_shape_resumes_from_fresh_clone_without_projection(self):
+        # The cross-device proof for the /handover shape: a fresh clone carries the checkpoint (so
+        # `resume` works on another device) even though no projection handover was written.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))
+        rh.apply_pending(self.relay, slug=slug, repo_root=self.repo,
+                         write_projection=False, board_path=None)
+        clone = os.path.join(self.parent, "phone")
+        git(["clone", "-q", self.origin, clone], self.parent)
+        cp = json.load(open(os.path.join(clone, self._cp_rel(slug))))
+        self.assertEqual(cp["resume_delta"]["next_slice"], f"finish {slug} slice 2")
+
+    def test_no_board_keeps_board_out_of_checkpoint_commit(self):
+        # /handover owns the board commit (Step 4b), so apply is called with board_path=None: even a
+        # result carrying discoveries must not touch board.md nor sweep it into the checkpoint commit,
+        # else every lap writes two competing board commits.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        disc = [{"id": "d1", "title": "follow-up", "one_line": "later"}]
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head, discoveries=disc))
+        board_before = open(self.board).read()
+        rh.apply_pending(self.relay, slug=slug, repo_root=self.repo, board_path=None)
+        self.assertEqual(open(self.board).read(), board_before)                  # board untouched
+        touched = self._origin_top()                                             # the checkpoint commit on origin
+        self.assertNotIn("relay/board.md", touched)                              # not in the checkpoint commit
+
+    def test_reemit_same_lap_stages_no_duplicate(self):
+        # emit is keyed on lap_id, so a worker re-emitting the same lap (a mid-session retry) overwrites
+        # its single WAL entry rather than staging a duplicate that apply would double-count.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))     # same lap again
+        self.assertEqual(len(os.listdir(rh._results_dir(self.relay, slug))), 1)  # one WAL file, not two
+        summary = rh.apply_pending(self.relay, slug=slug, repo_root=self.repo)
+        self.assertEqual(summary["applied"], 1)                                  # applied exactly once
+
+    def _advance_origin_independently(self, tag):
+        # Mimic /handover Step 4b: a sibling commit lands on origin/main WITHOUT advancing the local
+        # main of the checkout that runs apply. A throwaway clone is the cleanest way to do exactly that.
+        sib = os.path.join(self.parent, "sib-" + tag)
+        git(["clone", "-q", self.origin, sib], self.parent)
+        git(["config", "user.email", "s@s"], sib); git(["config", "user.name", "s"], sib)
+        with open(os.path.join(sib, tag + ".txt"), "w") as fh:
+            fh.write("sibling work")
+        git(["add", "-A"], sib); git(["commit", "-qm", "sibling " + tag], sib)
+        git(["push", "-q", "origin", "main"], sib)
+
+    def test_consecutive_handovers_both_replicate_despite_independent_origin_advance(self):
+        # REGRESSION (the 3rd blocker): the handover push (4b) advances origin/main without moving any
+        # local ref, so the NEXT checkpoint must still replicate. The temp index builds on the freshly
+        # fetched remote tip, not a stale local main. Pre-fix this was a permanent non-fast-forward
+        # rejection after the very first handover — cross-device resume silently died.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        self.assertTrue(self._apply(slug, branch, "lap-1", head)["replication"][0]["replicated"])
+        self._advance_origin_independently("hv1")                 # origin/main moves; local main does not
+        rep = self._apply(slug, branch, "lap-2", head)["replication"][0]
+        self.assertTrue(rep["replicated"])                        # STILL lands — no permanent non-ff
+        clone = os.path.join(self.parent, "phone2")
+        git(["clone", "-q", self.origin, clone], self.parent)     # and a fresh device sees lap-2's checkpoint
+        cp = json.load(open(os.path.join(clone, self._cp_rel(slug))))
+        self.assertEqual(cp["applied_from_lap"], "lap-2")
+
+    def test_cli_main_apply_flags(self):
+        # The exact shape /handover invokes — `apply --slug S --no-projection --no-board` — through
+        # main()'s argparse->kwarg mapping, which every other test bypasses by calling apply_pending.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))
+        board_before = open(self.board).read()
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = rh.main(["--repo", self.repo, "apply", "--slug", slug, "--no-projection", "--no-board"])
+        self.assertEqual(rc, 0)
+        proj = os.path.join(self.relay, "handover", f"next-{rh._slug_key('lap-1')}.md")
+        self.assertFalse(os.path.exists(proj))                    # --no-projection mapped through
+        self.assertEqual(open(self.board).read(), board_before)   # --no-board mapped through
+        self.assertIn(self._cp_rel(slug), self._origin_files())   # ...and it still replicated
+
+    def test_nested_provider_field_rejected(self):
+        # The provider-neutrality scan recurses: a session/provider id nested in references or on an
+        # in_flight entry must be rejected, since _build_checkpoint copies those wholesale to a file
+        # pushed to origin permanently. A top-level-only denylist would miss both.
+        r = make_result("masterdata/import", "topic-md", "lap-1", "deadbeef")
+        r["references"]["meta"] = {"session_id": "leak"}
+        with self.assertRaises(rh.HarvestError):
+            rh.validate_result(r)
+        r2 = make_result("masterdata/import", "topic-md", "lap-1", "deadbeef")
+        r2["resume_delta"]["in_flight"] = [{"path": "x", "state": "remaining", "provider": "claude"}]
+        with self.assertRaises(rh.HarvestError):
+            rh.validate_result(r2)
+
+    def test_flags_are_independent(self):
+        # --no-projection and --no-board are separate knobs (the pairing at /handover's call site is a
+        # choice, not a code coupling): suppress the projection but still pass the board, and the board
+        # (with its appended discovery) is committed while the projection is not.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        disc = [{"id": "d9", "title": "t", "one_line": "o"}]
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head, discoveries=disc))
+        rh.apply_pending(self.relay, slug=slug, repo_root=self.repo,
+                         write_projection=False, board_path=self.board)
+        proj = os.path.join(self.relay, "handover", f"next-{rh._slug_key('lap-1')}.md")
+        self.assertFalse(os.path.exists(proj))                    # projection suppressed...
+        self.assertIn("relay/board.md", self._origin_top())       # ...but the board still rides the commit
+
+    def test_no_projection_offline_is_non_fatal(self):
+        # The new flags combined with a replication failure: offline still applies durable state, still
+        # writes no projection, and does not raise.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))
+        git(["remote", "set-url", "origin", os.path.join(self.parent, "nope.git")], self.repo)
+        summary = rh.apply_pending(self.relay, slug=slug, repo_root=self.repo,
+                                   write_projection=False, board_path=None)
+        self.assertEqual(summary["applied"], 1)
+        self.assertFalse(summary["replication"][0]["replicated"])
+        self.assertFalse(os.path.exists(
+            os.path.join(self.relay, "handover", f"next-{rh._slug_key('lap-1')}.md")))
 
 
 if __name__ == "__main__":

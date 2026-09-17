@@ -4,7 +4,7 @@
 name: rlh
 description: Short name for /relay:handover — write the cold-start handover for the next phase and commit it to main.
 argument-hint: "[optional focus, e.g. 'health monitoring metering']"
-allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Read, Write, Edit, ExitWorktree
+allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(python3:*), Bash(sed:*), Bash(cat:*), Read, Write, Edit, ExitWorktree
 ---
 
 ## Usage
@@ -121,11 +121,66 @@ phase: <roadmap phase/milestone>
 ## Open questions
 <Anything unresolved the next session should decide or ask the user about. "None." if there are none.>
 
-## Step 4 — Update the board, then commit both to main
-The handover AND `<root>/board.md` are durable records `/continue` reads from `origin/main`,
-so both land on main — no branch, no PR — WITHOUT switching branches or disturbing your
-working tree.
+## Step 4 — Replicate the resume checkpoint (first), then commit the handover
+Two durable records land on `main` this step: the structured **resume checkpoint** (so a fresh
+clone on another machine/phone resumes with no access to this worktree) and the human-readable
+**handover** + `<root>/board.md`. The checkpoint goes **first** — the handover is a projection of
+it, so main should never advertise a handover whose checkpoint hasn't landed. Both go to `main`
+with no branch and no PR, without switching branches or disturbing your working tree.
 
+### 4a — Emit + apply the checkpoint
+The checkpoint carries exactly the resume state you just wrote in Step 3 — the next objective, the
+in-flight state, the scope edges, the open questions — as structured JSON the resume side reads
+first (`/continue` → `relay_harvest.py resume`). Hand a harvest **result** built from that same
+content to the runtime; it writes the canonical `<root>/harvest/<slug>/checkpoint.json` and pushes it
+to `origin/main` via a temp index built from the freshly-fetched remote tip — so this works from
+**this worktree** (no reaching into the main checkout) and never touches any working tree, index, or
+local branch.
+
+**Security — build the result with the Write tool, never in the shell.** The result's free-text
+fields (next objective, scope edges, open questions) are handover prose that can quote external
+material. Do **not** interpolate them into a bash command (an unquoted heredoc or a `--arg` value
+still lets `$(…)`/backticks in that text execute). Instead **use the Write tool** to write the JSON to
+a scratch file — its content is data, never shell-evaluated — then let a static bash command read it.
+
+Fill the fields from the handover you just wrote (`$SLUG` = the `item:` slug; `$TS` from Step 3,
+reused as the opaque `lap_id`):
+- `disposition`: `"merged"` if Step 0 found the PR MERGED or already on main; `"parked"` if handing
+  over mid-thread (an OPEN PR you chose to hand over anyway).
+- `resume_delta.next_slice`: the "Next objective", one line. `.in_flight`: `"clean"` if the tree is
+  clean, else a list of `{ "path": "...", "state": "remaining" }`. `.scope_edges` / `.open_questions`:
+  the "Done when" scope edges and the Open Questions, as string lists. `.stage`: the `phase:`.
+- `references.head_sha`: the current `git rev-parse HEAD`. Carry **no** provider/session id — durable
+  state is provider-neutral (the runtime rejects `session_id`/`provider` at any depth).
+
+Write the result JSON (Write tool) to a scratch path — e.g. your session scratchpad, or
+`<root>/harvest/.pending-result.json` — as an object shaped exactly like:
+```json
+{ "harvest_version": 1, "lap_id": "<$TS>", "work_item": "<$SLUG>",
+  "disposition": "merged",
+  "resume_delta": { "next_slice": "…", "in_flight": "clean",
+                    "scope_edges": ["…"], "open_questions": ["…"], "stage": "…" },
+  "references": { "head_sha": "<$HEAD_SHA>" } }
+```
+Then emit + apply in this worktree (static command — no free text on the command line):
+```bash
+SLUG="<track/slug from the handover's item: frontmatter>"
+python3 scripts/relay_harvest.py emit < <scratch-result.json>
+python3 scripts/relay_harvest.py apply --slug "$SLUG" \
+  --no-projection --no-board          # /handover authors its own richer handover and owns board.md
+rm -f <scratch-result.json>
+```
+
+Read the `apply` summary's `replication[0]`: `replicated: true` means the checkpoint is on
+`origin/main` — cross-device resume is live for this thread. `committed: true, replicated: false`
+means the commit was built but the push didn't land (offline, or a sibling advanced the remote
+between the fetch and the push) — nothing local changed, so the next lifecycle run rebuilds from a
+fresh fetch and re-pushes (self-heal). `committed: false` with a `reason` is a no-op (offline fetch,
+or no remote branch yet) — also non-fatal. In every case resume falls back to the Markdown handover
+exactly as before, so **never let a checkpoint outcome block the handover push below** — the handover
+is the floor, the checkpoint is the upgrade. Note a non-`true` result in Step 5.
+
+### 4b — Commit the handover + board
 First bring the board to main's version and apply this thread's update to it. The board is
 **main-owned** — always start from main's copy so you don't clobber a parallel session's edits:
 
@@ -229,7 +284,12 @@ open questions:
    Item:   <track/slug>  →  <new status on the board>
    Next:   <next objective, one line>
    Landed: <what just landed, one line>
+   Resume: <checkpoint on origin/main ✓ — resumable on any device | built, push pending (self-heals next lap) | not replicated (offline)>
 ```
+
+The `Resume:` line reflects Step 4a's `replication[0]` — `✓` when `replicated: true`. If it wasn't
+replicated, say so plainly (the handover still works; only the structured cross-device resume is
+degraded to the Markdown fallback until a later lap re-pushes).
 
 Then print the Open Questions IN FULL — these need attention before the next session:
 
@@ -263,6 +323,7 @@ gets skipped, so do it explicitly.
 
 ```bash
 rm -f "<root>/handover/next-$TS.md"                        # committed to main via the temp index, but still UNTRACKED here
+rm -f "<root>/harvest/<slug>/checkpoint.json" "<root>/harvest/<slug>/applied.json"  # Step 4a wrote these here; they're on origin/main now, untracked in this worktree
 git checkout HEAD -- <root>/board.md 2>/dev/null || true    # restore the branch's board (idempotent with Step 4)
 git status --porcelain                                    # expect EMPTY
 ```
