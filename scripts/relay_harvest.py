@@ -49,7 +49,13 @@ class HarvestError(Exception):
 # ---------- small io helpers ----------
 
 def _run_git(args, cwd):
-    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    try:
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    except OSError as e:
+        # git not on PATH, fd exhaustion, a transient OS error — surface as a FAILED run, never let
+        # it raise. Callers already branch on returncode; a replication path that must "never fail an
+        # apply" (R1.12) depends on this not escaping.
+        return subprocess.CompletedProcess(["git", *args], returncode=127, stdout="", stderr=str(e))
 
 
 def _slug_key(slug: str) -> str:
@@ -160,6 +166,13 @@ def validate_result(result: dict):
     for banned in ("session_id", "claude_session", "provider"):
         if banned in result:
             raise HarvestError(f"durable harvest result must not carry provider field {banned!r}")
+    # `references` is copied wholesale into the checkpoint and, since slice 3, PUSHED to the remote —
+    # so it must be scanned for provider identity too, not just the top-level result and resume_delta.
+    refs = result.get("references")
+    if isinstance(refs, dict):
+        for banned in ("session_id", "claude_session", "provider"):
+            if banned in refs:
+                raise HarvestError(f"durable references must not carry provider field {banned!r}")
 
 
 def emit_result(relay_root: str, result: dict) -> str:
@@ -271,39 +284,49 @@ def apply_pending(relay_root, slug=None, board_path=None, repo_root=None, replic
                   remote="origin"):
     """Apply all unapplied results (WAL replay). Idempotent + retryable.
 
-    When repo_root is given and replicate is on, each newly-applied checkpoint is committed to the
-    durable branch and pushed (git-durability, slice 3) — so a pruned/foreign-machine worktree (or
-    another device) still resumes. Replication is best-effort and reported under summary["replication"];
-    it never fails the apply. Omit repo_root (or pass replicate=False) to apply state only."""
+    When repo_root is given and replicate is on, each item's checkpoint is committed to the durable
+    branch and pushed (git-durability, slice 3) — so a pruned/foreign-machine worktree (or another
+    device) still resumes. Replication is best-effort and reported under summary["replication"]; it
+    never fails the apply. Omit repo_root (or pass replicate=False) to apply state only."""
     slugs = [slug] if slug else _all_item_slugs(relay_root)
     summary = {"applied": 0, "skipped": 0, "items": []}
     for s in slugs:
         applied = (_read_json(_applied_path(relay_root, s)) or {}).get("applied", [])
         rdir = _results_dir(relay_root, s)
-        if not os.path.isdir(rdir):
-            continue
-        for fn in sorted(os.listdir(rdir)):
-            if not fn.endswith(".json"):
-                continue
-            result = _read_json(os.path.join(rdir, fn))
-            if not result:
-                continue
-            lap = result.get("lap_id")
-            if lap in applied:
-                summary["skipped"] += 1
-                continue
-            try:
-                validate_result(result)
-            except HarvestError:
-                summary["skipped"] += 1  # malformed staged result: skip, don't corrupt state
-                continue
-            apply_one(relay_root, s, result, board_path=board_path)
-            applied.append(lap)
-            summary["applied"] += 1
-            if repo_root and replicate:
-                rep = _replicate_checkpoint(repo_root, relay_root, s, lap,
-                                            remote=remote, board_path=board_path)
-                summary.setdefault("replication", []).append(rep)
+        if os.path.isdir(rdir):
+            for fn in sorted(os.listdir(rdir)):
+                if not fn.endswith(".json"):
+                    continue
+                result = _read_json(os.path.join(rdir, fn))
+                if not result:
+                    continue
+                lap = result.get("lap_id")
+                if lap in applied:
+                    summary["skipped"] += 1
+                    continue
+                try:
+                    validate_result(result)
+                except HarvestError:
+                    summary["skipped"] += 1  # malformed staged result: skip, don't corrupt state
+                    continue
+                apply_one(relay_root, s, result, board_path=board_path)
+                applied.append(lap)
+                summary["applied"] += 1
+        # Replicate ONCE per item, reconcile-style: drive it against the checkpoint's CURRENT state
+        # whether or not a lap was newly applied this pass. This makes replication self-healing —
+        # apply_one writes its completion marker BEFORE this runs, so a crash between the two, or a
+        # push a sibling's advance rejected non-fast-forward, would otherwise leave a checkpoint
+        # applied-but-never-durable with no retry path (the lap is already in applied.json, so a
+        # per-lap push would never fire again). Keying on checkpoint-vs-remote instead re-drives it
+        # next apply. The checkpoint is an upsert (latest lap wins), so committing the final state
+        # once per invocation is the per-checkpoint durability the ref decision calls for.
+        if repo_root and replicate:
+            cp = _read_json(_checkpoint_path(relay_root, s))
+            if cp:
+                summary.setdefault("replication", []).append(
+                    _replicate_checkpoint(repo_root, relay_root, s,
+                                          cp.get("applied_from_lap") or "reconcile",
+                                          remote=remote, board_path=board_path))
         summary["items"].append(s)
     return summary
 
@@ -719,7 +742,7 @@ def _replicate_checkpoint(repo_root, relay_root, slug, lap, remote="origin", boa
     durable = _durable_branch(repo_root)
     branch = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], repo_root).stdout.strip()
     if branch != durable:
-        return {"lap": lap, "committed": False, "replicated": False,
+        return {"lap": lap, "committed": False, "replicated": False, "current_branch": branch,
                 "reason": f"runtime on {branch!r}, not the durable branch {durable!r} — "
                           "apply from the main checkout so the checkpoint lands on the durable branch"}
     paths = [_checkpoint_path(relay_root, slug), _applied_path(relay_root, slug),
@@ -727,17 +750,34 @@ def _replicate_checkpoint(repo_root, relay_root, slug, lap, remote="origin", boa
     if board_path:
         paths.append(board_path)
     paths = [p for p in paths if os.path.exists(p)]
-    _run_git(["add", "--", *paths], repo_root)
-    if _run_git(["diff", "--cached", "--quiet"], repo_root).returncode == 0:
-        # nothing new staged — an idempotent re-apply; already committed on a previous pass.
+    if not paths:
+        return {"lap": lap, "committed": False, "replicated": False, "reason": "no checkpoint files"}
+    # Scope EVERYTHING to our own pathspec. apply runs in the SHARED main checkout, where another
+    # session or the maintainer may have unrelated (or untracked) changes staged; a bare `git commit`
+    # would sweep those into the checkpoint commit and PUSH them. `git status --porcelain -- <paths>`
+    # (not `git diff HEAD`, which ignores an untracked first-ever checkpoint) tells us whether OUR
+    # files have anything to commit; `git commit -- <paths>` commits only those, ignoring the rest of
+    # the index.
+    if not _run_git(["status", "--porcelain", "--", *paths], repo_root).stdout.strip():
+        # our files already match the durable branch — idempotent re-apply; report the remote state.
         sha = _run_git(["rev-parse", "HEAD"], repo_root).stdout.strip() or None
         return {"lap": lap, "committed": False,
                 "replicated": _checkpoint_on_remote(repo_root, relay_root, slug, remote, durable),
                 "sha": sha}
-    _run_git(["commit", "--no-verify", "-m",
-              f"relay: checkpoint {slug} @ {lap}\n\nRelay-Checkpoint: {lap}"], repo_root)
+    # `git add` stages exactly our files (needed so an untracked first-ever checkpoint is "known" to
+    # commit); `git commit --only -- <paths>` then commits ONLY those, disregarding anything else a
+    # sibling session has staged in this shared checkout — so their work is never swept in and pushed.
+    _run_git(["add", "--", *paths], repo_root)
+    commit = _run_git(["commit", "--only", "--no-verify", "-m",
+                       f"relay: checkpoint {slug} @ {lap}\n\nRelay-Checkpoint: {lap}",
+                       "--", *paths], repo_root)
+    if commit.returncode != 0:
+        # unconfigured user.name/email, an index.lock race in the shared checkout, a hook refusal —
+        # nothing committed, so don't report a stale HEAD as ours and don't push.
+        return {"lap": lap, "committed": False, "replicated": False,
+                "reason": "commit failed: " + (commit.stderr.strip().splitlines() or ["unknown"])[-1]}
     sha = _run_git(["rev-parse", "HEAD"], repo_root).stdout.strip()
-    push = _run_git(["push", remote, durable], repo_root)  # opportunistic — offline/race is non-fatal
+    push = _run_git(["push", remote, durable], repo_root)  # opportunistic — offline/non-ff is non-fatal
     ok = push.returncode == 0
     reason = None if ok else (
         (push.stderr.strip().splitlines() or ["push failed"])[-1] if push.stderr.strip()
