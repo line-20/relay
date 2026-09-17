@@ -26,7 +26,7 @@ only place a provider/session id may appear is an OPTIONAL local hints file,
 which is never required to recover work.
 """
 from __future__ import annotations
-import argparse, json, os, re, subprocess, sys, time
+import argparse, json, os, re, subprocess, sys, tempfile, time
 
 HARVEST_VERSION = 1
 REQUIRED_RESULT_KEYS = ("harvest_version", "lap_id", "work_item", "disposition", "resume_delta")
@@ -35,6 +35,7 @@ RESUME_STATES = {"done", "remaining"}  # per-path in_flight state (the whole tre
 IN_FLIGHT_CLEAN = "clean"              # string form of in_flight for a clean tree (list form: omit or [])
 ACTIVE_GLYPHS = ("⚙", "🔍")
 _BRANCH_TOKEN = re.compile(r"^[A-Za-z0-9][\w./+-]*$")  # git-ref-ish first token
+_BANNED_PROVIDER_KEYS = ("session_id", "claude_session", "provider")  # durable state is provider-neutral
 
 
 def _valid_branch(tok):
@@ -46,11 +47,29 @@ class HarvestError(Exception):
     """Raised on a malformed/incomplete harvest result — nothing is written."""
 
 
+def _scan_provider_leak(obj, where):
+    """Recurse dicts/lists and reject any banned provider/session key at ANY depth. The checkpoint is
+    pushed to origin permanently and copies `references`/`resume_delta` wholesale, so a top-level-only
+    denylist would let a nested `{"meta": {"session_id": …}}` or an `in_flight[i].session_id` land in
+    shared git history. Cheap: durable payloads are small."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k in _BANNED_PROVIDER_KEYS:
+                raise HarvestError(f"durable {where} must not carry provider field {k!r}")
+            _scan_provider_leak(v, where)
+    elif isinstance(obj, list):
+        for item in obj:
+            _scan_provider_leak(item, where)
+
+
 # ---------- small io helpers ----------
 
-def _run_git(args, cwd):
+def _run_git(args, cwd, env=None):
     try:
-        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+        run_env = None
+        if env:
+            run_env = {**os.environ, **env}
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, env=run_env)
     except OSError as e:
         # git not on PATH, fd exhaustion, a transient OS error — surface as a FAILED run, never let
         # it raise. Callers already branch on returncode; a replication path that must "never fail an
@@ -138,10 +157,8 @@ def _validate_resume_delta(rd: dict):
         if not isinstance(stage, str) or not stage.strip():
             raise HarvestError("resume_delta.stage must be a non-empty string when present")
     # Provider-neutrality applies inside resume_delta too — durable state carries no provider identity
-    # (the top-level result is already scanned in validate_result; the nested object must be as well).
-    for banned in ("session_id", "claude_session", "provider"):
-        if banned in rd:
-            raise HarvestError(f"durable resume_delta must not carry provider field {banned!r}")
+    # (recurse: a banned key on an in_flight entry or a nested object must be caught, not just a top key).
+    _scan_provider_leak(rd, "resume_delta")
 
 
 def validate_result(result: dict):
@@ -162,17 +179,11 @@ def validate_result(result: dict):
         raise HarvestError("lap_id must be a non-empty opaque string")
     if _slug_key(result["work_item"]) in (".", ".."):     # would resolve harvest/<slug> to a parent dir
         raise HarvestError(f"invalid work_item {result['work_item']!r}")
-    # provider-neutrality guard: reject obvious provider leakage in durable state
-    for banned in ("session_id", "claude_session", "provider"):
-        if banned in result:
-            raise HarvestError(f"durable harvest result must not carry provider field {banned!r}")
-    # `references` is copied wholesale into the checkpoint and, since slice 3, PUSHED to the remote —
-    # so it must be scanned for provider identity too, not just the top-level result and resume_delta.
-    refs = result.get("references")
-    if isinstance(refs, dict):
-        for banned in ("session_id", "claude_session", "provider"):
-            if banned in refs:
-                raise HarvestError(f"durable references must not carry provider field {banned!r}")
+    # provider-neutrality guard: reject provider/session leakage ANYWHERE in the durable payload — the
+    # whole result is scanned recursively (top level, `references`, `resume_delta`, nested objects and
+    # list entries), because _build_checkpoint copies references/resume_delta wholesale into the
+    # checkpoint that is committed and pushed to origin permanently.
+    _scan_provider_leak(result, "harvest result")
 
 
 def emit_result(relay_root: str, result: dict) -> str:
@@ -292,7 +303,11 @@ def apply_pending(relay_root, slug=None, board_path=None, repo_root=None, replic
     When repo_root is given and replicate is on, each item's checkpoint is committed to the durable
     branch and pushed (git-durability, slice 3) — so a pruned/foreign-machine worktree (or another
     device) still resumes. Replication is best-effort and reported under summary["replication"]; it
-    never fails the apply. Omit repo_root (or pass replicate=False) to apply state only."""
+    never fails the apply. Omit repo_root (or pass replicate=False) to apply state only.
+
+    write_projection=False suppresses the Markdown projection handover (step 3 of apply_one) — a
+    caller that authors its own richer handover (/handover) passes it so main never advertises the
+    thin projection; the checkpoint is still the canonical durable state."""
     slugs = [slug] if slug else _all_item_slugs(relay_root)
     summary = {"applied": 0, "skipped": 0, "items": []}
     for s in slugs:
@@ -739,18 +754,20 @@ def _durable_branch(repo_root):
 
 def _replicate_checkpoint(repo_root, relay_root, slug, lap, remote="origin", board_path=None):
     """Commit the just-applied checkpoint (+ completion marker, projection, board) to the durable
-    branch and push it. Returns a status dict; NEVER raises — replication failing must not fail an
-    apply. Local commit is the floor (offline-safe); the push is best-effort (R1.6).
+    branch and push it — WITHOUT touching repo_root's working tree, index, HEAD or local branch.
+    Returns a status dict; NEVER raises — replication failing must not fail an apply.
 
-    Refuses to commit onto anything but the durable branch: a checkpoint on a topic branch would
-    vanish on merge and be invisible to a fresh clone's working tree (the exact case-B trap the
-    ref decision rejected). The runtime is expected to apply from the main checkout (R1.9)."""
+    Uses the parallel-worktree-safe temp-index primitive that `/handover` Step 4b and `/tidy` use to
+    write `main` while ~10 sessions run concurrent worktrees against one checkout (docs/conventions.md
+    "Parallel-worktree-safe commits"): read the freshly-fetched durable tip into a throwaway index,
+    stage only our files into it, write a tree and `commit-tree` it onto that tip, then push
+    `<commit>:<durable>`. Because the parent is the fetched remote tip — never repo_root's (possibly
+    stale) local branch — the push is a fast-forward whenever the remote hasn't moved since the fetch,
+    and it lands on the durable branch by construction. So there is no branch guard and this runs
+    correctly from ANY checkout, the slice worktree included; repo_root only needs the checkpoint
+    files on disk. Nothing local advances, so an offline/non-ff push strands nothing: the next apply
+    rebuilds from a fresh fetch and re-pushes (self-heal). The `Relay-Checkpoint` trailer marks it."""
     durable = _durable_branch(repo_root)
-    branch = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], repo_root).stdout.strip()
-    if branch != durable:
-        return {"lap": lap, "committed": False, "replicated": False, "current_branch": branch,
-                "reason": f"runtime on {branch!r}, not the durable branch {durable!r} — "
-                          "apply from the main checkout so the checkpoint lands on the durable branch"}
     paths = [_checkpoint_path(relay_root, slug), _applied_path(relay_root, slug),
              os.path.join(relay_root, "handover", f"next-{_slug_key(lap)}.md")]
     if board_path:
@@ -758,32 +775,52 @@ def _replicate_checkpoint(repo_root, relay_root, slug, lap, remote="origin", boa
     paths = [p for p in paths if os.path.exists(p)]
     if not paths:
         return {"lap": lap, "committed": False, "replicated": False, "reason": "no checkpoint files"}
-    # Scope EVERYTHING to our own pathspec. apply runs in the SHARED main checkout, where another
-    # session or the maintainer may have unrelated (or untracked) changes staged; a bare `git commit`
-    # would sweep those into the checkpoint commit and PUSH them. `git status --porcelain -- <paths>`
-    # (not `git diff HEAD`, which ignores an untracked first-ever checkpoint) tells us whether OUR
-    # files have anything to commit; `git commit -- <paths>` commits only those, ignoring the rest of
-    # the index.
-    if not _run_git(["status", "--porcelain", "--", *paths], repo_root).stdout.strip():
-        # our files already match the durable branch — idempotent re-apply; report the remote state.
-        sha = _run_git(["rev-parse", "HEAD"], repo_root).stdout.strip() or None
-        return {"lap": lap, "committed": False,
-                "replicated": _checkpoint_on_remote(repo_root, relay_root, slug, remote, durable),
-                "sha": sha}
-    # `git add` stages exactly our files (needed so an untracked first-ever checkpoint is "known" to
-    # commit); `git commit --only -- <paths>` then commits ONLY those, disregarding anything else a
-    # sibling session has staged in this shared checkout — so their work is never swept in and pushed.
-    _run_git(["add", "--", *paths], repo_root)
-    commit = _run_git(["commit", "--only", "--no-verify", "-m",
-                       f"relay: checkpoint {slug} @ {lap}\n\nRelay-Checkpoint: {lap}",
-                       "--", *paths], repo_root)
-    if commit.returncode != 0:
-        # unconfigured user.name/email, an index.lock race in the shared checkout, a hook refusal —
-        # nothing committed, so don't report a stale HEAD as ours and don't push.
+    rels = [os.path.relpath(p, repo_root) for p in paths]
+
+    fetch = _run_git(["fetch", remote, durable], repo_root)
+    if fetch.returncode != 0:
         return {"lap": lap, "committed": False, "replicated": False,
-                "reason": "commit failed: " + (commit.stderr.strip().splitlines() or ["unknown"])[-1]}
-    sha = _run_git(["rev-parse", "HEAD"], repo_root).stdout.strip()
-    push = _run_git(["push", remote, durable], repo_root)  # opportunistic — offline/non-ff is non-fatal
+                "reason": "offline: " + (fetch.stderr.strip().splitlines() or ["fetch failed"])[-1]}
+    base = _run_git(["rev-parse", "--verify", "--quiet", "FETCH_HEAD"], repo_root).stdout.strip()
+    if not base:
+        return {"lap": lap, "committed": False, "replicated": False,
+                "reason": f"no remote {remote}/{durable} to build on"}
+
+    # A throwaway index seeded from the remote tip: read-tree/add/write-tree touch ONLY this file, so
+    # repo_root's real index, working tree, HEAD and branch are never disturbed. `git add -- <rels>`
+    # stages exactly our files (nothing a sibling session has staged in a shared checkout).
+    fd, tmpidx = tempfile.mkstemp(prefix="relay-cp-idx-"); os.close(fd)
+    try:
+        idx = {"GIT_INDEX_FILE": tmpidx}
+        rt = _run_git(["read-tree", base], repo_root, env=idx)
+        if rt.returncode != 0:
+            return {"lap": lap, "committed": False, "replicated": False,
+                    "reason": "read-tree failed: " + (rt.stderr.strip().splitlines() or ["?"])[-1]}
+        add = _run_git(["add", "--", *rels], repo_root, env=idx)
+        if add.returncode != 0:
+            return {"lap": lap, "committed": False, "replicated": False,
+                    "reason": "add failed: " + (add.stderr.strip().splitlines() or ["?"])[-1]}
+        tree = _run_git(["write-tree"], repo_root, env=idx).stdout.strip()
+    finally:
+        try:
+            os.remove(tmpidx)
+        except OSError:
+            pass
+    if not tree:
+        return {"lap": lap, "committed": False, "replicated": False, "reason": "write-tree failed"}
+    base_tree = _run_git(["rev-parse", f"{base}^{{tree}}"], repo_root).stdout.strip()
+    if tree == base_tree:
+        # our files are byte-identical to the remote tip already — idempotent re-apply, nothing to push.
+        return {"lap": lap, "committed": False, "replicated": True, "sha": base}
+
+    commit = _run_git(["commit-tree", tree, "-p", base, "-m",
+                       f"relay: checkpoint {slug} @ {lap}\n\nRelay-Checkpoint: {lap}"], repo_root)
+    if commit.returncode != 0 or not commit.stdout.strip():
+        # unconfigured user.name/email, a hook refusal — nothing built, so don't push.
+        return {"lap": lap, "committed": False, "replicated": False,
+                "reason": "commit-tree failed: " + (commit.stderr.strip().splitlines() or ["unknown"])[-1]}
+    sha = commit.stdout.strip()
+    push = _run_git(["push", remote, f"{sha}:refs/heads/{durable}"], repo_root)  # non-ff/offline non-fatal
     ok = push.returncode == 0
     reason = None if ok else (
         (push.stderr.strip().splitlines() or ["push failed"])[-1] if push.stderr.strip()
