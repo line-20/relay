@@ -432,6 +432,37 @@ class HarvestSliceTest(unittest.TestCase):
         md = rh._render_handover_md(cp)   # must not raise
         self.assertIn("## In flight", md)
 
+    def _corrupt_checkpoint(self, slug, resume_delta):
+        # Overwrite a checkpoint's resume_delta to simulate a legacy/pre-validation or hand-edited file.
+        cpp = rh._checkpoint_path(self.relay, slug)
+        cp = json.load(open(cpp)); cp["resume_delta"] = resume_delta
+        with open(cpp, "w") as fh:
+            json.dump(cp, fh)
+
+    def test_resume_context_rejects_malformed_checkpoint(self):
+        # Replace path fails CLOSED: a malformed/legacy checkpoint must raise HarvestError
+        # (not TypeError), never seed a resumer from broken state.
+        self._emit_and_apply_all()
+        for bad_rd in (None, "clean", {"in_flight": [{"path": "x"}]}, {"next_slice": ""}):
+            self._corrupt_checkpoint("masterdata/import", bad_rd)
+            with self.assertRaises(rh.HarvestError):
+                rh.resume_context(self.repo, self.relay, "masterdata/import")
+        # the untouched item still resumes fine
+        ctx = rh.resume_context(self.repo, self.relay, "platform/operator")
+        self.assertEqual(ctx["resume_delta"]["next_slice"], "finish platform/operator slice 2")
+
+    def test_discover_tolerates_malformed_checkpoint(self):
+        # Enumerate path DEGRADES: one corrupt checkpoint must not blind the whole listing,
+        # crash on a present-null delta, or drop the item.
+        self._emit_and_apply_all()
+        self._corrupt_checkpoint("masterdata/import", None)   # present-null: the legacy target
+        active = {a["work_item"]: a for a in rh.discover_active(self.repo, self.relay)}
+        self.assertEqual(set(active), {"masterdata/import", "platform/operator"})  # neither dropped
+        self.assertEqual(active["masterdata/import"]["checkpoint_status"], "invalid")
+        self.assertIsNone(active["masterdata/import"]["stage"])                    # no crash, no magic stage
+        self.assertEqual(active["platform/operator"]["checkpoint_status"], "valid")
+        self.assertEqual(active["platform/operator"]["stage"], "build")
+
     def test_validate_bootstrap_more_violations(self):
         self._emit_and_apply_all()
         bs = rh.worker_bootstrap(self.repo, self.relay, "masterdata/import")

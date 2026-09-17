@@ -423,6 +423,21 @@ def _branch_for(relay_root, slug, handover_rel, cp):
     return None
 
 
+def _checkpoint_resume_delta(cp: dict, slug: str) -> dict:
+    """The checkpoint's resume_delta, validated. Raises HarvestError (never TypeError) on a
+    malformed or legacy checkpoint — a present-`null`/missing/non-object resume_delta, or a
+    bad-shaped one — so the read side fails closed with an actionable message instead of
+    silently seeding a broken resumer. Mirrors validate_result's isinstance guard (a
+    pre-validation checkpoint may hold shapes emit would reject today)."""
+    rd = cp.get("resume_delta")
+    if not isinstance(rd, dict):
+        raise HarvestError(
+            f"checkpoint for {slug!r} has a malformed resume_delta ({type(rd).__name__}) — "
+            "regenerate the handover (`/relay:handover`) to rewrite it")
+    _validate_resume_delta(rd)
+    return rd
+
+
 def discover_active(repo_root, relay_root, board_path=None, hints_path=None):
     board_path = board_path or os.path.join(relay_root, "board.md")
     hints = _read_json(hints_path) if hints_path else None
@@ -431,6 +446,15 @@ def discover_active(repo_root, relay_root, board_path=None, hints_path=None):
     items = []
     for slug, handover_rel in _parse_board_active(board_path):
         cp = _read_json(_checkpoint_path(relay_root, slug))
+        # Enumerate path (R1.7 step 1): resilient listing — one corrupt checkpoint must NOT
+        # blind the whole active-work view, so validate per-item and degrade, never raise.
+        cp_status, rd = None, {}
+        if cp is not None:
+            try:
+                rd = _checkpoint_resume_delta(cp, slug)
+                cp_status = "valid"
+            except Exception:
+                cp_status = "invalid"
         branch = _branch_for(relay_root, slug, handover_rel, cp)
         wt = next((w for w in worktrees if branch and w.get("branch") == branch), None)
         items.append({
@@ -438,7 +462,8 @@ def discover_active(repo_root, relay_root, board_path=None, hints_path=None):
             "branch": branch,
             "worktree": wt["path"] if wt else None,
             "has_checkpoint": bool(cp),
-            "stage": (cp or {}).get("resume_delta", {}).get("stage"),
+            "checkpoint_status": cp_status,            # None (no checkpoint) | valid | invalid
+            "stage": rd.get("stage"),                  # None on invalid — never a present-null crash
             "disposition": (cp or {}).get("disposition"),
             "session_hint": hints.get(slug),           # optional; never required
         })
@@ -451,6 +476,9 @@ def resume_context(repo_root, relay_root, slug, board_path=None):
     cp = _read_json(_checkpoint_path(relay_root, slug))
     if not cp:
         raise HarvestError(f"no durable checkpoint for {slug!r} — cannot replace from state")
+    # Replace path (R1.7 step 3): this seeds a worker, so fail CLOSED on a malformed/legacy
+    # checkpoint rather than resume from broken state (the brief's slice-2 acceptance).
+    _checkpoint_resume_delta(cp, slug)
     refs = cp.get("references", {})
     row = next((r for r in _parse_board_active(board_path or os.path.join(relay_root, "board.md"))
                 if r[0] == slug), (slug, None))
