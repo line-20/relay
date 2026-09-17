@@ -2,6 +2,10 @@
 relay/briefs/
 relay/roadmap/
 
+# Harvest write-ahead log — transient per-lap staging consumed by `apply`; only the
+# checkpoint it produces is durable, so the WAL never belongs in git.
+relay/harvest/*/results/
+
 # Maintainer usage-analysis (/reflect) — local cross-project data, never committed
 reflect.repos
 reflect/

@@ -261,8 +261,12 @@ def _render_handover_md(cp: dict) -> str:
     ])
 
 
-def apply_one(relay_root, slug, result, board_path=None):
-    """Apply one result. Ordered so a crash before the final marker replays cleanly."""
+def apply_one(relay_root, slug, result, board_path=None, write_projection=True):
+    """Apply one result. Ordered so a crash before the final marker replays cleanly.
+
+    write_projection=False skips step (3): a caller that authors its own richer handover
+    (e.g. /handover) suppresses the thin projection so main never ends up advertising it.
+    The checkpoint (step 1) is still the canonical durable state either way."""
     lap = result["lap_id"]
     cp = _build_checkpoint(result)
     # (1) canonical checkpoint — deterministic, atomic
@@ -270,8 +274,9 @@ def apply_one(relay_root, slug, result, board_path=None):
     # (2) shared home: discoveries -> board, deduped
     _append_discoveries(board_path, result.get("discoveries"))
     # (3) projection: render the human-readable handover from the checkpoint
-    hv_dir = os.path.join(relay_root, "handover")
-    _atomic_write(os.path.join(hv_dir, f"next-{_slug_key(lap)}.md"), _render_handover_md(cp))
+    if write_projection:
+        hv_dir = os.path.join(relay_root, "handover")
+        _atomic_write(os.path.join(hv_dir, f"next-{_slug_key(lap)}.md"), _render_handover_md(cp))
     # (4) completion marker LAST — its presence == applied
     applied = _read_json(_applied_path(relay_root, slug)) or {"applied": []}
     if lap not in applied["applied"]:
@@ -281,7 +286,7 @@ def apply_one(relay_root, slug, result, board_path=None):
 
 
 def apply_pending(relay_root, slug=None, board_path=None, repo_root=None, replicate=True,
-                  remote="origin"):
+                  remote="origin", write_projection=True):
     """Apply all unapplied results (WAL replay). Idempotent + retryable.
 
     When repo_root is given and replicate is on, each item's checkpoint is committed to the durable
@@ -309,7 +314,8 @@ def apply_pending(relay_root, slug=None, board_path=None, repo_root=None, replic
                 except HarvestError:
                     summary["skipped"] += 1  # malformed staged result: skip, don't corrupt state
                     continue
-                apply_one(relay_root, s, result, board_path=board_path)
+                apply_one(relay_root, s, result, board_path=board_path,
+                          write_projection=write_projection)
                 applied.append(lap)
                 summary["applied"] += 1
         # Replicate ONCE per item, reconcile-style: drive it against the checkpoint's CURRENT state
@@ -823,6 +829,10 @@ def main(argv=None):
     ap.add_argument("--slug")
     ap.add_argument("--no-replicate", action="store_true",
                     help="apply durable state only; skip the checkpoint commit+push (git-durability)")
+    ap.add_argument("--no-projection", action="store_true",
+                    help="skip the Markdown projection handover (the caller authors its own richer one)")
+    ap.add_argument("--no-board", action="store_true",
+                    help="leave board.md untouched (the caller owns the board commit)")
     sub.add_parser("discover", help="list active work from durable sources")
     rs = sub.add_parser("resume", help="print provider-neutral resume context for a work item")
     rs.add_argument("slug")
@@ -841,8 +851,10 @@ def main(argv=None):
             print(f"harvest result rejected: {e}", file=sys.stderr); return 2
         print(path); return 0
     if args.cmd == "apply":
-        print(json.dumps(apply_pending(relay_root, slug=args.slug, board_path=board,
-                                       repo_root=args.repo, replicate=not args.no_replicate),
+        print(json.dumps(apply_pending(relay_root, slug=args.slug,
+                                       board_path=None if args.no_board else board,
+                                       repo_root=args.repo, replicate=not args.no_replicate,
+                                       write_projection=not args.no_projection),
                          indent=2)); return 0
     if args.cmd == "discover":
         print(json.dumps(discover_active(args.repo, relay_root, board_path=board), indent=2)); return 0

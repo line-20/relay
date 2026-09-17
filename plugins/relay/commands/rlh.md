@@ -4,7 +4,7 @@
 name: rlh
 description: Short name for /relay:handover — write the cold-start handover for the next phase and commit it to main.
 argument-hint: "[optional focus, e.g. 'health monitoring metering']"
-allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Read, Write, Edit, ExitWorktree
+allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(python3:*), Bash(sed:*), Bash(cat:*), Read, Write, Edit, ExitWorktree
 ---
 
 ## Usage
@@ -121,11 +121,64 @@ phase: <roadmap phase/milestone>
 ## Open questions
 <Anything unresolved the next session should decide or ask the user about. "None." if there are none.>
 
-## Step 4 — Update the board, then commit both to main
-The handover AND `<root>/board.md` are durable records `/continue` reads from `origin/main`,
-so both land on main — no branch, no PR — WITHOUT switching branches or disturbing your
-working tree.
+## Step 4 — Replicate the resume checkpoint (first), then commit the handover
+Two durable records land on `main` this step: the structured **resume checkpoint** (so a fresh
+clone on another machine/phone resumes with no access to this worktree) and the human-readable
+**handover** + `<root>/board.md`. The checkpoint goes **first** — the handover is a projection of
+it, so main should never advertise a handover whose checkpoint hasn't landed. Both go to `main`
+with no branch and no PR, without switching branches or disturbing your working tree.
 
+### 4a — Emit + apply the checkpoint
+The checkpoint carries exactly the resume state you just wrote in Step 3 — the next objective, the
+in-flight state, the scope edges, the open questions — as structured JSON the resume side reads
+first (`/continue` → `relay_harvest.py resume`). Build a harvest **result** from that same content
+and hand it to the runtime, which turns it into the canonical `<root>/harvest/<slug>/checkpoint.json`
+and commits+pushes it to the durable branch.
+
+The runtime commits the checkpoint on the **durable branch's working tree**, so it must run against
+the **main checkout** (the repo root), not this slice worktree — resolve it from `git worktree list`:
+
+```bash
+MAIN="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"   # first entry = main checkout
+SLUG="<track/slug from the handover's item: frontmatter>"
+```
+
+Now build the result and pipe it to `emit`, then `apply`. Fill the fields from the handover you
+just wrote (`$SLUG` = the `item:` slug; `$TS` = the timestamp from Step 3, reused as the opaque
+`lap_id`; the rest map 1-for-1 from the handover's sections):
+- `disposition`: `"merged"` if Step 0 found the PR MERGED or already on main; `"parked"` if you're
+  handing over mid-thread (an OPEN PR you chose to hand over anyway).
+- `resume_delta.next_slice`: the "Next objective", one line. `.in_flight`: `"clean"` if the tree is
+  clean, else a list of `{ "path": "...", "state": "remaining" }`. `.scope_edges` / `.open_questions`:
+  the "Done when" scope edges and the Open Questions, as string lists. `.stage`: the `phase:`.
+- `references.head_sha`: `git rev-parse HEAD`. Carry **no** provider/session id — durable state is
+  provider-neutral (the runtime rejects `session_id`/`provider` fields).
+
+```bash
+HEAD_SHA="$(git rev-parse HEAD)"; RESULT="$(mktemp)"
+cat > "$RESULT" <<JSON
+{ "harvest_version": 1, "lap_id": "$TS", "work_item": "$SLUG",
+  "disposition": "<merged|parked>",
+  "resume_delta": { "next_slice": "<next objective>", "in_flight": "clean",
+                    "scope_edges": ["<edge>"], "open_questions": ["<q>"], "stage": "<phase>" },
+  "references": { "head_sha": "$HEAD_SHA" } }
+JSON
+python3 scripts/relay_harvest.py --repo "$MAIN" emit < "$RESULT"
+python3 scripts/relay_harvest.py --repo "$MAIN" apply --slug "$SLUG" \
+  --no-projection --no-board          # /handover authors its own richer handover and owns board.md
+rm -f "$RESULT"
+```
+
+Read the `apply` summary's `replication[0]`: `replicated: true` means the checkpoint is on
+`origin/main` — cross-device resume is live for this thread. `committed: true, replicated: false`
+means it's committed locally but the push didn't land (offline, or the remote moved) — the next
+lifecycle run self-heals it. `committed: false` with a `reason` naming the durable branch means the
+**main checkout is not on the durable branch**, so the checkpoint couldn't be committed there; this
+is non-fatal — resume falls back to the Markdown handover exactly as before — but note it in Step 5
+so the user knows cross-device resume isn't live for this handover. **Never let a checkpoint outcome
+block the handover push below**; the handover is the floor, the checkpoint is the upgrade.
+
+### 4b — Commit the handover + board
 First bring the board to main's version and apply this thread's update to it. The board is
 **main-owned** — always start from main's copy so you don't clobber a parallel session's edits:
 
@@ -229,7 +282,12 @@ open questions:
    Item:   <track/slug>  →  <new status on the board>
    Next:   <next objective, one line>
    Landed: <what just landed, one line>
+   Resume: <checkpoint on origin/main ✓ — resumable on any device | committed locally, push pending | not replicated: main checkout off the durable branch>
 ```
+
+The `Resume:` line reflects Step 4a's `replication[0]` — `✓` when `replicated: true`. If it wasn't
+replicated, say so plainly (the handover still works; only the structured cross-device resume is
+degraded to the Markdown fallback).
 
 Then print the Open Questions IN FULL — these need attention before the next session:
 

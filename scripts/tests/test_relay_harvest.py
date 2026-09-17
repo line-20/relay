@@ -765,6 +765,61 @@ class CheckpointDurabilityTest(unittest.TestCase):
         self.assertTrue(summary["replication"][0]["committed"])    # ...but the stranded checkpoint is reconciled
         self.assertTrue(rh._checkpoint_on_remote(self.repo, self.relay, slug))   # now durable on the remote
 
+    def test_handover_shape_no_projection_still_replicates(self):
+        # The /handover wiring shape: apply is driven against the main checkout (work sits in a
+        # separate worktree) with --no-projection, because /handover authors its own richer handover.
+        # The checkpoint must still commit + push; the thin projection must NOT be written or committed.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))
+        summary = rh.apply_pending(self.relay, slug=slug, repo_root=self.repo,
+                                   write_projection=False, board_path=None)
+        self.assertTrue(summary["replication"][0]["replicated"])                 # checkpoint pushed
+        proj_rel = os.path.relpath(
+            os.path.join(self.relay, "handover", f"next-{rh._slug_key('lap-1')}.md"), self.repo)
+        self.assertFalse(os.path.exists(os.path.join(self.repo, proj_rel)))      # not written locally
+        tracked = git(["ls-tree", "-r", "--name-only", "main"], self.repo).split("\n")
+        self.assertIn(self._cp_rel(slug), tracked)                               # checkpoint IS on main
+        self.assertNotIn(proj_rel, tracked)                                      # projection is NOT
+
+    def test_handover_shape_resumes_from_fresh_clone_without_projection(self):
+        # The cross-device proof for the /handover shape: a fresh clone carries the checkpoint (so
+        # `resume` works on another device) even though no projection handover was written.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))
+        rh.apply_pending(self.relay, slug=slug, repo_root=self.repo,
+                         write_projection=False, board_path=None)
+        clone = os.path.join(self.parent, "phone")
+        git(["clone", "-q", self.origin, clone], self.parent)
+        cp = json.load(open(os.path.join(clone, self._cp_rel(slug))))
+        self.assertEqual(cp["resume_delta"]["next_slice"], f"finish {slug} slice 2")
+
+    def test_no_board_keeps_board_out_of_checkpoint_commit(self):
+        # /handover owns the board commit (Step 4b), so apply is called with board_path=None: even a
+        # result carrying discoveries must not touch board.md nor sweep it into the checkpoint commit,
+        # else every lap writes two competing board commits.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        disc = [{"id": "d1", "title": "follow-up", "one_line": "later"}]
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head, discoveries=disc))
+        board_before = open(self.board).read()
+        rh.apply_pending(self.relay, slug=slug, repo_root=self.repo, board_path=None)
+        self.assertEqual(open(self.board).read(), board_before)                  # board untouched
+        touched = git(["show", "--name-only", "--format=", "main"], self.repo).split()
+        self.assertNotIn("relay/board.md", touched)                              # not in the checkpoint commit
+
+    def test_reemit_same_lap_stages_no_duplicate(self):
+        # emit is keyed on lap_id, so a worker re-emitting the same lap (a mid-session retry) overwrites
+        # its single WAL entry rather than staging a duplicate that apply would double-count.
+        slug, branch = "masterdata/import", "topic-md"
+        _, head = self._topic_wip(slug, branch)
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))
+        rh.emit_result(self.relay, make_result(slug, branch, "lap-1", head))     # same lap again
+        self.assertEqual(len(os.listdir(rh._results_dir(self.relay, slug))), 1)  # one WAL file, not two
+        summary = rh.apply_pending(self.relay, slug=slug, repo_root=self.repo)
+        self.assertEqual(summary["applied"], 1)                                  # applied exactly once
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
