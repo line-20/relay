@@ -7,6 +7,34 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.22.0 — the handover contract, validated and durable
+
+The resume state a session hands the next one used to be trusted on faith: written as loosely-checked
+prose, kept only in the worktree it was born in. This release makes that handover a real contract —
+shape-checked at both ends and durable in git — so a cold session inherits a payload it can rely on
+instead of one it has to hope is intact.
+
+The change has four parts, shipped as PRs #31–#34, all over the existing `checkpoint.json` resume
+object (no new store, no new format):
+
+**Added**
+- **Field-level `resume_delta` validation at write time (#31).** When a worker emits its result,
+  `validate_result` now checks the internal shape of the resume state — a well-formed `next_slice`,
+  each `in_flight` entry carrying a `path` + `status ∈ {done, remaining, clean}`, `scope_edges` /
+  `open_questions` as lists, a `stage` present — and rejects present-but-null fields. A malformed or
+  partial delta now fails *before* any durable write, not at the next session's cold start.
+- **Read-side re-validation on the resume path (#32).** The checkpoint's `resume_delta` is validated
+  again when it is read to resume. A checkpoint that predates or violates the schema fails loudly
+  (fail-closed) rather than silently seeding a broken resumer; `discover` narrows its exception
+  handling and flags an unparseable checkpoint instead of skipping it.
+- **Git-durable checkpoints (#33).** Each checkpoint is committed locally (offline-safe) and pushed to
+  the durable branch when online, with the commit scoped to its own pathspec and replication that
+  self-heals. The resume state is now recoverable from git without the original worktree.
+- **Automatic checkpoint replication on every handover (#34).** `/relay:handover` (and its `rlh` twin)
+  now replicate the resume checkpoint to `main` on every hand-off via a temp-index commit — no branch
+  switch — moving replication from a manual step to a wired-in one. The harvest write-ahead log
+  (`relay/harvest/*/results/`) is now git-ignored; only the checkpoint it produces is durable.
+
 ## 1.21.0 — meet the base before the review
 
 One addition to `/relay:ship`, and it comes straight out of the trail.
