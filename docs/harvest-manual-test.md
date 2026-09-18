@@ -4,7 +4,7 @@ _How to validate the slice against a **real** Relay work item by hand:
 active worker → durable checkpoint → destroy the session → rediscover → fresh Continue,
 with **no** Claude `/resume` and **no** transcript lookup. Read `docs/harvest-design.md` for the design._
 
-Everything runs through `scripts/relay_harvest.py`. Substitute `$REPO` for the real repo (e.g. `~/Documents/castles-erp`) and `$RH=<this-repo>/scripts/relay_harvest.py`.
+Everything runs through `plugins/relay/bin/relay_harvest.py`. Substitute `$REPO` for the real repo (e.g. `~/Documents/castles-erp`) and `$RH=<this-repo>/plugins/relay/bin/relay_harvest.py`.
 
 ## 0. Pick a real in-flight item
 

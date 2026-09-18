@@ -18,7 +18,7 @@ Uses one real, low-risk item — `pricing/document-model` — run **read-only** 
 
 ```bash
 CE=~/Documents/castles-erp
-RH=~/Documents/relay/scripts/relay_harvest.py
+RH=~/Documents/relay/plugins/relay/bin/relay_harvest.py
 SCRATCH=/tmp/xprov ; rm -rf "$SCRATCH"; mkdir -p "$SCRATCH/handover"
 cp "$CE/relay/board.md" "$SCRATCH/board.md"          # scratch relay-root: writes nothing into castles-erp
 WT=$(git -C "$CE" worktree list | awk '/documents-allowance-enforce/{print $1}')

@@ -1,7 +1,9 @@
 name: python-tests
 
 # Run the maintainer-tooling test suites (telemetry segmentation + worker-harvest
-# recovery). These build their own temp git repos, so they need only python3 + git.
+# recovery + MEMORY.md compaction). These build their own temp git/memory fixtures,
+# so they need only python3, node, and git. (Name kept as `python-tests` so the
+# required-check reference stays stable, though it now also runs the node suite.)
 on:
   push:
     branches: [main]
@@ -15,6 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - name: Configure git identity (worktree fixtures need one)
         run: |
           git config --global user.email ci@example.com
@@ -23,3 +28,5 @@ jobs:
         run: python3 scripts/tests/test_reflect_commands.py
       - name: relay_harvest recovery tests
         run: python3 scripts/tests/test_relay_harvest.py
+      - name: memory-check compaction tests
+        run: node scripts/tests/test_memory_check.mjs

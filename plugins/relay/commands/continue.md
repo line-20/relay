@@ -86,11 +86,17 @@ main is merged in locally.
    > **Structured checkpoint (first-slice runtime).** If a durable checkpoint exists for the
    > thread at `<root>/harvest/<slug>/checkpoint.json`, it is the **authoritative** resume
    > state — the Markdown handover is a projection of it (see `docs/harvest-design.md` R1.4
-   > tier (b)). Prefer it:
-   > `python3 scripts/relay_harvest.py --repo "$PWD" resume <track/slug>` returns the branch,
-   > topic worktree, brief and `resume_delta` from durable state alone — **no previous-worker
-   > transcript and no provider session id are needed.** Fall back to the Markdown handover
-   > only when no checkpoint file exists yet.
+   > tier (b)). Prefer it — the runtime ships in the plugin's `bin/`, so resolve it portably
+   > (installed on PATH → plugin cache → this checkout), then run `resume`:
+   > ```bash
+   > RH="$(command -v relay_harvest.py 2>/dev/null)"
+   > [ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
+   > [ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
+   > python3 "$RH" --repo "$PWD" resume <track/slug>
+   > ```
+   > It returns the branch, topic worktree, brief and `resume_delta` from durable state alone —
+   > **no previous-worker transcript and no provider session id are needed.** Fall back to the
+   > Markdown handover only when no checkpoint file exists yet.
 5. Fallback (no board, or empty): newest handover on main —
    `git ls-tree -r --name-only FETCH_HEAD <root>/handover/ | grep -E 'next-.*\.md$' | sort | tail -1`
    — or newest local `ls -t <root>/handover/next-*.md 2>/dev/null | head -1`. If neither
