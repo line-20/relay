@@ -259,7 +259,7 @@ measures the post-harvest index and never fights this lap's own removals. It shi
 plugin cache → this repo's own source), and run it through `node` so a lost exec bit can't break it:
 ```bash
 MC="$(command -v relay-memory-check.mjs 2>/dev/null)"
-[ -z "$MC" ] && MC="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay-memory-check.mjs' 2>/dev/null | sort -V | tail -1)"
+[ -z "$MC" ] && MC="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay-memory-check.mjs' 2>/dev/null | sort | tail -1)"
 [ -z "$MC" ] && MC="plugins/relay/bin/relay-memory-check.mjs"   # running from Relay's own checkout
 node "$MC"                                                       # add --dry-run to preview
 ```

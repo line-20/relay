@@ -114,3 +114,135 @@ test('missing MEMORY.md is a clean error (exit 2)', () => {
     return true;
   });
 });
+
+// --- ranking: the type tiebreak (only fires when `modified` is equal) ----------------------------
+function candidateOrder(out) {
+  return out.split('\n')
+    .map(l => l.match(/^\|\s*\d+\s*\|\s*([^|]+\.md)\s*\|/))
+    .filter(Boolean).map(m => m[1].trim());
+}
+
+test('over ceiling: equal modified dates fall back to the type tiebreak (reference<project<feedback<user)', () => {
+  const dir = mkdir();
+  // Same modified date for all, so the sort is decided purely by typeRank.
+  const specs = [
+    ['u', 'user'], ['f', 'feedback'], ['p', 'project'], ['r', 'reference'], ['x', 'nonsense-type'],
+  ];
+  specs.forEach(([n, t]) => memFile(dir, n, { type: t, modified: '2026-05-05' }));
+  writeIndex(dir, specs.map(s => s[0]));
+  const order = candidateOrder(runScript(dir, ['--target-kb', '0.01']));
+  // reference, project, feedback, user, then the unknown type last
+  assert.deepEqual(order, ['r.md', 'p.md', 'f.md', 'u.md', 'x.md']);
+});
+
+// --- frontmatter tolerance / fallback paths ------------------------------------------------------
+test('orphan with NO frontmatter is indexed with a slug title and the placeholder hook', () => {
+  const dir = mkdir();
+  memFile(dir, 'aaa');
+  fs.writeFileSync(path.join(dir, 'no-frontmatter-here.md'), 'Just a body, no --- block.\n');
+  writeIndex(dir, ['aaa']);
+  const out = runScript(dir);
+  assert.match(out, /indexed 1 orphan \(no-frontmatter-here\.md\)/);
+  const idx = fs.readFileSync(path.join(dir, 'MEMORY.md'), 'utf8');
+  assert.match(idx, /- \[No frontmatter here\]\(no-frontmatter-here\.md\) — \(indexed automatically — refine this line\)/);
+});
+
+test('orphan with frontmatter but no description uses the placeholder hook', () => {
+  const dir = mkdir();
+  memFile(dir, 'aaa');
+  fs.writeFileSync(path.join(dir, 'nodesc.md'), '---\nname: nodesc\nmetadata:\n  type: project\n---\n\nBody.\n');
+  writeIndex(dir, ['aaa']);
+  runScript(dir);
+  const idx = fs.readFileSync(path.join(dir, 'MEMORY.md'), 'utf8');
+  assert.match(idx, /\(nodesc\.md\) — \(indexed automatically — refine this line\)/);
+});
+
+test('candidate with missing type/modified shows unknown / — in the table', () => {
+  const dir = mkdir();
+  fs.writeFileSync(path.join(dir, 'bare.md'), '---\nname: bare\ndescription: "A fact with no type or date."\n---\n\nBody.\n');
+  writeIndex(dir, ['bare']);
+  const out = runScript(dir, ['--target-kb', '0.01']);
+  const row = out.split('\n').find(l => l.includes('bare.md') && l.startsWith('|'));
+  assert.match(row, /\| unknown \| — \|/);
+});
+
+// --- EOL / trailing-newline round-trips ----------------------------------------------------------
+test('a CRLF index stays CRLF after a rewrite', () => {
+  const dir = mkdir();
+  memFile(dir, 'aaa'); memFile(dir, 'orphan');
+  fs.writeFileSync(path.join(dir, 'MEMORY.md'),
+    '# Memory index\r\n\r\n- [aaa](aaa.md) — hook.\r\n');
+  runScript(dir); // indexing the orphan forces a rewrite
+  const idx = fs.readFileSync(path.join(dir, 'MEMORY.md'), 'utf8');
+  assert.ok(idx.includes('\r\n'), 'still has CRLF');
+  assert.ok(!/[^\r]\n/.test(idx), 'no bare LF introduced');
+});
+
+test('a no-trailing-newline index does not gain one on rewrite', () => {
+  const dir = mkdir();
+  memFile(dir, 'aaa'); memFile(dir, 'orphan');
+  fs.writeFileSync(path.join(dir, 'MEMORY.md'), '# Memory index\n\n- [aaa](aaa.md) — hook.'); // no final \n
+  runScript(dir);
+  const idx = fs.readFileSync(path.join(dir, 'MEMORY.md'), 'utf8');
+  assert.ok(!idx.endsWith('\n'), 'no trailing newline added');
+  assert.match(idx, /\(orphan\.md\)/, 'orphan still indexed');
+});
+
+// --- pointer classification edge cases -----------------------------------------------------------
+test('an anchored pointer (file.md#heading) is neither dropped nor re-indexed', () => {
+  const dir = mkdir();
+  memFile(dir, 'aaa');
+  writeIndex(dir, [], ['- [Anchored](aaa.md#a-heading) — points at a live file with an anchor.']);
+  const out = runScript(dir);
+  assert.match(out, /nothing to fix/);
+  const idx = fs.readFileSync(path.join(dir, 'MEMORY.md'), 'utf8');
+  assert.match(idx, /aaa\.md#a-heading/, 'anchored live pointer kept');
+});
+
+test('a non-.md bullet (external link / subdir path) is preserved, never deleted as stale', () => {
+  const dir = mkdir();
+  memFile(dir, 'aaa');
+  writeIndex(dir, ['aaa'], [
+    '- [Docs](https://example.com/guide) — an external link, not a memory pointer.',
+    '- [Sub](sub/dir/note.md) — a subdir path, not a bare memory basename.',
+  ]);
+  const out = runScript(dir);
+  assert.match(out, /nothing to fix/);
+  const idx = fs.readFileSync(path.join(dir, 'MEMORY.md'), 'utf8');
+  assert.match(idx, /example\.com\/guide/);
+  assert.match(idx, /sub\/dir\/note\.md/);
+});
+
+// --- --target-kb keeps an otherwise-over index at ok ---------------------------------------------
+test('--target-kb can keep at ok an index that is over under the default', () => {
+  const dir = mkdir();
+  for (let i = 0; i < 40; i++) memFile(dir, `n${i}`);
+  writeIndex(dir, Array.from({ length: 40 }, (_, i) => `n${i}`));
+  assert.match(runScript(dir, ['--target-kb', '0.5']), /STATUS: over/); // over under a tiny ceiling
+  const out = runScript(dir, ['--target-kb', '100']);                    // ok under a large one
+  assert.match(out, /STATUS: ok/);
+  assert.match(out, /want < 100\.0 KB/);
+});
+
+// --- the 🔴 fix: default memory-dir folds '.' as well as '/' (worktree cwd) -----------------------
+test("defaultMemoryDir folds '.' so a dotted/worktree cwd resolves (not just '/')", () => {
+  const base = mkdir();
+  const dotted = path.join(base, 'a.b', 'c'); // a cwd containing a dot, like <repo>/.claude/...
+  fs.mkdirSync(dotted, { recursive: true });
+  // No --memory-dir → it derives from cwd; assert the derived path folded the dot to '-'.
+  assert.throws(() => execFileSync('node', [SCRIPT], { cwd: dotted, encoding: 'utf8' }), (e) => {
+    assert.equal(e.status, 2);
+    assert.match(String(e.stderr), /-a-b-c\/memory\/MEMORY\.md/); // '.' and '/' both folded to '-'
+    return true;
+  });
+});
+
+test('a bad --target-kb is rejected with exit 2', () => {
+  const dir = mkdir();
+  memFile(dir, 'aaa'); writeIndex(dir, ['aaa']);
+  assert.throws(() => runScript(dir, ['--target-kb', 'nope']), (e) => {
+    assert.equal(e.status, 2);
+    assert.match(String(e.stderr), /--target-kb needs a positive number/);
+    return true;
+  });
+});

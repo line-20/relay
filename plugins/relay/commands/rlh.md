@@ -168,7 +168,7 @@ plugin cache → this repo's own source) and invoke via `python3`:
 ```bash
 SLUG="<track/slug from the handover's item: frontmatter>"
 RH="$(command -v relay_harvest.py 2>/dev/null)"
-[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort | tail -1)"
 [ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
 python3 "$RH" emit < <scratch-result.json>
 python3 "$RH" apply --slug "$SLUG" \

@@ -90,7 +90,7 @@ main is merged in locally.
    > (installed on PATH → plugin cache → this checkout), then run `resume`:
    > ```bash
    > RH="$(command -v relay_harvest.py 2>/dev/null)"
-   > [ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
+   > [ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort | tail -1)"
    > [ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
    > python3 "$RH" --repo "$PWD" resume <track/slug>
    > ```

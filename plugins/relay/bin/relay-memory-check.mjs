@@ -46,16 +46,24 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === '--dry-run') a.dryRun = true;
     else if (arg === '--json') a.json = true;
-    else if (arg === '--memory-dir') a.memoryDir = argv[++i];
-    else if (arg === '--target-kb') a.targetKb = Number(argv[++i]);
-    else if (arg === '-h' || arg === '--help') a.help = true;
+    else if (arg === '--memory-dir') {
+      a.memoryDir = argv[++i];
+      if (!a.memoryDir) return { error: '--memory-dir needs a path' };
+    } else if (arg === '--target-kb') {
+      const n = Number(argv[++i]);
+      if (!Number.isFinite(n) || n <= 0) return { error: '--target-kb needs a positive number' };
+      a.targetKb = n;
+    } else if (arg === '-h' || arg === '--help') a.help = true;
   }
   return a;
 }
 
-// The harness stores a project's memory at ~/.claude/projects/<cwd-with-slashes-as-dashes>/memory.
+// The harness stores a project's memory at ~/.claude/projects/<slug>/memory, where <slug> is the cwd
+// with BOTH '/' and '.' folded to '-' (case preserved). The '.' matters: a parallel-worktree cwd like
+// <repo>/.claude/worktrees/x becomes <repo>--claude-worktrees-x — fold only '/' and every worktree
+// (Relay's whole reason to exist) would resolve to a non-existent dir and silently skip the sweep.
 function defaultMemoryDir() {
-  const slug = process.cwd().replace(/\//g, '-');
+  const slug = process.cwd().replace(/[/.]/g, '-');
   return path.join(os.homedir(), '.claude', 'projects', slug, 'memory');
 }
 
@@ -65,6 +73,7 @@ function defaultMemoryDir() {
 function readFrontmatter(file) {
   let text;
   try { text = fs.readFileSync(file, 'utf8'); } catch { return {}; }
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);   // strip a leading UTF-8 BOM
   const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return {};
   const fm = {};
@@ -74,8 +83,8 @@ function readFrontmatter(file) {
     const key = kv[1];
     let val = kv[2].trim().replace(/^["']|["']$/g, '');
     if (val === '') continue;
-    // First occurrence wins; a top-level `type:` (rare) shouldn't be clobbered by metadata.type,
-    // but metadata.type is what we want, so let the later (nested) value overwrite the placeholder.
+    // Last occurrence wins: the nested `metadata.type` we want appears after any top-level key of the
+    // same name, so letting it overwrite is correct. A flat scan is enough — we only read scalar keys.
     fm[key] = val;
   }
   return fm;
@@ -83,6 +92,18 @@ function readFrontmatter(file) {
 
 // --- Index parsing -------------------------------------------------------------------------------
 const ENTRY_RE = /^-\s*\[([^\]]*)\]\(([^)]+)\)\s*(?:—|--|-)?\s*(.*)$/;
+
+// A bullet counts as a MEMORY pointer only when it links to a bare `<name>.md` basename — no path
+// separator, no URL scheme, ignoring any #fragment. Any other list item (an external link, a
+// see-also, a subdir path) is ordinary prose we preserve verbatim; classifying it as a pointer would
+// mark it "stale" and delete it in the rewrite — silent, unrecoverable data loss.
+function pointerMatch(line) {
+  const m = line.match(ENTRY_RE);
+  if (!m) return null;
+  const target = m[2].split('#')[0].trim();
+  if (!/^[^/:]+\.md$/.test(target)) return null;
+  return { title: m[1], target, hook: (m[3] || '').trim() };
+}
 
 function slugToTitle(slug) {
   return slug.replace(/\.md$/, '').replace(/[-_]+/g, ' ').replace(/^\w/, c => c.toUpperCase());
@@ -106,13 +127,17 @@ function run(opts) {
   const target = (opts.targetKb ? opts.targetKb * KB : DEFAULTS.targetBytes);
   const th = { ...DEFAULTS, targetBytes: target };
 
-  const raw = fs.readFileSync(indexPath, 'utf8');
+  let raw, onDisk;
+  try {
+    raw = fs.readFileSync(indexPath, 'utf8');
+    if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);   // drop a stray BOM (rewritten out below)
+    // Memory files actually on disk (exclude the index itself).
+    onDisk = fs.readdirSync(dir).filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
+  } catch (e) {
+    return { error: `cannot read memory dir ${dir}: ${e.message}` };
+  }
   const eol = raw.includes('\r\n') ? '\r\n' : '\n';
   const lines = raw.split(/\r?\n/);
-
-  // Memory files actually on disk (exclude the index itself).
-  const onDisk = fs.readdirSync(dir)
-    .filter(f => f.endsWith('.md') && f !== 'MEMORY.md');
   const onDiskSet = new Set(onDisk);
 
   // Walk the index: keep every non-entry line verbatim; classify each entry line.
@@ -120,14 +145,13 @@ function run(opts) {
   const stale = [];
   const kept = [];
   for (const line of lines) {
-    const m = line.match(ENTRY_RE);
-    if (!m) { kept.push({ line }); continue; }
-    const targetFile = m[2].split('#')[0].trim();
-    if (onDiskSet.has(targetFile)) {
-      referenced.add(targetFile);
-      kept.push({ line, entry: { title: m[1], file: targetFile, hook: (m[3] || '').trim() } });
+    const pm = pointerMatch(line);
+    if (!pm) { kept.push({ line }); continue; }
+    if (onDiskSet.has(pm.target)) {
+      referenced.add(pm.target);
+      kept.push({ line, entry: { title: pm.title, file: pm.target, hook: pm.hook } });
     } else {
-      stale.push({ line, file: targetFile });
+      stale.push({ line, file: pm.target });
     }
   }
 
@@ -144,7 +168,7 @@ function run(opts) {
   let outLines = kept.map(k => k.line);
   if (orphanLines.length) {
     let lastEntryIdx = -1;
-    for (let i = 0; i < outLines.length; i++) if (ENTRY_RE.test(outLines[i])) lastEntryIdx = i;
+    for (let i = 0; i < outLines.length; i++) if (pointerMatch(outLines[i])) lastEntryIdx = i;
     const insertAt = lastEntryIdx >= 0 ? lastEntryIdx + 1 : outLines.length;
     outLines.splice(insertAt, 0, ...orphanLines.map(o => o.line));
   }
@@ -152,12 +176,23 @@ function run(opts) {
   if (raw.endsWith('\n') && !out.endsWith('\n')) out += eol;
 
   const changed = out !== raw;
-  if (changed && !opts.dryRun) fs.writeFileSync(indexPath, out, 'utf8');
+  // Write atomically (temp + rename on the same dir) so two parallel /persist runs can't interleave
+  // and leave MEMORY.md half-written — the multi-session case is Relay's norm, not an edge.
+  if (changed && !opts.dryRun) {
+    const tmp = path.join(dir, `.MEMORY.md.tmp-${process.pid}`);
+    try {
+      fs.writeFileSync(tmp, out, 'utf8');
+      fs.renameSync(tmp, indexPath);
+    } catch (e) {
+      try { fs.rmSync(tmp, { force: true }); } catch { /* best effort */ }
+      return { error: `cannot write ${indexPath}: ${e.message}` };
+    }
+  }
 
   // Measure the post-fix index (what the next session will actually load).
   const measured = opts.dryRun ? out : (changed ? out : raw);
   const bytes = Buffer.byteLength(measured, 'utf8');
-  const entryCount = outLines.filter(l => ENTRY_RE.test(l)).length;
+  const entryCount = outLines.filter(l => pointerMatch(l)).length;
   const lineCount = outLines.length;
 
   const over = bytes > th.targetBytes || entryCount > th.lineCap;
@@ -175,7 +210,9 @@ function run(opts) {
         file: k.entry.file,
         title: k.entry.title,
         hook: k.entry.hook,
-        type: fm.type || fm.node_type || 'unknown',
+        // `type` is the memory's own kind (project/reference/feedback/user). Don't fall back to
+        // `node_type`, which is the storage node kind (literally "memory") and would mis-rank.
+        type: fm.type || 'unknown',
         modified: (fm.modified || '').slice(0, 10),
       };
     }).sort((a, b) => {
@@ -187,7 +224,10 @@ function run(opts) {
     });
 
     const bytesToCut = Math.max(0, bytes - th.targetBytes);
-    const avgEntry = entryCount ? bytes / entryCount : 0;
+    // Average over the ENTRY lines only (not headings/blank lines/prose), so the estimate reflects
+    // what a retire actually reclaims rather than diluting per-entry cost with fixed overhead.
+    const entryBytes = outLines.filter(pointerMatch).reduce((n, l) => n + Buffer.byteLength(l + eol, 'utf8'), 0);
+    const avgEntry = entryCount ? entryBytes / entryCount : 0;
     const entriesToCut = avgEntry ? Math.ceil(bytesToCut / avgEntry) : 0;
     budget = { bytesToCut, entriesToCut };
   }
@@ -212,7 +252,6 @@ function report(r) {
   out.push('');
   out.push(`MEMORY.md — ${r.indexPath}`);
 
-  const acted = r.dryRun ? 'would' : '';
   const did = [];
   if (r.orphans.length) did.push(`${r.dryRun ? 'index' : 'indexed'} ${r.orphans.length} orphan${r.orphans.length > 1 ? 's' : ''} (${r.orphans.join(', ')})`);
   if (r.stale.length) did.push(`${r.dryRun ? 'drop' : 'dropped'} ${r.stale.length} stale pointer${r.stale.length > 1 ? 's' : ''} (${r.stale.join(', ')})`);
@@ -259,6 +298,10 @@ function report(r) {
 
 // --- Main ----------------------------------------------------------------------------------------
 const opts = parseArgs(process.argv.slice(2));
+if (opts.error) {
+  console.error(`memory-check: ${opts.error}`);
+  process.exit(2);
+}
 if (opts.help) {
   console.log('Usage: relay-memory-check.mjs [--memory-dir <path>] [--dry-run] [--target-kb <n>] [--json]');
   process.exit(0);
