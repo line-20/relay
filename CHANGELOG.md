@@ -7,6 +7,31 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.23.0 — memory that keeps itself lean
+
+The AI-memory index (`MEMORY.md`, loaded into every session) grew append-only and hit its load cap
+every few laps, forcing a manual hand-trim. `/persist` only ever swept the memories *this* lap
+superseded, so slow drift between laps — orphaned files, pointers to deleted files, facts long since
+promoted to a house rule — just accumulated. This release makes memory a bounded working set that
+tidies itself, and fixes a packaging gap that meant Relay's runtime scripts never actually shipped to
+anyone who installed it as a plugin.
+
+**Added**
+- **Size-driven MEMORY.md compaction, built into `/persist` (Step 6.5).** At the end of a lap the
+  index is checked against its working-set ceiling. Most laps it's silent; when the index has drifted
+  it fixes the safe, lossless parts itself (indexes an orphaned memory file, drops a pointer to a file
+  that's gone) and, when it's over the ceiling, surfaces a ranked list of retire candidates for a
+  guided pass that removes only memories whose fact now has a home in a durable surface. No hook and no
+  config — the memory format and cap are the same for every project. Ships as a no-deps script,
+  `relay-memory-check.mjs`.
+
+**Fixed**
+- **Relay's runtime scripts now ship to installed plugins.** They lived in the repo's `scripts/`
+  folder, which is outside the packaged plugin, so `/continue` and `/handover` would fail for anyone
+  who installed Relay rather than cloning it. Both the harvest runtime and the new compaction script
+  now live in the plugin's `bin/` and resolve wherever Relay runs — installed, from cache, or from a
+  source checkout.
+
 ## 1.22.0 — the handover contract, validated and durable
 
 The resume state a session hands the next one used to be trusted on faith: written as loosely-checked
