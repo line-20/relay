@@ -10,7 +10,8 @@ Run: python3 scripts/tests/test_relay_harvest.py
 import contextlib, importlib.util, io, json, os, shutil, subprocess, tempfile, unittest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_spec = importlib.util.spec_from_file_location("relay_harvest", os.path.join(_HERE, "..", "relay_harvest.py"))
+_spec = importlib.util.spec_from_file_location(
+    "relay_harvest", os.path.join(_HERE, "..", "..", "plugins", "relay", "bin", "relay_harvest.py"))
 rh = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(rh)
 
 

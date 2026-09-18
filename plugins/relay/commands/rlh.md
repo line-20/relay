@@ -162,11 +162,16 @@ Write the result JSON (Write tool) to a scratch path — e.g. your session scrat
                     "scope_edges": ["…"], "open_questions": ["…"], "stage": "…" },
   "references": { "head_sha": "<$HEAD_SHA>" } }
 ```
-Then emit + apply in this worktree (static command — no free text on the command line):
+Then emit + apply in this worktree (static command — no free text on the command line). The runtime
+ships in the plugin's `bin/`, so it's on PATH once Relay is installed; resolve it portably (installed →
+plugin cache → this repo's own source) and invoke via `python3`:
 ```bash
 SLUG="<track/slug from the handover's item: frontmatter>"
-python3 scripts/relay_harvest.py emit < <scratch-result.json>
-python3 scripts/relay_harvest.py apply --slug "$SLUG" \
+RH="$(command -v relay_harvest.py 2>/dev/null)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort | tail -1)"
+[ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
+python3 "$RH" emit < <scratch-result.json>
+python3 "$RH" apply --slug "$SLUG" \
   --no-projection --no-board          # /handover authors its own richer handover and owns board.md
 rm -f <scratch-result.json>
 ```

@@ -281,6 +281,19 @@ with opposite lifetimes:
 (today's harvest: guardrails overlay + design-system + memory + release-notes) · `full` (+ ADRs +
 procedures + how-tos). A one-pager site and a multi-year ERP differ only by this setting.
 
+**AI memory is a bounded working set, not a full ledger.** `MEMORY.md` (the auto-memory index, one
+line per memory, loaded into every session) has a fixed harness load cap, so it can't grow
+append-only forever. `/persist`'s per-lap harvest only retires memories *this lap* superseded, which
+misses slow drift between laps. So `/persist` also runs a **size-driven global sweep** (Step 6.5) via
+Relay's shipped `relay-memory-check.mjs` (in the plugin's `bin/`, so it lands on the Bash tool's PATH
+when Relay is installed) — no hook, no config, because the format, location and cap are fixed by the
+harness and identical for every project. The script does the lossless,
+deterministic parts itself (index an orphan file, drop a stale pointer, report size); when the index
+is over its working-set ceiling it surfaces a ranked retire-candidate list for `/persist`'s model
+pass, which retires **only** memories whose fact now has a proven home in a durable surface (a house
+rule, an ADR). A retired memory becomes cold storage in git history, not auto-recalled — the right
+state once its fact lives elsewhere.
+
 **ADR convention** (parallel-worktree-native — Relay's reason to exist): filename
 `YYYY-MM-DD-<slug>.md`, **no sequential counter** (concurrent worktrees would fight over the next
 number); refer by slug, never number; status `Accepted` / `Superseded-by-<slug>` / `Reversed`; **never

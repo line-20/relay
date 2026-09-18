@@ -246,10 +246,55 @@ Distilled marker, back onto `main`; main-owned, so edit from main's copy and pus
 temp-index pattern `/handover` uses if you're on a feature branch). AI memory is written through the
 harness, not necessarily via this commit.
 
+## Step 6.5 — Sweep the memory index for slow drift (size-driven, global)
+Steps 4–6 only sweep memories **this lap** superseded. `MEMORY.md` (the auto-memory index, one line
+per memory, loaded into every session) also drifts *between* laps — orphaned files, stale pointers,
+facts promoted to a house rule on some earlier lap and never swept — until it hits its load cap and
+forces a manual hand-trim. This step is the missing **global** sweep, keyed on **size**, not on this
+lap's harvest. Skip it only at `LEVEL: none` (nothing touches memory there); run it at `lean`/`standard`/`full`.
+
+Run Relay's shipped checker — pure Node, no deps — **after** the Step-6 writes and retires land, so it
+measures the post-harvest index and never fights this lap's own removals. It ships in the plugin's
+`bin/`, so it's on the Bash tool's PATH once Relay is installed; resolve it portably (installed →
+plugin cache → this repo's own source), and run it through `node` so a lost exec bit can't break it:
+```bash
+MC="$(command -v relay-memory-check.mjs 2>/dev/null)"
+[ -z "$MC" ] && MC="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay-memory-check.mjs' 2>/dev/null | sort | tail -1)"
+[ -z "$MC" ] && MC="plugins/relay/bin/relay-memory-check.mjs"   # running from Relay's own checkout
+node "$MC"                                                       # add --dry-run to preview
+```
+It resolves the project's memory dir from the cwd itself (override with `--memory-dir` for a test
+fixture). It does the **deterministic, lossless** parts on its own and reports them — **index an
+orphan** (a memory file with no pointer line — additive), **drop a stale pointer** (an index line
+whose target file is already gone). These need no gate; they lose nothing. Fold its one-line
+`Deterministic sweep:` result into the Step-7 digest.
+
+Then read its `STATUS:` line:
+- **`STATUS: ok`** — the index is under the working-set ceiling. Nothing more to do; note the size in
+  the digest and move on.
+- **`STATUS: over`** — the index is over the ceiling. The script prints a **byte/entry budget** and a
+  **ranked retire-candidate table** (most-likely-superseded first). This is the one part a script must
+  **not** do blindly, so it hands it to you: for each candidate, **open the memory file and confirm its
+  fact now lives in a durable surface** — a house rule (`<root>/knowledge/*`), an ADR, a guide. Retire
+  **only** the ones you can point to a home for (cite it); that memory is a second, weaker copy. **Leave
+  anything with no repo home** — a machine reality, a working agreement, a gotcha that belongs to no
+  document — even if it's old. Retire enough confirmed-superseded entries to clear the budget; if too
+  few qualify, stop at the ones that do and say so rather than retiring a fact into oblivion.
+
+Retire through the **same memory mechanism Step 6 uses** — remove the file **and** its index line —
+and only **after** you've cited the durable home. This is the deliberate, size-gated, evidence-required
+exception to Step 6's "never retire a memory this lap did not supersede": that rule bars *opportunistic*
+tidying; this sweep fires only when the index is genuinely over its ceiling, and only on facts with a
+proven home elsewhere. A retired memory becomes **cold storage** (on disk in git history, no longer
+auto-recalled) — the right state for a fact that now lives in a house rule. Treat `MEMORY.md` as a
+bounded **working set**, not a full ledger.
+
 ## Step 7 — Report
 State, outcome-first: **what was harvested and where** (each lesson → its surface), the **release
 note** written (or that the lap was internal-only, so none), **which memories were retired or trimmed**
-and what now carries them, **what was deferred** to a later persist slice, and that next lap's
+and what now carries them, the **memory-index sweep** (Step 6.5) — its deterministic fix line, the
+index size, and any drift-superseded memories retired (with the home each moved to) — **what was
+deferred** to a later persist slice, and that next lap's
 `/refine` and the review specialists now read the grown overlay — the lesson is enforced from here on. If a lap taught no durable lesson **and** shipped nothing
 user-visible, say so plainly: **"nothing to persist — no durable lesson, no user-visible change"** is
 a valid, sprawl-respecting outcome, not a failure. (A common case: a user-visible lap that taught
