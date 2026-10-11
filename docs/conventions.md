@@ -390,6 +390,7 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
              "env": { "up": "stack-up", "down": "stack-down" },
              "deploy": "deploy-preview",
              "affects": "affected-check",
+             "claims": "claims-check",
              "release": "release" } }
 ```
 - A command that has a hook for its phase **runs the hooked command/skill** at that point.
@@ -403,6 +404,7 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
 | `env.up` / `env.down` | `/test` (local target) · `/ship` (teardown) | Bring a **local test environment** up / take it down |
 | `deploy` | `/deploy` | Trigger the project's **PR preview** |
 | `affects` | `/ship` (Phase 5, merge gate) | Judge whether a base that moved since your green **overlaps** this PR — so a disjoint sibling merge doesn't force a wasted CI re-run |
+| `claims` | `/ship` (Phase 0.6, and again at the Phase 5 merge gate) | Judge whether a migration number or API version this branch uses is **already claimed** by a sibling's open PR — so a double-claim stops before review, not in CI after it |
 | `release` | `/ship` (Phase 5.6, post-merge) | Cut a release for what just landed — one release per lap |
 
 `affects` is the one **predicate** hook — it answers a question rather than running an action, and so
@@ -424,6 +426,24 @@ is strictly opt-in, because a wrong `disjoint` is the only failure mode that mat
 guesses overlap on the project's behalf. Safe because `main` runs the full suite after every merge —
 that post-merge run is the real backstop, and the per-PR re-verify it gates is belt-and-braces that
 catches nothing for a genuinely disjoint change.
+
+`claims` is the second **predicate** hook and is exec'd the same way as `affects` (shell command line, verdict
+from **stdout + exit status**, no model judgment), with **one** range appended: this branch's own diff,
+`origin/<base>...HEAD`. It prints **`clear`** and exits 0 when nothing the branch claims is claimed
+elsewhere; otherwise it prints **one line per clash** (`migration 0242 also claimed by PR #1461`) and
+exits non-zero. It lives in the project because only the project knows where its numbers live — a
+migrations folder, an OpenAPI version constant — and Relay does not learn what either is. Three rules
+are part of the contract:
+- **Tie-break:** the earliest-opened PR (or `main` itself) keeps the number; later ones renumber. Without
+  it, two sessions that clash each see the other and both stop. A branch with no PR yet counts as the
+  latest, so it yields.
+- **The hook finds its own PR itself** from the checked-out branch (`gh pr view`): with an open PR it competes
+  by that PR's open time, without one it counts as the latest.
+- **A clash stops `/ship` before review** and names the renumber; Relay never renames for the project. A
+  clash is a real non-zero exit with non-empty stdout, so **a hook must exit non-zero to report a clash** (exit 0 with anything other than exactly `clear` is reported as unchecked). A 3-minute timeout, exit 124/126/127/≥128, or output on stderr alone is "did not run", not a clash.
+- **A hook that cannot answer** (crash, timeout, empty or unrecognised output, `gh` unavailable) is
+  reported as `claims: not checked (<reason>)` and the lap **carries on** — never as `clear`. The
+  project's own CI guard stays the backstop. **No hook ⇒ no check**, strictly opt-in.
 
 **Relay never owns an environment.** This is the same boundary `/deploy` states for deployment,
 generalised: Relay names the *verify* phase and sequences it, the project owns the *mechanics*. That
