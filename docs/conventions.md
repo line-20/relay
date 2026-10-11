@@ -437,7 +437,11 @@ are part of the contract:
 - **Tie-break:** the earliest-opened PR (or `main` itself) keeps the number; later ones renumber. Without
   it, two sessions that clash each see the other and both stop. A branch with no PR yet counts as the
   latest, so it yields.
-- **A clash stops `/ship` before review** and names the renumber; Relay never renames for the project.
+- **The hook finds its own PR itself** from the checked-out branch (`gh pr view`): with an open PR it competes
+  by that PR's open time, without one it counts as the latest.
+- **A clash stops `/ship` before review** and names the renumber; Relay never renames for the project. A
+  clash is a real non-zero exit with non-empty stdout; a timeout (`timeout 180`), exit 124/126/127, a
+  signal, or anything on stderr alone is "did not run", not a clash.
 - **A hook that cannot answer** (crash, timeout, empty or unrecognised output, `gh` unavailable) is
   reported as `claims: not checked (<reason>)` and the lap **carries on** — never as `clear`. The
   project's own CI guard stays the backstop. **No hook ⇒ no check**, strictly opt-in.
