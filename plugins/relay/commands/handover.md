@@ -53,6 +53,7 @@ gh pr view --json number,state,reviewDecision,url 2>/dev/null
 
 - **No PR** (command empty/errors) → fine: a planning handover, or the work is already merged into main. Proceed.
 - **state MERGED** → loop closed. Proceed.
+- **state OPEN and the caller declared `parked`** (`/ship` gave up its merge-wait budget and says so: `$ARGUMENTS` contains `parked`) → handing over an open PR is the point. Skip the warning and the wait, and record `disposition: "parked"`. Only `/ship`'s give-up path passes this; a person typing `/handover` still gets the guard below.
 - **state OPEN** → the loop isn't finished. Check `<root>/reviews/` for a report on this PR; if none, it's also unreviewed. WARN and STOP:
   `⚠ Handing over with PR #<n> still open (<reviewed | UNREVIEWED>): <url>. The flow expects it merged first.`
   Ask to either finish the loop (`/fix`, then merge) or reply "handover anyway" to continue. Wait for the answer.
