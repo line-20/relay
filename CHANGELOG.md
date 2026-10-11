@@ -7,6 +7,35 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.24.0 — racing main is expected; double-claimed numbers stop before review
+
+Two things that cost you laps when several sessions run at once. A branch could pick the same migration
+number or API version as a sibling's open PR, and only find out in CI after the review had been paid
+for. And when `main` kept moving under a finished lap, the `/ship` session would stop and ask "what do
+you want to do?" — usually while you were away.
+
+**Added**
+- **`hooks.claims` — a double-claimed number stops the lap before review.** Optional, like
+  `hooks.affects`: your project supplies a small check that says whether a migration number or API
+  version this branch uses is already claimed by a sibling's open PR. `/ship` runs it before review
+  (new Phase 0.6) and again at the merge gate, and stops on a clash with the clash lines printed as
+  data. The earliest-opened PR keeps the number; a branch with no PR yet yields. A check that can't
+  answer prints `claims: not checked (<reason>)` and the lap carries on — your own CI guard is still
+  behind it. No hook, no change. `/relay:config` now offers it where a repo has numbered migrations.
+- **`main` moving under a finished lap no longer ends in a question.** At the merge gate `/ship` now
+  re-syncs, waits for the checks on the commit it pushed, and re-tests — up to 5 cycles or 3 hours —
+  without asking. It asks only when something other than a race is wrong: a real conflict, a check that
+  fails, a claims clash, or commits on the PR that aren't yours. When the budget runs out it leaves a
+  parked handover saying exactly where it stopped (`/handover parked`) instead of asking.
+
+**Changed**
+- **The merge is pinned to the commit that was verified**, so a late push from anyone else makes the
+  merge fail instead of landing code nobody reviewed.
+
+**Known gap**
+- Resuming a parked lap runs the whole loop again, review included. Skipping it safely needs the
+  reviewed commit recorded first; tracked in the `ship/merge-slot` brief.
+
 ## 1.23.0 — memory that keeps itself lean
 
 The AI-memory index (`MEMORY.md`, loaded into every session) grew append-only and hit its load cap
