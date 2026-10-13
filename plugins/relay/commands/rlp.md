@@ -261,7 +261,7 @@ harness, not necessarily via this commit.
 **durable docs land first and the marker only after they are on `main`** (and, if the durable docs go through a
 merge queue, only after that PR has merged). Write the marker with the runtime: read the brief at a recorded tip
 (`python3 "$RH" state tip`, then `show --at <BASE> <root>/briefs/<slug>.md` into a scratch file), add the marker,
-and `python3 "$RH" state-commit --base <BASE> --message-file "$MSG" --put <root>/briefs/<slug>.md <scratch>`. If the
+and `MSG="$(mktemp)"; printf '%s\n' "docs(persist): distilled <slug>" > "$MSG"; python3 "$RH" state-commit --base <BASE> --message-file "$MSG" --put <root>/briefs/<slug>.md <scratch>`. If the
 durable write did not land, do **not** write the marker: `/tidy` prunes a brief that carries one, and a marker ahead
 of its docs would lose the knowledge. Without `state.branch` the marker goes the same way (the notes live on `main`).
 

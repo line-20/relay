@@ -212,7 +212,7 @@ add/replace these (idempotent on a re-refine: update, don't duplicate):
 
 The board is **shared** — edit from the notes' current copy and commit the brief (+ any board-row status
 touch) back surgically. Resolve `$RH` (as in `/continue` Step 1; each Bash call is a fresh shell). A brief alone:
-`python3 "$RH" state-commit --message-file "$MSG" --add <root>/briefs/<slug>.md`. If you also touch the board, read it
+`MSG="$(mktemp)"; printf '%s\n' "docs(refine): <slug>" > "$MSG"; python3 "$RH" state-commit --message-file "$MSG" --add <root>/briefs/<slug>.md`. If you also touch the board, read it
 at a recorded tip (`python3 "$RH" state tip`, then `show --at <BASE> <root>/board.md` into a scratch file), edit the
 scratch copy, and add `--base <BASE> --put <root>/board.md <scratch>`. It works from any checkout without switching
 branches and commits to the notes' home (`main`, or `state.branch`). Exit `1` = rejected (re-read and re-apply), `2` =

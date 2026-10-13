@@ -1613,17 +1613,134 @@ class StateWritersTest(StateFixture):
         self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/briefs/sibling.md"))
         self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/handover/next-a.md"))
 
-    def test_sync_needs_a_base_and_refuses_a_non_empty_target_and_symlinks(self):
+    def test_sync_needs_a_real_snapshot_and_refuses_a_non_empty_target_and_symlinks(self):
         self._turn_on()
         out = os.path.join(self.parent, "snap3")
         snap = rh.state_snapshot_dir(self.repo, out)
         with self.assertRaises(rh.HarvestError):
-            rh.state_commit(self.repo, "m", sync_dir=out)
-        with self.assertRaises(rh.HarvestError):
             rh.state_snapshot_dir(self.repo, out)                        # not empty
+        notsnap = os.path.join(self.parent, "plain-dir"); os.makedirs(os.path.join(notsnap, self.ROOT))
+        with self.assertRaises(rh.HarvestError):                          # no marker: not a snapshot
+            rh.state_commit(self.repo, "m", sync_dir=notsnap)
+        with self.assertRaises(rh.HarvestError):                          # the folder inside it, not the snapshot
+            rh.state_commit(self.repo, "m", sync_dir=os.path.join(out, self.ROOT))
+        with self.assertRaises(rh.HarvestError):                          # a typo'd path
+            rh.state_commit(self.repo, "m", sync_dir=os.path.join(self.parent, "no-such-dir"))
+        with self.assertRaises(rh.HarvestError):                          # --base that is not the snapshot's tip
+            rh.state_commit(self.repo, "m", sync_dir=out, base="0" * 40)
         os.symlink("/etc/passwd", os.path.join(out, self.ROOT, "briefs", "evil.md"))
         with self.assertRaises(rh.HarvestError):
-            rh.state_commit(self.repo, "m", sync_dir=out, base=snap["base"])
+            rh.state_commit(self.repo, "m", sync_dir=out)
+
+    def test_a_snapshot_taken_at_an_older_tip_can_never_revert_a_sibling(self):
+        self._turn_on()
+        out = os.path.join(self.parent, "old-snap")
+        rh.state_snapshot_dir(self.repo, out)                             # taken at T1
+        rh.state_commit(self.repo, "sibling", add=[self._stage_note("sibling.md")])   # branch moves to T2
+        rh.state_tip(self.repo)                                           # the "natural retry": ask for the tip again...
+        os.remove(os.path.join(out, self.ROOT, "handover", "next-a.md"))
+        res = rh.state_commit(self.repo, "tidy", sync_dir=out)            # ...and reuse the same directory
+        self.assertEqual(res["status"], "rejected")                       # the snapshot's own tip is the base
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/briefs/sibling.md"))
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/handover/next-a.md"))
+
+    def test_a_sync_that_would_delete_most_notes_is_refused_unless_forced(self):
+        self._turn_on()
+        for i in range(8):
+            self.assertEqual(rh.state_commit(self.repo, "m", add=[self._stage_note(f"n{i}.md")])["status"], "pushed")
+        out = os.path.join(self.parent, "mass")
+        rh.state_snapshot_dir(self.repo, out)
+        shutil.rmtree(os.path.join(out, self.ROOT, "briefs"))
+        before = self._tip("relay-notes")
+        with self.assertRaises(rh.HarvestError) as cm:
+            rh.state_commit(self.repo, "m", sync_dir=out)
+        self.assertIn("would delete", str(cm.exception))
+        self.assertEqual(self._tip("relay-notes"), before)
+        self.assertEqual(rh.state_commit(self.repo, "m", sync_dir=out, allow_mass_delete=True)["status"], "pushed")
+
+    def test_sync_skips_editor_junk_and_reports_non_notes_instead_of_dropping_them_silently(self):
+        self._turn_on()
+        out = os.path.join(self.parent, "junk")
+        rh.state_snapshot_dir(self.repo, out)
+        self._write(out, f"{self.ROOT}/briefs/.DS_Store", "junk")
+        self._write(out, f"{self.ROOT}/briefs/notes.md~", "junk")
+        self._write(out, f"{self.ROOT}/knowledge/k.md", "not a note")
+        self._write(out, f"{self.ROOT}/briefs/real.md", "# real\n")
+        res = rh.state_commit(self.repo, "m", sync_dir=out)
+        self.assertEqual(res["status"], "pushed")
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/briefs/real.md"))
+        self.assertFalse(self._remote_has("relay-notes", f"{self.ROOT}/briefs/.DS_Store"))
+        self.assertFalse(self._remote_has("relay-notes", f"{self.ROOT}/briefs/notes.md~"))
+        self.assertFalse(self._remote_has("relay-notes", f"{self.ROOT}/knowledge/k.md"))
+        self.assertEqual(res["ignored"], [f"{self.ROOT}/knowledge/k.md"])
+
+    def test_base_must_be_a_full_commit_id_not_a_ref_name(self):
+        self._turn_on()
+        board = f"{self.ROOT}/board.md"
+        scratch = self._scratch(BOARD + "| x |\n")
+        for bad in ("origin/relay-notes", "FETCH_HEAD", "HEAD", "abc123"):
+            with self.subTest(base=bad):
+                with self.assertRaises(rh.HarvestError):
+                    rh.state_commit(self.repo, "m", put=[(board, scratch)], base=bad)
+
+    def test_put_reads_only_regular_files_under_temp_or_the_repo(self):
+        self._turn_on()
+        rel = f"{self.ROOT}/briefs/p.md"
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", put=[(rel, "/etc/hosts")])               # outside temp and the repo
+        link = os.path.join(self.parent, "link-to-scratch")
+        os.symlink(self._scratch("x"), link)
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", put=[(rel, link)])                          # a symlink, even inside temp
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", put=[(rel, self.parent)])                   # a directory
+        self.assertEqual(rh.state_commit(self.repo, "m", put=[(rel, self._scratch("# fine\n"))])["status"], "pushed")
+
+    def test_snapshot_out_must_be_a_new_or_empty_real_directory(self):
+        self._turn_on()
+        afile = os.path.join(self.parent, "afile"); open(afile, "w").write("x")
+        with self.assertRaises(rh.HarvestError):
+            rh.state_snapshot_dir(self.repo, afile)
+        real = os.path.join(self.parent, "real-empty"); os.makedirs(real)
+        alias = os.path.join(self.parent, "alias"); os.symlink(real, alias)
+        with self.assertRaises(rh.HarvestError):
+            rh.state_snapshot_dir(self.repo, alias)
+        self.assertEqual(self._cli("state", "snapshot", "--out", afile)[0], 2)           # an error, not a traceback
+        self.assertTrue(rh.state_snapshot_dir(self.repo, real)["files"] > 0)             # an empty real dir is fine
+
+    def test_applying_a_checkpoint_never_replicates_the_worktrees_own_board(self):
+        self._turn_on()
+        board = os.path.join(self.relay, "board.md")
+        live_before = self._remote_text("relay-notes", f"{self.ROOT}/board.md")
+        head = git(["rev-parse", "HEAD"], self.repo)
+        disc = [{"id": "abc123", "title": "race in Y", "one_line": "module Y unguarded"}]
+        rh.emit_result(self.relay, make_result(self.SLUG, "wt-masterdata", "lap-3", head, discoveries=disc))
+        rh.apply_pending(self.relay, slug=self.SLUG, repo_root=self.repo, write_projection=False, board_path=board)
+        self.assertEqual(self._remote_text("relay-notes", f"{self.ROOT}/board.md"), live_before)   # live board untouched
+        self.assertIn("lap-3", self._remote_text("relay-notes", f"{self.ROOT}/harvest/masterdata__import/checkpoint.json"))
+
+    def test_export_lists_notes_it_had_to_skip(self):
+        self._turn_on()
+        blob = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=self.notes, input="x\n", capture_output=True, text=True).stdout.strip()
+        evil = f"{self.ROOT}/briefs/odd\nname.md"
+        env = {**os.environ, "GIT_INDEX_FILE": os.path.join(self.parent, "skip.idx")}
+        subprocess.run(["git", "read-tree", "HEAD"], cwd=self.notes, env=env, check=True)
+        subprocess.run(["git", "update-index", "--add", "-z", "--index-info"], cwd=self.notes, env=env, check=True,
+                       input=f"100644 {blob}\t{evil}\0".encode())
+        tree = subprocess.run(["git", "write-tree"], cwd=self.notes, env=env, capture_output=True, text=True).stdout.strip()
+        commit = git(["commit-tree", tree, "-p", "HEAD", "-m", "odd"], self.notes)
+        git(["push", "-q", "origin", f"{commit}:refs/heads/relay-notes"], self.notes)
+        git(["fetch", "-q", "origin"], self.repo)
+        res = rh.state_export(self.repo)
+        self.assertEqual(res["skipped"], [evil])
+
+    def test_init_exits_1_when_the_branch_already_exists_and_defaults_to_the_configured_name(self):
+        self._turn_on()
+        self.assertEqual(self._cli("state", "init")[0], 1)                                # exists: caller must look
+        self._turn_on("notes/relay")                                                       # a different configured name, not created yet
+        code, out, err = self._cli("state", "init")                                        # bare init uses the configured name
+        self.assertEqual(code, 0, err); self.assertEqual(json.loads(out)["branch"], "notes/relay")
+        self.assertTrue(self._remote_has("notes/relay", f"{self.ROOT}/board.md"))
 
     # ---- rejected / offline / exit codes ----
     def test_a_rejected_push_is_reported_once_not_raised_or_retried(self):
@@ -1846,7 +1963,7 @@ class StateWritersTest(StateFixture):
         self._turn_on()
         code, out, _ = self._cli("state", "status")
         self.assertEqual(json.loads(out)["state_branch"], "relay-notes")
-        self.assertEqual(self._cli("state", "init")[0], 0)                               # already exists: reported
+        self.assertEqual(self._cli("state", "init")[0], 1)                               # already exists: exit 1
         self.assertTrue(json.loads(self._cli("state", "init")[1])["created"] is False)
         code, out, _ = self._cli("state", "export")
         self.assertEqual(code, 0); self.assertIn("exported", json.loads(out))

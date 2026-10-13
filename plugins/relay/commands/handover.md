@@ -1,7 +1,7 @@
 ---
 description: Generate a cold-start handover for the next phase, commit it where Relay's notes live (main, or state.branch), and print a compact terminal summary
 argument-hint: "[optional focus, e.g. 'health monitoring metering']"
-allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(python3:*), Bash(sed:*), Bash(cat:*), Bash(cp:*), Bash(find:*), Read, Write, Edit, ExitWorktree
+allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(python3:*), Bash(sed:*), Bash(cat:*), Bash(cp:*), Bash(find:*), Bash(mv:*), Read, Write, Edit, ExitWorktree
 ---
 
 ## Usage
@@ -284,7 +284,7 @@ a frozen leftover): `python3 "$RH" state snapshot --out "$(mktemp -d)"` (resolve
 `dir` and `base`: note both). Inside `<dir>/<root>/` do the moves — `mv` unlinked handovers into
 `handover/archive/`, over-retention reviews into `reviews/archive/` — and edit `board.md` for the trim, then commit
 everything as **one** housekeeping commit, a delta against `<base>`:
-`python3 "$RH" state-commit --base <base> --sync-dir <dir> --message-file "$MSG"` (message in a file; exit codes
+`MSG="$(mktemp)"; printf '%s\n' "chore(handover): housekeeping" > "$MSG"; python3 "$RH" state-commit --sync-dir <dir> --message-file "$MSG"` (pass the snapshot directory itself; message in a file; exit codes
 as in Step 4: on `1` take a fresh snapshot and redo the moves, up to 3 attempts, then STOP). If nothing
 qualifies, skip the commit. Report one line naming each op that did something
 (e.g. "archived 3 handovers, 5 reviews · trimmed 13 done rows") or say "nothing to archive".

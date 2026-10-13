@@ -458,17 +458,28 @@ def state_tip(repo_root, remote="origin"):
     return {"branch": branch, "tip": tip, "state_branch": bool(is_state)}
 
 
+SNAPSHOT_MARKER = ".relay-snapshot"
+
+
 def state_snapshot_dir(repo_root, out_dir, remote="origin"):
     """Materialise the notes (allow-listed files only) at the current tip into a NEW directory laid out like the
-    repo, so a command can read and edit them freely without touching a working tree. Returns the tip it
-    took them from; hand that back to `state_commit(..., sync_dir=out_dir, base=tip)`."""
+    repo, so a command can read and edit them freely without touching a working tree. A marker file records the
+    tip and the notes folder: `state_commit(sync_dir=...)` takes its base from the marker, so a directory taken at
+    an older tip can never be committed as if it were current."""
     info = state_tip(repo_root, remote)
     top = _toplevel(repo_root)
     root = _relay_root_of(top)
     out = os.path.abspath(out_dir)
-    if os.path.exists(out) and os.listdir(out):
-        raise HarvestError(f"{out} is not empty.")
-    os.makedirs(out, exist_ok=True)
+    if os.path.islink(out):
+        raise HarvestError(f"{out} is a symlink; refusing to write the snapshot through it.")
+    if os.path.exists(out):
+        if not os.path.isdir(out) or os.listdir(out):
+            raise HarvestError(f"{out} is not an empty directory.")
+    else:
+        try:
+            os.makedirs(out, mode=0o700)
+        except OSError as e:
+            raise HarvestError(f"cannot create {out}: {e.strerror}")
     out_real = os.path.realpath(out)
     n = 0
     for mode, sha, path in _tree_entries(top, info["tip"], root):
@@ -482,6 +493,9 @@ def state_snapshot_dir(repo_root, out_dir, remote="origin"):
         with open(dest, "wb") as fh:
             fh.write(data)
         n += 1
+    os.makedirs(os.path.join(out, root), exist_ok=True)
+    with open(os.path.join(out, SNAPSHOT_MARKER), "w") as fh:
+        json.dump({"root": root, "base": info["tip"], "branch": info["branch"]}, fh)
     return {"dir": out, "root": root, "branch": info["branch"], "base": info["tip"], "files": n}
 
 
@@ -498,13 +512,46 @@ def _regular_path(path, label=None):
     return path
 
 
+def _read_regular(path, top, label=None):
+    """Bytes of a regular file the caller may legitimately hand over: under the system temp directory or the
+    repository, never a symlink (opened with O_NOFOLLOW, checked on the open descriptor, so a swap between
+    check and use cannot redirect it). Keeps `--put ~/.ssh/id_rsa` from ever being committed."""
+    import stat
+    path = os.path.abspath(path)
+    real = os.path.realpath(path)
+    allowed = {os.path.realpath(tempfile.gettempdir()), os.path.realpath("/tmp"), os.path.realpath(top)}
+    if not any(real == a or real.startswith(a + os.sep) for a in allowed):
+        raise HarvestError(f"cannot commit {label or path!r}: only files under the temp directory or the repository can be handed over.")
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as e:
+        raise HarvestError(f"cannot commit {label or path!r}: {e.strerror or 'cannot open'}")
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise HarvestError(f"cannot commit {label or path!r}: not a regular file.")
+        with os.fdopen(fd, "rb", closefd=False) as fh:
+            return fh.read()
+    finally:
+        os.close(fd)
+
+
+def _hash_bytes(top, data):
+    r = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=top, input=data, capture_output=True)
+    return r.stdout.decode().strip() if r.returncode == 0 else ""
+
+
+def _is_dotfile(rel):
+    name = rel.rsplit("/", 1)[-1]
+    return name.startswith(".") or name.endswith("~") or name.endswith(".swp")
+
+
 def _regular_file(top, rel):
     """The absolute path of a regular file in the working tree."""
     return _regular_path(os.path.join(top, rel), rel)
 
 
 def state_commit(repo_root, message, add=(), put=(), remove=(), moves=(), sync_dir=None, base=None,
-                 remote="origin"):
+                 allow_mass_delete=False, remote="origin"):
     """Commit Relay notes (board, briefs, handover, reviews, harvest, archive, audits) onto the branch they
     live on, with the temp-index primitive: stage ONLY the named changes into a throwaway index seeded from the
     tip, write a tree, `commit-tree`, push. One attempt: a rejected push is reported, never blindly retried.
@@ -533,8 +580,21 @@ def state_commit(repo_root, message, add=(), put=(), remove=(), moves=(), sync_d
         if not _is_state_path(rel, root):
             raise HarvestError(f"{rel!r} is not a Relay note ({', '.join(STATE_PATHS)} under {root}/); "
                                f"only notes are committed here, durable docs go through the project's normal flow.")
-    if sync_dir and not base:
-        raise HarvestError("a sync from a directory needs --base: the tip the directory was taken from.")
+    marker = None
+    if sync_dir:
+        sd_real = os.path.realpath(sync_dir)
+        try:
+            with open(os.path.join(sd_real, SNAPSHOT_MARKER)) as fh:
+                marker = json.load(fh)
+        except (OSError, ValueError):
+            raise HarvestError(f"{sync_dir!r} is not a snapshot (no {SNAPSHOT_MARKER}): take one with `state snapshot --out DIR`.")
+        if marker.get("root") != root or not os.path.isdir(os.path.join(sd_real, root)):
+            raise HarvestError(f"{sync_dir!r} has no {root}/ folder: pass the snapshot directory itself, not a folder inside it.")
+        if base and base != marker.get("base"):
+            raise HarvestError("--base does not match the tip this snapshot was taken from; the snapshot's own tip is used.")
+        base = marker.get("base")
+    if base and not re.fullmatch(r"[0-9a-f]{40}", base):
+        raise HarvestError("--base must be the full 40-character commit id that `state tip` / `state snapshot` printed.")
     if board in touched and not base:
         raise HarvestError("board.md is shared and may have changed since you read it: pass --base <the tip you "
                            "read it from> (state tip / state snapshot print it).")
@@ -547,30 +607,40 @@ def state_commit(repo_root, message, add=(), put=(), remove=(), moves=(), sync_d
     if base:
         if _run_git(["cat-file", "-e", f"{base}^{{commit}}"], top).returncode != 0:
             raise HarvestError(f"--base {base!r} is not a commit here.")
-        if _run_git(["rev-parse", "--verify", "--quiet", base], top).stdout.strip() != tip:
+        if base != tip:
             return _result("rejected", branch,
                            f"the notes branch moved since you read it (you read {base[:9]}, it is now {tip[:9]}): "
                            f"re-read the current copy, re-apply your edit, and commit again.")
     parent = tip
 
     # --- compute the delta from a sync directory (deltas only: never a wholesale overwrite)
+    ignored = []
     if sync_dir:
         sd = os.path.realpath(sync_dir)
         have = {e[2]: e for e in _tree_entries(top, parent, root) if _is_state_path(e[2], root)}
         seen = set()
-        for dirpath, _dirs, files in os.walk(os.path.join(sd, root)):
+        def _walk_error(e):
+            raise HarvestError(f"cannot read the sync directory: {e}")
+        for dirpath, _dirs, files in os.walk(os.path.join(sd, root), onerror=_walk_error):
             for fn in files:
                 full = os.path.join(dirpath, fn)
                 rel = _clean_rel(os.path.relpath(full, sd))
+                if _is_dotfile(rel):
+                    continue
                 if not _is_state_path(rel, root):
+                    ignored.append(rel)
                     continue
                 if os.path.islink(full):
                     raise HarvestError(f"{rel!r} is a symlink in the sync directory; refusing it.")
                 seen.add(rel)
-                h = _run_git(["hash-object", "--", full], top).stdout.strip()
+                h = _hash_bytes(top, _read_regular(full, top, rel))
                 if rel not in have or have[rel][1] != h:
                     puts.append((rel, full))
-        rems += [r for r in have if r not in seen]
+        gone = [r for r in have if r not in seen]
+        if len(gone) > 5 and len(gone) > len(have) // 2 and not allow_mass_delete:
+            raise HarvestError(f"this sync would delete {len(gone)} of {len(have)} notes: the directory looks wrong or "
+                               f"incomplete. Nothing was committed. (Pass --allow-mass-delete if that is really intended.)")
+        rems += gone
 
     idx, env, err = _temp_index(top, parent)
     try:
@@ -583,16 +653,15 @@ def state_commit(repo_root, message, add=(), put=(), remove=(), moves=(), sync_d
             if r.returncode != 0:
                 return _result("error", branch, "add failed: " + (r.stderr.strip().splitlines() or ["?"])[-1])
         for rel, f in puts:
-            path = _regular_path(f)
-            h = _run_git(["hash-object", "-w", "--", path], top)
-            if h.returncode != 0 or not h.stdout.strip():
+            sha = _hash_bytes(top, _read_regular(f, top, rel))
+            if not sha:
                 return _result("error", branch, f"could not read {f!r}")
-            entries.append(("100644", h.stdout.strip(), rel))
+            entries.append(("100644", sha, rel))
         for rel in rems:
             hit = _tree_entries(top, parent, rel)
             if len(hit) != 1 or hit[0][2] != rel:
                 return _result("error", branch, f"cannot remove {rel!r}: not a file on {remote}/{branch}")
-            r = _run_git(["rm", "--cached", "-q", "--", rel], top, env=env)
+            r = _run_git(["rm", "--cached", "-f", "-q", "--", rel], top, env=env)
             if r.returncode != 0:
                 return _result("error", branch, "remove failed: " + (r.stderr.strip().splitlines() or ["?"])[-1])
         for old_path, new_path in mvs:
@@ -603,7 +672,7 @@ def state_commit(repo_root, message, add=(), put=(), remove=(), moves=(), sync_d
             if dest and dest[0][2] == new_path and dest[0][1] != hit[0][1]:
                 return _result("error", branch, f"cannot move {old_path!r}: {new_path!r} already exists with different content")
             entries.append((hit[0][0], hit[0][1], new_path))
-            r = _run_git(["rm", "--cached", "-q", "--", old_path], top, env=env)
+            r = _run_git(["rm", "--cached", "-f", "-q", "--", old_path], top, env=env)
             if r.returncode != 0:
                 return _result("error", branch, "move failed: " + (r.stderr.strip().splitlines() or ["?"])[-1])
         if entries:
@@ -622,7 +691,7 @@ def state_commit(repo_root, message, add=(), put=(), remove=(), moves=(), sync_d
         return _result("error", branch, "commit-tree failed: " + (commit.stderr.strip().splitlines() or ["unknown"])[-1])
     sha = commit.stdout.strip()
     ok, reason = _push(top, remote, sha, branch)
-    return _result("pushed" if ok else "rejected", branch, reason, sha=sha)
+    return _result("pushed" if ok else "rejected", branch, reason, sha=sha, ignored=ignored)
 
 
 def state_init(repo_root, branch="relay-notes", remote="origin"):
@@ -697,15 +766,16 @@ def state_export(repo_root, branch=None, prune=False, delete_branch=False, remot
         if err:
             raise HarvestError("read-tree failed: " + err)
         if prune and only_main:
-            _run_git(["rm", "--cached", "-q", "--ignore-unmatch", "--", *only_main], top, env=env)
+            _run_git(["rm", "--cached", "-f", "-q", "--ignore-unmatch", "--", *only_main], top, env=env)
         r = _index_info(top, env, notes)
         if r.returncode != 0:
             raise HarvestError("could not stage the export: " + r.stderr.decode("utf-8", "replace").strip())
         tree = _run_git(["write-tree"], top, env=env).stdout.strip()
     finally:
         _drop(idx)
+    skipped = [n for n in _ls_tree(top, notes_ref, root) if _is_state_path(n, root) and n not in have]
     out = {"branch": durable, "files": len(notes), "left_on_main": [] if prune else only_main,
-           "removed": len(only_main) if prune else 0}
+           "removed": len(only_main) if prune else 0, "skipped": skipped}
     if tree == _run_git(["rev-parse", f"{durable_ref}^{{tree}}"], top).stdout.strip():
         out.update(exported=False, reason="the durable branch already matches the notes branch")
         ok = True
@@ -1429,18 +1499,19 @@ def _replicate_checkpoint(repo_root, relay_root, slug, lap, remote="origin", boa
     if board_path:
         paths.append(board_path)
     paths = [p for p in paths if os.path.exists(p)]
-    if _ and paths:                                   # notes branch: it only ever holds notes
-        root = _rel_root(repo_root, relay_root)
-        paths = [p for p in paths if _is_state_path(os.path.relpath(p, repo_root).replace(os.sep, "/"), root)]
+    if _ and paths:                                   # notes branch: it only ever holds notes, and never this
+        root = _rel_root(repo_root, relay_root)       # worktree's board (a frozen copy would replace the live one)
+        paths = [p for p in paths if _is_state_path(os.path.relpath(p, repo_root).replace(os.sep, "/"), root)
+                 and os.path.abspath(p) != os.path.abspath(board_path or "")]
     if not paths:
         return {"lap": lap, "committed": False, "replicated": False, "reason": "no checkpoint files"}
     rels = [os.path.relpath(p, repo_root) for p in paths]
 
-    fetch = _run_git(["fetch", remote, durable], repo_root)
+    fetch = _fetch_branch(repo_root, remote, durable)
     if fetch.returncode != 0:
         return {"lap": lap, "committed": False, "replicated": False,
                 "reason": "offline: " + (fetch.stderr.strip().splitlines() or ["fetch failed"])[-1]}
-    base = _run_git(["rev-parse", "--verify", "--quiet", "FETCH_HEAD"], repo_root).stdout.strip()
+    base = _tip(repo_root, remote, durable)
     if not base:
         return {"lap": lap, "committed": False, "replicated": False,
                 "reason": f"no remote {remote}/{durable} to build on"}
@@ -1450,7 +1521,7 @@ def _replicate_checkpoint(repo_root, relay_root, slug, lap, remote="origin", boa
     # stages exactly our files (nothing a sibling session has staged in a shared checkout).
     fd, tmpidx = tempfile.mkstemp(prefix="relay-cp-idx-"); os.close(fd)
     try:
-        idx = {"GIT_INDEX_FILE": tmpidx}
+        idx = {"GIT_INDEX_FILE": tmpidx, "GIT_LITERAL_PATHSPECS": "1"}
         rt = _run_git(["read-tree", base], repo_root, env=idx)
         if rt.returncode != 0:
             return {"lap": lap, "committed": False, "replicated": False,
@@ -1551,7 +1622,8 @@ def main(argv=None):
     sc.add_argument("--remove", action="append", default=[], help="repo-relative file to delete; must exist on the branch (repeatable)")
     sc.add_argument("--move", action="append", nargs=2, metavar=("OLD", "NEW"), default=[],
                     help="move a file on the branch, taking its content from the branch tip (repeatable)")
-    sc.add_argument("--sync-dir", help="a directory from `state snapshot`, edited freely: its notes become the branch's (needs --base)")
+    sc.add_argument("--sync-dir", help="a directory from `state snapshot`, edited freely: its notes become the branch's (its own tip is the base)")
+    sc.add_argument("--allow-mass-delete", action="store_true", help="allow a sync that deletes most of the notes")
     st = sub.add_parser("state", help="manage the notes branch: init | export | status | tip | snapshot")
     st.add_argument("action", choices=["init", "export", "status", "tip", "snapshot"])
     st.add_argument("--branch", help="notes branch name (init defaults to relay-notes; export defaults to state.branch)")
@@ -1591,7 +1663,7 @@ def main(argv=None):
                 message = fh.read().strip()
             res = state_commit(args.repo, message, add=args.add, put=[tuple(x) for x in args.put],
                                remove=args.remove, moves=[tuple(m) for m in args.move],
-                               sync_dir=args.sync_dir, base=args.base)
+                               sync_dir=args.sync_dir, base=args.base, allow_mass_delete=args.allow_mass_delete)
         except (HarvestError, OSError) as e:
             print(str(e), file=sys.stderr); return 2
         print(json.dumps(res, indent=2))
@@ -1599,7 +1671,7 @@ def main(argv=None):
     if args.cmd == "state":
         try:
             if args.action == "init":
-                res = state_init(args.repo, branch=args.branch or "relay-notes")
+                res = state_init(args.repo, branch=args.branch or state_branch(args.repo) or "relay-notes")
             elif args.action == "export":
                 res = state_export(args.repo, branch=args.branch, prune=args.prune, delete_branch=args.delete_branch)
             elif args.action == "tip":
@@ -1610,9 +1682,11 @@ def main(argv=None):
                 res = state_snapshot_dir(args.repo, args.out)
             else:
                 res = state_status(args.repo)
-        except HarvestError as e:
+        except (HarvestError, OSError) as e:
             print(str(e), file=sys.stderr); return 2
         print(json.dumps(res, indent=2))
+        if args.action == "init" and not res.get("created"):
+            return 1                        # already exists: it may be stale, the caller must look before carrying on
         if args.action == "export" and res.get("exported") is False and res.get("reason") and "already matches" not in res["reason"]:
             return 1
         return 0

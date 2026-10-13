@@ -371,12 +371,17 @@ and can force a re-run:
   `discover` / `resume` / `bootstrap` readers resolve where a note lives and read it with `git show` from
   that ref. **They never read a notes file from a working tree when the setting is on**: a worktree forked
   from `main` still holds a frozen copy that would resume the wrong lap.
-- **Writers go through one place too.** `relay_harvest.py state-commit --message-file F --add P --remove P
-  --move OLD NEW` builds one commit with a temporary index (no branch switch, working tree untouched) and
-  pushes it to the notes' home. One attempt per call: a rejected push is reported, and the caller re-reads
-  the tip and re-applies its edit, so a sibling's board row is never clobbered. With the setting on it
-  refuses a path that is not a note. `/handover`, `/tidy`, `/explore`, `/refine`, `/next`, `/watch` and the
-  checkpoint push all use it.
+- **Writers go through one place too.** `relay_harvest.py state-commit --message-file F` with `--add P`
+  (a working-tree file), `--put REL FILE` (a scratch copy), `--remove P`, `--move OLD NEW` (content taken from
+  the branch) or `--sync-dir DIR` (a snapshot, edited freely) builds one commit with a temporary index (no branch
+  switch, working tree untouched) and pushes it to the notes' home. It accepts **only notes**, in both modes,
+  and refuses symlinks, control characters in names and wildcards. **A shared note is never overwritten behind
+  a sibling's back:** `state tip` prints the tip, `show --at <tip> <path>` reads the note at exactly that tip,
+  and `--base <tip>` builds the commit on it (board.md is refused without a base; a snapshot carries its own
+  tip). If the branch moved since you read it the call exits 1 (`rejected`) and the caller re-reads and re-applies.
+  Exit codes: 0 pushed or nothing to commit · 1 rejected or offline (retry) · 2 refused · 3 could not build the
+  commit. `/handover`, `/tidy`, `/explore`, `/refine`, `/next`, `/watch`, `/persist` (the Distilled marker) and
+  the checkpoint push all use it; the checkpoint push never replicates a worktree's own `board.md`.
 - **The setting is read from the remote.** `relay.config.json` on `origin/<durable branch>` decides, not
   the checked-out copy, so a slice branch forked before the switch follows it too.
 - **A set-but-missing or set-but-unusable setting fails loud.** A missing branch, a bad name, `state` that
@@ -385,15 +390,22 @@ and can force a re-run:
 - **Unset (the default) changes nothing:** the same commands target `main`, as before.
 
 **Turning it on**, in this order:
-1. `python3 "$RH" state init --branch relay-notes` creates the branch once, seeded from `main`'s current notes
-   (it leaves an existing branch untouched).
-2. Land `{ "state": { "branch": "relay-notes" } }` in `relay.config.json` on `main` (a normal PR).
-3. From then on every command reads and writes the notes branch. `main`'s old copies stay put as a frozen
-   leftover that no reader looks at, which is why switching back is safe.
+1. Land `{ "state": { "branch": "relay-notes" } }` in `relay.config.json` on `main` (a normal PR). From that
+   moment every Relay command that touches the notes fails loud (the branch does not exist yet) and writes
+   nothing, so no note can land on `main` and go missing.
+2. **Immediately** run `python3 "$RH" state init` (it uses the configured name). It creates the branch once,
+   seeded from `main`'s current notes, and exits 1 without touching anything if the branch already exists:
+   then check that the existing branch is current before carrying on (an old branch from an earlier trial has
+   an old board; turn it off properly, below, or delete it, and init again).
+3. `main`'s old copies stay put as a frozen leftover that no reader looks at, which is why switching back is safe.
 
-**Turning it off:** remove the setting from `main`, then `python3 "$RH" state export` copies the notes branch
-back onto `main` as one commit (deleting notes that no longer exist on the branch). Do it when no session is
-mid-handover. `python3 "$RH" state status` says where the notes live right now.
+**Turning it off:** land the removal of the setting on `main`, then run
+`python3 "$RH" state export --branch relay-notes --delete-branch`. Export copies the notes branch back onto `main`
+as one commit and **overlays**: a note that exists only on `main` (for example a handover written in the gap
+between the removal landing and this command) is kept and listed under `left_on_main`; `--prune` deletes such
+notes instead. `--delete-branch` removes the remote notes branch, so turning the setting on again later seeds
+from fresh notes, never from a stale branch. Name the branch explicitly: once the setting is off there is nothing
+to infer it from. `python3 "$RH" state status` says where the notes live right now.
 
 **Known limit:** review reports written by `/review` travel with the PR (they are committed on the feature
 branch), so they reach `main`, not the notes branch; `/tidy`'s review retention only sees the notes branch.

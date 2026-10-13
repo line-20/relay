@@ -54,7 +54,7 @@ Record the block on the board so it's not just in this session's head:
 - Refresh the board (`python3 "$RH" show <root>/board.md`; `$RH` as in `/continue` Step 1) and set this item's row to
   **⏸ parked**, `Owner = —`, with a `blocked-on: <#PR | track/slug | branch>` note (in the row or the item's
   brief). Read it at a recorded tip (`python3 "$RH" state tip`, then `show --at <BASE> <root>/board.md` into a scratch file),
-  edit the scratch copy, and commit with `python3 "$RH" state-commit --base <BASE> --message-file "$MSG" --put
+  edit the scratch copy, and commit with `MSG="$(mktemp)"; printf '%s\n' "docs(board): park <slug>" > "$MSG"; python3 "$RH" state-commit --base <BASE> --message-file "$MSG" --put
   <root>/board.md <scratch>` — it goes to the notes' home (`main`, or `state.branch`), no branch switch; exit `1` =
   the branch moved: re-read and re-apply.
 - **Keep the worktree and its work exactly as-is** — you're pausing, not handing off. Don't

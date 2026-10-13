@@ -1,7 +1,7 @@
 ---
 description: Keep Relay's VOLATILE layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs — recurring, idempotent, and parallel-worktree-safe. Never touches durable output (code, ADRs, guides). Prune and trim already run per-lap inside /handover at the same `tidy.level`, so run this by hand for the rest (merges, brief archival) or for a deliberate sweep; a no-op when nothing's stale.
 argument-hint: "[optional: a single op — prune|trim|merge — else all enabled; add 'dry-run' to report without writing]"
-allowed-tools: Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git ls-files:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(git mv:*), Bash(date:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(grep:*), Bash(jq:*), Bash(python3:*), Bash(find:*), Bash(cp:*), Read, Write, Edit
+allowed-tools: Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git add:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git ls-files:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(grep:*), Bash(jq:*), Bash(python3:*), Bash(find:*), Bash(cp:*), Bash(mv:*), Bash(mkdir:*), Read, Write, Edit
 ---
 
 ## Usage
@@ -134,8 +134,9 @@ Archiving a **brief** additionally requires the Distilled invariant (Step 2) to 
 
 ## Step 4.5 — Link-integrity gate (hard, before any commit)
 Every move above may orphan an inbound reference. Rewrite **path** links to each moved file — the
-board's `Detail` and `Latest handover` columns, `<root>/briefs/*.md` cross-links, `CLAUDE.md`
-references — to their new location. Then scan the repo for any remaining **path** link that resolves to
+board's `Detail` and `Latest handover` columns and `<root>/briefs/*.md` cross-links, all **inside the snapshot** — to
+their new location. References from files that live **outside** the snapshot (`CLAUDE.md`, ADRs on `main`) cannot be
+rewritten by this commit: **list them in the report** so the user can fix them (or run `/persist`). Then scan the repo for any remaining **path** link that resolves to
 nothing:
 ```bash
 grep -rEno '\]\(([^)]+\.md)\)|`[^`]+\.md`' "<dir>/<root>" 2>/dev/null   # scan the SNAPSHOT, not the working tree
@@ -147,7 +148,7 @@ stable under moves by design — **exempt** them from the check.
 ## Step 5 — Commit atomically on the notes branch, with a retry-replay loop
 All moves land as **one** archival commit on the branch the notes live on (`main` by default, `state.branch`
 when set). `state-commit --sync-dir` turns the edited snapshot into a **delta against the tip it was taken
-from** (`--base`), built with a temporary index (no branch switch, no working tree touched). Because the commit
+from** (the snapshot records it; pass the snapshot directory `<dir>` itself, never `<dir>/<root>`), built with a temporary index (no branch switch, no working tree touched). Because the commit
 is built on exactly that tip, a sibling push that landed mid-run makes the call **exit 1 (rejected)** instead of
 being overwritten, and the loop below takes a **fresh snapshot and re-applies the moves to it**:
 ```bash
@@ -155,7 +156,7 @@ RH="$(command -v relay_harvest.py 2>/dev/null)"
 [ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
 [ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
 MSG="$(mktemp)"; printf '%s\n' "chore(tidy): prune/trim <counts>" > "$MSG"
-python3 "$RH" state-commit --base <base> --sync-dir <dir> --message-file "$MSG"
+python3 "$RH" state-commit --sync-dir <dir> --message-file "$MSG"
 echo "exit: $?"; rm -f "$MSG"
 ```
 Exit `0` = pushed (or nothing to commit): done. Exit `1` = the branch moved or the remote is unreachable:
