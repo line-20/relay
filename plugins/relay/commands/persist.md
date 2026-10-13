@@ -238,10 +238,17 @@ hand-authored content:
   brief ([[conventions]] → *Persistence*); without it, tidy keeps the brief and defers to `/persist`.
 
 Commit the durable docs — guardrails overlay, design system, **release notes** (`$RELEASE_NOTES`),
-and any **ADRs/procedures/how-tos** written above — plus any `extends` config pointer and the brief's
-Distilled marker, back onto `main`; main-owned, so edit from main's copy and push surgically (the
-temp-index pattern `/handover` uses if you're on a feature branch). AI memory is written through the
-harness, not necessarily via this commit.
+and any **ADRs/procedures/how-tos** written above — plus any `extends` config pointer, back onto `main`;
+main-owned, so edit from main's copy and push surgically (the temp-index pattern `/handover` uses if you're on a
+feature branch). AI memory is written through the harness, not necessarily via this commit.
+
+**Two homes, in this order (when the project sets `state.branch`).** The durable docs live on `main`; the brief's
+`**Distilled:**` marker is a note and lives on the notes branch. They can no longer land in one commit, so the
+**durable docs land first and the marker only after they are on `main`** (and, if the durable docs go through a
+merge queue, only after that PR has merged). Write the marker with `python3 "$RH" state-commit --message-file
+"$MSG" --add <root>/briefs/<slug>.md`. If the durable write did not land, do **not** write the marker: `/tidy`
+prunes a brief that carries one, and a marker ahead of its docs would lose the knowledge. Without
+`state.branch` both go to `main` as before.
 
 ## Step 6.5 — Sweep the memory index for slow drift (size-driven, global)
 Steps 4–6 only sweep memories **this lap** superseded. `MEMORY.md` (the auto-memory index, one line

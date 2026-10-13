@@ -51,11 +51,11 @@ every guardrail step below falls back gracefully (Steps 3, 4) — a repo that ne
 still refines, just without that layer.
 
 ## Step 1 — Locate the brief and confirm the target
-`$ARGUMENTS` is a `track/slug`. If empty, fetch the board (`git show FETCH_HEAD:<root>/board.md`
-after `git fetch origin main`) and offer the **🔜 queued items that have a brief but haven't been
+`$ARGUMENTS` is a `track/slug`. If empty, fetch the board (`python3 "$RH" show <root>/board.md`;
+`$RH` resolves as in `/continue` Step 1 and reads wherever the notes live) and offer the **🔜 queued items that have a brief but haven't been
 refined** — then **STOP** for a pick.
 
-Read the brief from main: `git show FETCH_HEAD:<root>/briefs/<slug>.md`.
+Read the brief from the notes' home: `python3 "$RH" show <root>/briefs/<slug>.md`.
 - **No brief exists** for this idea ⇒ it was never shaped. **Say so and stop** — point at
   `/explore <the idea>` to shape it first. `/refine` grooms an existing brief; it doesn't replace
   `/explore`'s interrogation.
@@ -207,10 +207,10 @@ add/replace these (idempotent on a re-refine: update, don't duplicate):
 - Leave a one-line `**Refined:** <date> · session <s>` marker under the status so a reader knows it's
   been groomed.
 
-The board is **shared and main-owned** — edit from main's copy and commit the brief (+ any board-row
-status touch) back onto `main` surgically: if on `main`, a normal `git add && git commit && git push`;
-if on a feature branch, use the temp-index push `/handover` uses so you don't switch branches. If the
-push is rejected, say so — the brief is correct locally and the user can commit it.
+The board is **shared** — edit from the notes' current copy and commit the brief (+ any board-row status
+touch) back surgically with `python3 "$RH" state-commit --message-file "$MSG" --add <root>/briefs/<slug>.md
+[--add <root>/board.md]`, which works from any checkout without switching branches and commits to the notes'
+home (`main`, or `state.branch`). If it does not push, say so — the brief is correct locally and the user can re-run.
 
 **Boundary:** if the grounding reveals a guardrail *gap* (a rule the project should adopt but hasn't),
 **note it — don't write it here.** Writing guardrails is `/guardrails`' job; harvesting lessons back

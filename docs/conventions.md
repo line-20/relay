@@ -363,27 +363,40 @@ and can force a re-run:
 { "state": { "branch": "relay-notes" } }
 ```
 - **What moves:** only the volatile notes, an explicit allow-list under `<root>/`: `board.md`, `briefs/`,
-  `handover/`, `reviews/`, `harvest/`. Durable files that also live under `<root>/` (`decisions.md`,
-  `knowledge/`, `reference/`) stay on the durable branch.
+  `handover/`, `reviews/`, `harvest/`, `archive/`, `audits/`. Durable files that also live under `<root>/`
+  (`decisions.md`, `knowledge/`, `reference/`, `roadmap.md`) stay on the durable branch.
 - **The branch is an orphan** (no shared history with the code), so GitHub cannot open a PR from it by
-  accident. Writers never create it; an explicit init does, once.
-- **Readers go through one place.** `relay_harvest.py show <path>`, `ls <prefix>`, `state-branch`,
-  and the `discover` / `resume` / `bootstrap` readers resolve where a note lives and read it with
-  `git show` from that ref. **They never read a notes file from a working tree when the setting is on**:
-  a worktree forked from `main` still holds a frozen copy that would resume the wrong lap.
+  accident. Only `state init` creates it; a writer never does.
+- **Readers go through one place.** `relay_harvest.py show <path>`, `ls <prefix>`, `state-branch`, and the
+  `discover` / `resume` / `bootstrap` readers resolve where a note lives and read it with `git show` from
+  that ref. **They never read a notes file from a working tree when the setting is on**: a worktree forked
+  from `main` still holds a frozen copy that would resume the wrong lap.
+- **Writers go through one place too.** `relay_harvest.py state-commit --message-file F --add P --remove P
+  --move OLD NEW` builds one commit with a temporary index (no branch switch, working tree untouched) and
+  pushes it to the notes' home. One attempt per call: a rejected push is reported, and the caller re-reads
+  the tip and re-applies its edit, so a sibling's board row is never clobbered. With the setting on it
+  refuses a path that is not a note. `/handover`, `/tidy`, `/explore`, `/refine`, `/next`, `/watch` and the
+  checkpoint push all use it.
 - **The setting is read from the remote.** `relay.config.json` on `origin/<durable branch>` decides, not
   the checked-out copy, so a slice branch forked before the switch follows it too.
-- **A set-but-missing branch fails loud.** It never falls back to the durable branch, which would
-  silently split the notes in two.
-- **A set-but-unusable setting fails loud too.** A bad branch name, `state` that is not an object, or a
-  config that is broken JSON never counts as "unset"; that would read `main` while the writers believe the
-  notes live elsewhere.
-- **Unset (the default) changes nothing.**
+- **A set-but-missing or set-but-unusable setting fails loud.** A missing branch, a bad name, `state` that
+  is not an object, or broken JSON never counts as "unset" and never falls back to the durable branch: that
+  would silently split the notes in two.
+- **Unset (the default) changes nothing:** the same commands target `main`, as before.
 
-> **Not usable yet.** This is the reader side only (Relay 1.25.x ships none of it). The writers (`/handover`,
-> `/tidy`, `/explore`, the checkpoint push) still commit to the durable branch, so turning the setting on
-> now would split the notes. Do not set `state.branch` until the release that adds the writers and
-> `state init` / `state export`.
+**Turning it on**, in this order:
+1. `python3 "$RH" state init --branch relay-notes` creates the branch once, seeded from `main`'s current notes
+   (it leaves an existing branch untouched).
+2. Land `{ "state": { "branch": "relay-notes" } }` in `relay.config.json` on `main` (a normal PR).
+3. From then on every command reads and writes the notes branch. `main`'s old copies stay put as a frozen
+   leftover that no reader looks at, which is why switching back is safe.
+
+**Turning it off:** remove the setting from `main`, then `python3 "$RH" state export` copies the notes branch
+back onto `main` as one commit (deleting notes that no longer exist on the branch). Do it when no session is
+mid-handover. `python3 "$RH" state status` says where the notes live right now.
+
+**Known limit:** review reports written by `/review` travel with the PR (they are committed on the feature
+branch), so they reach `main`, not the notes branch; `/tidy`'s review retention only sees the notes branch.
 
 ## Housekeeping & link-integrity — keeping the volatile layer lean, safely
 

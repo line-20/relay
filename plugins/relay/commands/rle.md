@@ -135,20 +135,24 @@ why**, so a future reader (or a cold session) doesn't re-litigate the decision.
 <anything still unresolved. "None." if there are none.>
 ```
 
-Then add the item to the board, keeping it **main-owned** (the board is shared — start from
-main's copy, make one surgical edit, never overwrite the whole file):
+Then add the item to the board, keeping it **shared** (start from the notes' current copy, make one surgical
+edit, never overwrite the whole file). The notes live on `main` by default, or on `state.branch` when the project
+sets one; the runtime knows which:
 
 ```bash
-git fetch origin main
-git show FETCH_HEAD:<root>/board.md > /tmp/board.md   # main's current copy to edit from
+RH="$(command -v relay_harvest.py 2>/dev/null)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort | tail -1)"
+[ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
+python3 "$RH" show <root>/board.md > /tmp/board.md   # the notes' current copy to edit from
 ```
 
 Add one row to **Open threads** (`Status` = 🔜 or 💡, `Owner` = —, `Latest handover` = —,
 `Detail` = `<root>/briefs/<slug>.md`) and a one-line entry under its track. Commit the brief +
-board together onto `main` — if you're on `main` a normal `git add && git commit && git push`
-is fine; if you're on a feature branch, use the temp-index push `/handover` uses so you don't
-switch branches. If the push is rejected (main moved, or protected), say so — the files are
-correct locally and the user can commit them.
+board together with the runtime, from any checkout, without switching branches:
+`python3 "$RH" state-commit --message-file "$MSG" --add <root>/briefs/<slug>.md --add <root>/board.md` (message in a file,
+never on the command line). It commits to the notes' home (`main`, or `state.branch`). If it does not push (a
+sibling moved the branch, or protected), say so — the files are correct locally and the user can re-run. If it is
+refused because `state.branch` is set but the branch is missing, say so; never create it and never fall back to `main`.
 
 ## Step 4.5 — Self-review the brief before you rely on it
 Re-read what you just wrote as if you were the cold session that has to *build* from it, and

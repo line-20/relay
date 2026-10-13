@@ -127,7 +127,7 @@ def _applied_path(relay_root, slug):
 
 # The volatile notes, as an explicit allow-list under <root>/ (a repo may also keep durable knowledge,
 # decisions or reference docs there; those stay on the durable branch and are never read from here).
-STATE_PATHS = ("board.md", "briefs", "handover", "reviews", "harvest")
+STATE_PATHS = ("board.md", "briefs", "handover", "reviews", "harvest", "archive", "audits")
 
 
 def _toplevel(repo_root):
@@ -336,6 +336,240 @@ def _relay_root_of(repo_root):
     """The <root> directory (default `relay`), from the remote's config (`root`), as a repo-relative path."""
     root = _remote_config(repo_root).get("root")
     return root.strip("/") if isinstance(root, str) and root.strip("/") else "relay"
+
+
+def _state_target(repo_root, remote="origin", fetch=True):
+    """(branch, is_state): the branch notes are WRITTEN to. The notes branch when state.branch is set (it
+    must already exist: writers never create it, an explicit `state init` does, so two sessions can never
+    race to seed competing branches), else the durable branch, as before."""
+    top = _toplevel(repo_root)
+    durable = _durable_branch(top)
+    if fetch:
+        _run_git(["fetch", remote, durable], top)         # the durable branch carries the setting itself
+    branch, _ = _state_ref(top, remote, fetch=fetch)       # raises loud if set but missing
+    return (branch, True) if branch else (durable, False)
+
+
+def _temp_index(top, base=None):
+    """A throwaway index (seeded from `base`, or empty) so nothing touches the real index, working tree,
+    HEAD or any local branch: the parallel-worktree-safe primitive from docs/conventions.md."""
+    fd, path = tempfile.mkstemp(prefix="relay-state-idx-"); os.close(fd)
+    os.remove(path)                                        # git creates it; an empty file is not a valid index
+    env = {"GIT_INDEX_FILE": path}
+    if base:
+        rt = _run_git(["read-tree", base], top, env=env)
+        if rt.returncode != 0:
+            return (path, env, (rt.stderr.strip().splitlines() or ["read-tree failed"])[-1])
+    return (path, env, None)
+
+
+def _push(top, remote, sha, branch):
+    push = _run_git(["push", remote, f"{sha}:refs/heads/{branch}"], top)
+    if push.returncode == 0:
+        return (True, None)
+    return (False, (push.stderr.strip().splitlines() or ["push failed (offline or remote rejected)"])[-1])
+
+
+def state_commit(repo_root, message, add=(), remove=(), moves=(), remote="origin"):
+    """Commit Relay notes (board, briefs, handover, reviews, harvest) onto the branch they live on, with
+    the temp-index primitive: fetch the tip, stage ONLY these files into a throwaway index, write a tree,
+    `commit-tree` onto that tip, push. One attempt: a rejected push (a sibling moved the branch) is
+    reported, never blindly retried, because a caller that edited a shared file such as board.md must
+    re-read the new tip and re-apply its edit, or it would clobber the sibling's row.
+    Unset: the target is the durable branch, exactly as before. Set: the notes branch, and a path that is
+    not a note is refused. `moves` is [(old, new)]: the new path takes the old path's content straight from
+    the branch tip (no working-tree copy needed), which is how archiving and trimming move files.
+    Never raises on a git failure; returns a status dict."""
+    top = _toplevel(repo_root)
+    branch, is_state = _state_target(top, remote, fetch=True)
+    root = _relay_root_of(top)
+    adds = [_norm_rel(p) for p in add]
+    rems = [_norm_rel(p) for p in remove]
+    mvs = [(_norm_rel(a), _norm_rel(b)) for a, b in moves]
+    if is_state:
+        for rel in adds + rems + [x for pair in mvs for x in pair]:
+            if not _is_state_path(rel, root):
+                raise HarvestError(f"{rel!r} is not a Relay note ({', '.join(STATE_PATHS)} under {root}/); "
+                                   f"state.branch only holds notes, so it cannot go on {branch!r}.")
+    for rel in adds:
+        if not os.path.isfile(os.path.join(top, rel)):
+            raise HarvestError(f"cannot commit {rel!r}: no such file in {top}")
+    fetch = _run_git(["fetch", remote, branch], top)
+    if fetch.returncode != 0:
+        return {"committed": False, "pushed": False, "branch": branch,
+                "reason": "offline: " + (fetch.stderr.strip().splitlines() or ["fetch failed"])[-1]}
+    base = _run_git(["rev-parse", "--verify", "--quiet", "FETCH_HEAD"], top).stdout.strip()
+    if not base:
+        return {"committed": False, "pushed": False, "branch": branch,
+                "reason": f"no remote {remote}/{branch} to build on"}
+    idx, env, err = _temp_index(top, base)
+    try:
+        if err:
+            return {"committed": False, "pushed": False, "branch": branch, "reason": "read-tree failed: " + err}
+        if adds:
+            r = _run_git(["add", "--", *adds], top, env=env)
+            if r.returncode != 0:
+                return {"committed": False, "pushed": False, "branch": branch,
+                        "reason": "add failed: " + (r.stderr.strip().splitlines() or ["?"])[-1]}
+        if rems:
+            _run_git(["rm", "--cached", "-q", "--ignore-unmatch", "--", *rems], top, env=env)
+        for old_path, new_path in mvs:
+            hit = _tree_entries(top, base, old_path)
+            if len(hit) != 1 or hit[0][2] != old_path:
+                return {"committed": False, "pushed": False, "branch": branch,
+                        "reason": f"cannot move {old_path!r}: not on {remote}/{branch}"}
+            r = _index_info(top, env, [(hit[0][0], hit[0][1], new_path)])
+            if r.returncode != 0:
+                return {"committed": False, "pushed": False, "branch": branch,
+                        "reason": "move failed: " + r.stderr.decode("utf-8", "replace").strip()}
+            _run_git(["rm", "--cached", "-q", "--ignore-unmatch", "--", old_path], top, env=env)
+        tree = _run_git(["write-tree"], top, env=env).stdout.strip()
+    finally:
+        try:
+            os.remove(idx)
+        except OSError:
+            pass
+    if not tree:
+        return {"committed": False, "pushed": False, "branch": branch, "reason": "write-tree failed"}
+    if tree == _run_git(["rev-parse", f"{base}^{{tree}}"], top).stdout.strip():
+        return {"committed": False, "pushed": True, "branch": branch, "sha": base, "reason": "nothing to commit"}
+    commit = _run_git(["commit-tree", tree, "-p", base, "-m", message], top)
+    if commit.returncode != 0 or not commit.stdout.strip():
+        return {"committed": False, "pushed": False, "branch": branch,
+                "reason": "commit-tree failed: " + (commit.stderr.strip().splitlines() or ["unknown"])[-1]}
+    sha = commit.stdout.strip()
+    ok, reason = _push(top, remote, sha, branch)
+    return {"committed": True, "pushed": ok, "branch": branch, "sha": sha, "reason": reason}
+
+
+def _tree_entries(top, ref, prefix):
+    """[(mode, sha, path)] for the files under `prefix` at `ref` (NUL-separated, so no C-quoting)."""
+    try:
+        r = subprocess.run(["git", "ls-tree", "-r", "-z", ref, "--", prefix], cwd=top, capture_output=True)
+    except OSError:
+        return []
+    out = []
+    if r.returncode != 0:
+        return out
+    for rec in r.stdout.decode("utf-8", "surrogateescape").split("\0"):
+        if not rec or "\t" not in rec:
+            continue
+        meta, path = rec.split("\t", 1)
+        parts = meta.split()
+        if len(parts) == 3 and parts[1] == "blob":
+            out.append((parts[0], parts[2], path))
+    return out
+
+
+def _index_info(top, env, entries):
+    data = "".join(f"{mode} {sha}\t{path}\n" for mode, sha, path in entries)
+    return subprocess.run(["git", "update-index", "--add", "--index-info"], cwd=top, input=data.encode("utf-8", "surrogateescape"),
+                          capture_output=True, env={**os.environ, **env})
+
+
+def state_init(repo_root, branch="relay-notes", remote="origin"):
+    """Create the notes branch ONCE, as an orphan seeded with the durable branch's current volatile notes.
+    The only thing that ever creates it. Idempotent: an existing branch is reported, never touched.
+    Does not flip the setting: land `state.branch` on the durable branch AFTER this, then writers follow it."""
+    top = _toplevel(repo_root)
+    durable = _durable_branch(top)
+    if not _valid_state_branch(branch, durable):
+        raise HarvestError(f"{branch!r} is not a usable notes-branch name (not HEAD or {durable!r}, no `..`).")
+    fetch = _run_git(["fetch", remote, durable], top)
+    if fetch.returncode != 0:
+        raise HarvestError("cannot reach the remote to seed the notes branch: "
+                           + (fetch.stderr.strip().splitlines() or ["fetch failed"])[-1])
+    ls = _run_git(["ls-remote", "--exit-code", "--heads", remote, branch], top)
+    if ls.returncode == 0:
+        return {"created": False, "branch": branch, "reason": "already exists on the remote; left untouched"}
+    root = _relay_root_of(top)
+    src = f"{remote}/{durable}"
+    entries = [e for e in _tree_entries(top, src, root) if _is_state_path(e[2], root)]
+    idx, env, _ = _temp_index(top)
+    try:
+        r = _index_info(top, env, entries)
+        if r.returncode != 0:
+            raise HarvestError("could not stage the seed: " + r.stderr.decode("utf-8", "replace").strip())
+        tree = _run_git(["write-tree"], top, env=env).stdout.strip()
+    finally:
+        try:
+            os.remove(idx)
+        except OSError:
+            pass
+    head = _run_git(["rev-parse", "--short", src], top).stdout.strip()
+    commit = _run_git(["commit-tree", tree, "-m", f"relay: seed notes branch from {durable} @ {head}"], top)
+    if commit.returncode != 0 or not commit.stdout.strip():
+        raise HarvestError("could not create the seed commit: " + (commit.stderr.strip() or "unknown"))
+    sha = commit.stdout.strip()
+    ok, reason = _push(top, remote, sha, branch)            # no force: a racing init loses cleanly
+    if not ok:
+        raise HarvestError(f"could not push the notes branch {branch!r}: {reason}")
+    return {"created": True, "branch": branch, "sha": sha, "files": len(entries), "seeded_from": src}
+
+
+def state_export(repo_root, branch=None, remote="origin"):
+    """Copy the notes branch's volatile notes BACK onto the durable branch as one commit, so switching the
+    setting off does not lose the work that landed on the notes branch. After this the durable branch is
+    authoritative again (turn `state.branch` off first)."""
+    top = _toplevel(repo_root)
+    durable = _durable_branch(top)
+    _run_git(["fetch", remote, durable], top)
+    branch = branch or state_branch(top, remote)
+    if not branch:
+        raise HarvestError("no notes branch to export from: pass --branch, or set state.branch.")
+    if _run_git(["fetch", remote, branch], top).returncode != 0:
+        raise HarvestError(f"cannot fetch {remote}/{branch}.")
+    root = _relay_root_of(top)
+    notes_ref, durable_ref = f"{remote}/{branch}", f"{remote}/{durable}"
+    notes = [e for e in _tree_entries(top, notes_ref, root) if _is_state_path(e[2], root)]
+    have = {e[2] for e in notes}
+    stale = [e[2] for e in _tree_entries(top, durable_ref, root)
+             if _is_state_path(e[2], root) and e[2] not in have]
+    idx, env, err = _temp_index(top, durable_ref)
+    try:
+        if err:
+            raise HarvestError("read-tree failed: " + err)
+        if stale:
+            _run_git(["rm", "--cached", "-q", "--ignore-unmatch", "--", *stale], top, env=env)
+        r = _index_info(top, env, notes)
+        if r.returncode != 0:
+            raise HarvestError("could not stage the export: " + r.stderr.decode("utf-8", "replace").strip())
+        tree = _run_git(["write-tree"], top, env=env).stdout.strip()
+    finally:
+        try:
+            os.remove(idx)
+        except OSError:
+            pass
+    if tree == _run_git(["rev-parse", f"{durable_ref}^{{tree}}"], top).stdout.strip():
+        return {"exported": False, "reason": "the durable branch already matches the notes branch"}
+    head = _run_git(["rev-parse", "--short", notes_ref], top).stdout.strip()
+    commit = _run_git(["commit-tree", tree, "-p", durable_ref, "-m",
+                       f"relay: export notes from {branch} @ {head} back to {durable}"], top)
+    if commit.returncode != 0 or not commit.stdout.strip():
+        raise HarvestError("could not create the export commit: " + (commit.stderr.strip() or "unknown"))
+    sha = commit.stdout.strip()
+    ok, reason = _push(top, remote, sha, durable)
+    return {"exported": ok, "sha": sha, "branch": durable, "files": len(notes), "removed": len(stale), "reason": reason}
+
+
+def state_status(repo_root, remote="origin"):
+    """Where the notes live right now, for a human or an agent to read."""
+    top = _toplevel(repo_root)
+    durable = _durable_branch(top)
+    try:
+        branch = state_branch(top, remote)
+        err = None
+    except HarvestError as e:
+        branch, err = None, str(e)
+    out = {"durable_branch": durable, "state_branch": branch, "problem": err}
+    if branch:
+        ref = f"{remote}/{branch}"
+        exists = _run_git(["rev-parse", "--verify", "--quiet", f"refs/remotes/{ref}"], top).returncode == 0
+        out["exists_locally"] = exists
+        if exists:
+            out["head"] = _run_git(["rev-parse", "--short", ref], top).stdout.strip()
+            out["files"] = len(_state_files(top, ref, _relay_root_of(top)))
+    return out
 
 
 # ---------- 1. emit (worker side): write the harvest result to the WAL ----------
@@ -1012,7 +1246,10 @@ def _replicate_checkpoint(repo_root, relay_root, slug, lap, remote="origin", boa
     correctly from ANY checkout, the slice worktree included; repo_root only needs the checkpoint
     files on disk. Nothing local advances, so an offline/non-ff push strands nothing: the next apply
     rebuilds from a fresh fetch and re-pushes (self-heal). The `Relay-Checkpoint` trailer marks it."""
-    durable = _durable_branch(repo_root)
+    try:
+        durable, _ = _state_target(repo_root, remote, fetch=True)   # the notes branch when state.branch is set
+    except HarvestError as e:
+        return {"lap": lap, "committed": False, "replicated": False, "reason": str(e)}
     paths = [_checkpoint_path(relay_root, slug), _applied_path(relay_root, slug),
              os.path.join(relay_root, "handover", f"next-{_slug_key(lap)}.md")]
     if board_path:
@@ -1081,7 +1318,11 @@ def _checkpoint_on_remote(repo_root, relay_root, slug, remote="origin", branch=N
     Compares blob hashes, not `git diff`: diff silently ignores an UNTRACKED file, so a
     never-committed checkpoint would falsely read as replicated. A missing remote blob, or a
     working file that has drifted since the push, both correctly read False."""
-    branch = branch or _durable_branch(repo_root)
+    if not branch:
+        try:
+            branch = state_branch(repo_root, remote) or _durable_branch(repo_root)
+        except HarvestError:
+            return None  # an unusable setting: can't tell where the checkpoint should be
     ref = f"{remote}/{branch}"
     if _run_git(["rev-parse", "--verify", "--quiet", ref], repo_root).returncode != 0:
         return None  # remote branch not fetched here — can't tell
@@ -1124,6 +1365,15 @@ def main(argv=None):
         sp.add_argument("--no-fetch", action="store_true",
                         help="with state.branch set, read the local remote-tracking ref without fetching it")
     sub.add_parser("state-branch", help="print the configured notes branch (empty when notes live on the durable branch)")
+    sc = sub.add_parser("state-commit", help="commit Relay notes onto the branch they live on (one attempt)")
+    sc.add_argument("--message-file", required=True, help="file holding the commit message (never on the command line)")
+    sc.add_argument("--add", action="append", default=[], help="repo-relative file to stage (repeatable)")
+    sc.add_argument("--remove", action="append", default=[], help="repo-relative file to delete (repeatable)")
+    sc.add_argument("--move", action="append", nargs=2, metavar=("OLD", "NEW"), default=[],
+                    help="move a file on the branch, taking its content from the branch tip (repeatable)")
+    st = sub.add_parser("state", help="manage the notes branch: init | export | status")
+    st.add_argument("action", choices=["init", "export", "status"])
+    st.add_argument("--branch", help="notes branch name (init defaults to relay-notes; export defaults to state.branch)")
     sh = sub.add_parser("show", help="print one repo-relative file from where its notes live (notes branch or durable branch)")
     sh.add_argument("path")
     sh.add_argument("--no-fetch", action="store_true", help="read the local remote-tracking ref without fetching")
@@ -1148,6 +1398,27 @@ def main(argv=None):
                                        repo_root=args.repo, replicate=not args.no_replicate,
                                        write_projection=not args.no_projection),
                          indent=2)); return 0
+    if args.cmd == "state-commit":
+        try:
+            with open(args.message_file) as fh:
+                message = fh.read().strip()
+            res = state_commit(args.repo, message, add=args.add, remove=args.remove,
+                               moves=[tuple(m) for m in args.move])
+        except (HarvestError, OSError) as e:
+            print(str(e), file=sys.stderr); return 2
+        print(json.dumps(res, indent=2))
+        return 0 if (res.get("pushed") or res.get("reason") == "nothing to commit") else 1
+    if args.cmd == "state":
+        try:
+            if args.action == "init":
+                res = state_init(args.repo, branch=args.branch or "relay-notes")
+            elif args.action == "export":
+                res = state_export(args.repo, branch=args.branch)
+            else:
+                res = state_status(args.repo)
+        except HarvestError as e:
+            print(str(e), file=sys.stderr); return 2
+        print(json.dumps(res, indent=2)); return 0
     if args.cmd == "state-branch":
         print(state_branch(args.repo) or ""); return 0
     if args.cmd == "show":
