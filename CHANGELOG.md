@@ -7,6 +7,38 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.26.0 — Relay's notes can live on their own branch, so a merge queue is never disturbed
+
+Every `/handover` pushed the board, the handover note and the resume checkpoint straight to `main`. With a merge
+queue in front of `main`, each of those pushes moves `main` under whatever batch is waiting and can force a re-run
+of a ~10 minute CI suite. A project can now keep those notes on a branch of their own.
+
+**Added**
+- **`state.branch` — keep Relay's notes off `main`.** Optional; unset changes nothing. Set it in
+  `relay.config.json` (`{ "state": { "branch": "relay-notes" } }`) and the board, briefs, handovers, reviews,
+  checkpoints, archive and audits live on that branch. Durable files (`decisions.md`, `knowledge/`, `reference/`)
+  stay on `main`. Turn it on by landing the setting on `main`, then running `relay_harvest.py state init`
+  straight away (until it runs, every notes command fails loud and writes nothing). Turn it off with
+  `state export --branch relay-notes --delete-branch`. `state status` says where the notes live.
+- **One reader and one writer.** `/continue`, `/next`, `/refine`, `/explore`, `/tidy`, `/handover`, `/watch` and
+  `/persist` now read notes with `relay_harvest.py show` / `ls` and write them with `state-commit`, which accepts
+  only notes, never follows a symlink, and never overwrites a shared note behind a sibling's back: the board is
+  edited at a recorded tip (`state tip`, `show --at`, `--base`) and a sibling's change makes the commit exit 1
+  (re-read and re-apply) instead of being lost. `/tidy` and the per-lap tidy edit a snapshot of the notes
+  (`state snapshot`, `state-commit --sync-dir`), never the working tree, which may hold a frozen copy.
+- A set-but-missing or set-but-unusable `state.branch` **fails loud**; it never falls back to `main`, which
+  would split the notes in two. The setting is read from the remote's `relay.config.json`, so a slice branch
+  forked before the switch follows it too.
+
+**Changed**
+- `/persist` writes in two steps when the setting is on: the durable docs land on `main` first and the brief's
+  `Distilled` marker (a note) only after, so `/tidy` can never prune a brief whose knowledge is not on `main`.
+- The plugin-cache lookup for `relay_harvest.py` picks the highest version (`sort -V`), not the
+  alphabetically last (`1.9.0` used to beat `1.25.0`).
+
+**Known limit:** review reports from `/review` are committed on the feature branch, so they reach `main`, not the
+notes branch.
+
 ## 1.25.0 — a finished session can hand its PR to a merge queue and leave
 
 With many sessions running, each one waited 10+ minutes on CI after `/ship` and restarted every time
