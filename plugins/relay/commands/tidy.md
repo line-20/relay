@@ -1,7 +1,7 @@
 ---
 description: Keep Relay's VOLATILE layer lean — prune spent handovers/reviews, trim done rows off the board, merge same-unit briefs — recurring, idempotent, and parallel-worktree-safe. Never touches durable output (code, ADRs, guides). Prune and trim already run per-lap inside /handover at the same `tidy.level`, so run this by hand for the rest (merges, brief archival) or for a deliberate sweep; a no-op when nothing's stale.
 argument-hint: "[optional: a single op — prune|trim|merge — else all enabled; add 'dry-run' to report without writing]"
-allowed-tools: Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git ls-files:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(git mv:*), Bash(date:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(grep:*), Bash(jq:*), Read, Write, Edit
+allowed-tools: Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git add:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git ls-files:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(grep:*), Bash(jq:*), Bash(python3:*), Bash(find:*), Bash(cp:*), Bash(mv:*), Bash(mkdir:*), Read, Write, Edit
 ---
 
 ## Usage
@@ -45,14 +45,14 @@ nothing's stale it does nothing and says so.
   Otherwise **defer it to `/persist` and report** — don't touch it ([[conventions]] → *Persistence*).
 - **Never touch live work.** A brief/topic is off-limits if its topic is **live** — the board `Owner`
   names a live worktree, status is ⚙/🔍, the worktree is `locked`, or the topic is still open/queued.
-- **Parallel-worktree-safe.** ~10 sessions share one `main`. Write to main with the temp-index
+- **Parallel-worktree-safe.** ~10 sessions share one notes branch (`main`, or `state.branch`). Write to it with the temp-index
   primitive and a **retry-replay loop** (Step 5); never clobber a sibling's commit.
 - **Link-integrity is a hard gate.** Every move rewrites inbound **path** links and a repo-wide
   no-dangling-path-link check passes **before** commit (Step 4.5).
 - **Conservative + reported.** Unsure whether something is spent ⇒ **keep it and report**, don't prune.
 
 **Run from the main checkout.** If `git rev-parse --show-toplevel` is a worktree, stop and say so —
-tidy edits shared main-owned files and must not run from inside a feature worktree.
+tidy edits shared notes (the board especially) and must not run from inside a feature worktree.
 
 ## Step 0 — Resolve config
 ```bash
@@ -74,18 +74,26 @@ answer (`tidy.ops.trim: true|false`), so an owner is asked once per repo and nev
 or `dry-run` in `$ARGUMENTS` narrows this run. **Distillation is disabled** when `PCADENCE = never` or
 `PLEVEL = none` — in that case a shipped brief counts as spent without a marker.
 
-## Step 1 — Take inventory (refresh from main first)
+## Step 1 — Take inventory (a snapshot of the notes, never the working tree)
+The notes live on `main` by default, or on `state.branch` when the project sets one, so **a checkout's own
+copy of `<root>/` may be a frozen leftover**. Read and edit a snapshot of the real notes instead. Each Bash call
+is a fresh shell, so note the two values this prints (`dir`, `base`) and reuse them literally in later steps:
 ```bash
-git fetch origin main
-git show FETCH_HEAD:$ROOT/board.md > /tmp/relay-board.md 2>/dev/null   # authoritative board
-git worktree list --porcelain                                          # live/locked topics
+RH="$(command -v relay_harvest.py 2>/dev/null)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
+[ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
+NOTES="$(mktemp -d)"
+python3 "$RH" state snapshot --out "$NOTES"      # prints {"dir": ..., "base": "<tip>", ...}: note both
+git worktree list --porcelain                    # live/locked topics
 ```
-Gather the candidates each enabled op works on:
-- **Handovers** — `$ROOT/handover/next-*.md` **not** linked from the board's *Open threads* / *Latest
+A non-zero exit is a **STOP** (a set-but-missing notes branch, offline): say so, never carry on with an empty
+inventory. From here on every path is **inside the snapshot**: `<dir>/<root>/board.md`,
+`<dir>/<root>/handover/...`. Gather the candidates each enabled op works on:
+- **Handovers** — `<dir>/<root>/handover/next-*.md` **not** linked from the board's *Open threads* / *Latest
   handover* column (a linked handover is live; keep it).
-- **Reviews** — `$ROOT/reviews/*.md` beyond the newest `$KEEP_REVIEWS`.
+- **Reviews** — `<dir>/<root>/reviews/*.md` beyond the newest `$KEEP_REVIEWS`.
 - **Done rows** — *Open threads* rows whose status is ✅ done (shipped, left in flight).
-- **Briefs** — `$ROOT/briefs/*.md`: same-unit pairs (one topic split across files) for MERGE, and
+- **Briefs** — `<dir>/<root>/briefs/*.md`: same-unit pairs (one topic split across files) for MERGE, and
   shipped-and-spent briefs for archival.
 
 ## Step 2 — Classify every candidate against the guards
@@ -109,9 +117,9 @@ archival, or a `dry-run` run STOPs here for approval** before touching a file. N
 
 ## Step 4 — Apply the approved operations
 Compute all moves first (so Step 5 commits them atomically). Never edit another worktree's files —
-only main-owned content under `<root>/`.
-- **PRUNE** — `git mv` unlinked handovers into `$ROOT/handover/archive/` and over-retention reviews
-  into `$ROOT/reviews/archive/`. Nothing is deleted; git keeps full history. (This is the canonical
+only the shared notes in the snapshot.
+- **PRUNE** — `mv` (inside the snapshot) unlinked handovers into `<dir>/<root>/handover/archive/` and
+  over-retention reviews into `<dir>/<root>/reviews/archive/`. Nothing is deleted; git keeps full history. (This is the canonical
   home of `/handover` Step 4.5's archival logic.)
 - **TRIM** — remove each done row from *Open threads* and collapse it to a one-line `✅ Done: <slug>`
   entry on its track (the `/next` compaction shape). A **near-done tail** (shipped, one loose end) is
@@ -126,35 +134,37 @@ Archiving a **brief** additionally requires the Distilled invariant (Step 2) to 
 
 ## Step 4.5 — Link-integrity gate (hard, before any commit)
 Every move above may orphan an inbound reference. Rewrite **path** links to each moved file — the
-board's `Detail` and `Latest handover` columns, `<root>/briefs/*.md` cross-links, `CLAUDE.md`
-references — to their new location. Then scan the repo for any remaining **path** link that resolves to
+board's `Detail` and `Latest handover` columns and `<root>/briefs/*.md` cross-links, all **inside the snapshot** — to
+their new location. References from files that live **outside** the snapshot (`CLAUDE.md`, ADRs on `main`) cannot be
+rewritten by this commit: **list them in the report** so the user can fix them (or run `/persist`). Then scan the repo for any remaining **path** link that resolves to
 nothing:
 ```bash
-grep -rEno '\]\(([^)]+\.md)\)|`[^`]+\.md`' "$ROOT" 2>/dev/null   # candidate path links to verify
+grep -rEno '\]\(([^)]+\.md)\)|`[^`]+\.md`' "<dir>/<root>" 2>/dev/null   # scan the SNAPSHOT, not the working tree
 ```
 Verify each resolves to an existing file; **zero dangling path links is a hard gate** — if any remains,
 do **not** commit: fix it or back the offending move out, and report. Name-based `[[wikilinks]]` are
 stable under moves by design — **exempt** them from the check.
 
-## Step 5 — Commit atomically on main, with a retry-replay loop
-All moves land as **one** archival commit on `main`, using the temp-index primitive (no branch switch)
-`/handover` uses — wrapped so a sibling push that landed mid-run is **merged, not clobbered**:
+## Step 5 — Commit atomically on the notes branch, with a retry-replay loop
+All moves land as **one** archival commit on the branch the notes live on (`main` by default, `state.branch`
+when set). `state-commit --sync-dir` turns the edited snapshot into a **delta against the tip it was taken
+from** (the snapshot records it; pass the snapshot directory `<dir>` itself, never `<dir>/<root>`), built with a temporary index (no branch switch, no working tree touched). Because the commit
+is built on exactly that tip, a sibling push that landed mid-run makes the call **exit 1 (rejected)** instead of
+being overwritten, and the loop below takes a **fresh snapshot and re-applies the moves to it**:
 ```bash
-for attempt in 1 2 3; do
-  git fetch origin main
-  # recompute the moves against FETCH_HEAD's tree here (re-read the board, re-stage the renames)
-  TMPIDX="$(mktemp)"; GIT_INDEX_FILE="$TMPIDX" git read-tree FETCH_HEAD
-  # ... GIT_INDEX_FILE="$TMPIDX" git add <the moved/rewritten paths> ...
-  TREE="$(GIT_INDEX_FILE="$TMPIDX" git write-tree)"
-  COMMIT="$(git commit-tree "$TREE" -p FETCH_HEAD -m "chore(tidy): prune/trim <counts>")"
-  rm -f "$TMPIDX"
-  if git push origin "$COMMIT:main"; then break; fi     # rejected ⇒ main moved; loop re-integrates
-  [ "$attempt" = 3 ] && { echo "main kept moving — STOP, files correct locally, retry later"; break; }
-done
+RH="$(command -v relay_harvest.py 2>/dev/null)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
+[ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
+MSG="$(mktemp)"; printf '%s\n' "chore(tidy): prune/trim <counts>" > "$MSG"
+python3 "$RH" state-commit --sync-dir <dir> --message-file "$MSG"
+echo "exit: $?"; rm -f "$MSG"
 ```
-Re-derive the moves inside the loop against the **freshly fetched** board so a sibling's changes are
-carried forward. After three rejected pushes, **STOP and report** (the moves are correct locally;
-nothing is lost) rather than forcing.
+Exit `0` = pushed (or nothing to commit): done. Exit `1` = the branch moved or the remote is unreachable:
+repeat from **Step 1** with a fresh snapshot (up to 3 attempts), re-deriving every move against the **fresh**
+board so a sibling's change is carried forward. Exit `2` = refused (a guard, a missing notes branch): STOP and
+say why. Exit `3` = could not build the commit: STOP and show the message. After three rejected attempts,
+**STOP and report** (the moves are correct in the snapshot; nothing is lost) rather than forcing. Remove the
+snapshot directory when done.
 
 ## Step 6 — Report
 One compact landing: counts pruned / trimmed / merged, how many **kept** and why (undistilled → persist,

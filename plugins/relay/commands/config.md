@@ -85,6 +85,11 @@ Only if the user opted in above. **Offer only what this repo shows evidence for*
   merge-queue rule, a queue bot) *and* people run several sessions at once — it is how `/ship` hands a finished PR to that
   queue instead of waiting on CI and merging itself. The project names the command (for a label-driven queue, e.g.
   `gh pr edit {pr} --add-label ready-to-land`); never offer it for a repo with no queue. Absent ⇒ `/ship` merges as before.
+  **Include `state.branch`** under the same condition (a merge queue *and* several sessions): it moves Relay's own
+  notes (board, handovers, checkpoints) off `main` so every `/handover` stops moving `main` under the queue. Offer
+  the order and never skip a step: land the setting on `main` first, then run `relay_harvest.py state init`
+  immediately (until it runs, every notes command fails loud and writes nothing)
+  ([[conventions]] → *Where Relay's notes live*). Never offer it for a repo with no queue.
   **Include `hooks.release`**
   if the repo shows evidence of one — a release-bot PR/workflow (release-please, changesets,
   semantic-release), a `release` script, or version tags — so `/ship` cuts a release per lap instead of

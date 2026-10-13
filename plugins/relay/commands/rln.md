@@ -80,10 +80,11 @@ startable) and Steps 3–6 (rank, present, worktree, start) are shared. What cha
 
 (Any other argument — a track, theme, or exact slug — biases the candidate set at *any* level.)
 
-## Step 1 — Read the board (the curated front door, fetched from main)
+## Step 1 — Read the board (the curated front door, fetched from where the notes live)
 Do NOT sweep `<root>/briefs/` blindly — the board already distils them.
-1. `git fetch origin main` to refresh the shared board.
-2. Read it: `git show FETCH_HEAD:<root>/board.md`. The **Open threads** table and the
+1. Resolve the runtime (`$RH`, as in `/continue` Step 1); it refreshes and reads the notes from `main`, or from
+   `state.branch` when the project sets one.
+2. Read it: `python3 "$RH" show <root>/board.md`. The **Open threads** table and the
    **Tracks** section are the source of truth for what exists and its status.
 3. Glyphs: 💡 idea (icebox) · 🔜 next (queued) · ⚙ in-progress · 🔍 in-review · ⏸ parked · ✅ done.
 
@@ -141,7 +142,8 @@ and real token cost — completeness beats speed.
    first — it may not exist in a fresh clone; get `<timestamp>` from a `date +%Y-%m-%d-%H%M` Bash call). Structure: a summary (item count, how many rows drifted), a
    per-item table (slug · board status · real status · drift? · size · startable), a **Drift ledger**
    (every board/brief row that disagrees with reality, with the exact fix), and the **ranked
-   shortlist**. Commit it to main (it's a durable record the board can't hold).
+   shortlist**. Commit it with `MSG="$(mktemp)"; printf '%s\n' "chore(board): <what changed>" > "$MSG"; python3 "$RH" state-commit --message-file "$MSG" --add <root>/audits/<timestamp>.md` (new file, no `--base` needed)
+   (to the notes' home: `main`, or `state.branch`; it's a durable record the board can't hold).
 4. Present the shortlist (Step 3 table) as usual, then point at the committed report and **offer
    to apply the Drift ledger** to the board in one pass (offer, don't auto-write).
 
@@ -157,9 +159,11 @@ Present a **compaction plan** and, only on explicit go-ahead, apply it in **one 
 - **A ✅-claimed row the code contradicts does NOT get archived** — it stays put and goes in the
   Drift ledger instead. Only verified-shipped items leave the board.
 - **Result:** Open threads holds only 🔜 / ⚙ / 🔍 / ⏸ + the strongest 💡 — the short open list.
-- **Write discipline:** offer, don't auto-write; **one atomic pass**; the board is main-owned. Commit
-  the board edit + brief moves **together, on main** (via the temp-index pattern `/handover` uses —
-  never switch the working branch).
+- **Write discipline:** offer, don't auto-write; **one atomic pass**; the board is shared. Commit
+  the board edit + brief moves **together, on the notes branch**: take `python3 "$RH" state snapshot --out "$(mktemp -d)"`
+  (prints `dir` and `base`), do the moves with `mv` and edit `board.md` inside `<dir>/<root>/`, then
+  `MSG="$(mktemp)"; printf '%s\n' "chore(board): <what changed>" > "$MSG"; python3 "$RH" state-commit --sync-dir <dir> --message-file "$MSG"` (the snapshot directory itself; a delta against the tip you read;
+  exit `1` = the branch moved: take a fresh snapshot and redo it; never switch the working branch).
 - If declined, leave everything as-is — the report already records what *could* be compacted.
 
 ## Step 3 — Rank and present a SHORT shortlist (this is the whole point)

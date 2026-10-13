@@ -60,11 +60,21 @@ local), STOP and say so plainly — e.g. *"root `docs` configured but `docs/boar
 ## Step 1 — Find the thread to continue (board first, then its handover)
 Under parallel worktree sessions there is **no single newest handover** — threads
 interleave. So resolve the *thread* via the board, then open *that thread's* handover.
-Board + handovers are committed to main, so a fresh worktree picks them up even before
-main is merged in locally.
+Board + handovers are committed to the shared notes branch (`main` by default), so a fresh worktree picks them
+up even before `main` is merged in locally.
 
-1. `git fetch origin main` to refresh the shared board + handovers.
-2. Read the board: `git show FETCH_HEAD:<root>/board.md` — the **Open threads** table is
+The notes (board, briefs, handovers, reviews, checkpoints) live on `main` by default, or on the project's own
+notes branch when `relay.config.json` sets `state.branch`. Always read them through the runtime, which knows
+which; resolve it once (installed on PATH → plugin cache → this checkout):
+```bash
+RH="$(command -v relay_harvest.py 2>/dev/null)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
+[ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
+```
+
+1. Refresh the shared board + handovers: `git fetch origin main`, and resolve where the notes live
+   with `python3 "$RH" state-branch` (empty = `main`; a name = the notes branch; `$RH` as above).
+2. Read the board: `python3 "$RH" show <root>/board.md` — the **Open threads** table is
    the authoritative index of what's in flight.
 3. **Pick the thread:**
    - If `$ARGUMENTS` names an **item slug** (`track/slug`) or a handover timestamp/path,
@@ -74,13 +84,13 @@ main is merged in locally.
    - Else, if exactly one thread is `⚙ in-progress`, use it. If several are, or none is,
      **list the Open-threads rows and ask which** rather than guessing.
 4. **Open its handover:** read the row's `Latest handover` path via
-   `git show FETCH_HEAD:<root>/handover/<...>` (no checkout needed). If the row has no
+   `python3 "$RH" show <root>/handover/<...>` (no checkout needed). If the row has no
    handover (`—`), work from its detail/brief doc instead.
    > **Local `main` is assumed stale** — most drivers never `git pull` it, so a handover
    > lives on `origin/main` before it lives locally. Read handovers — board-resolved **or**
-   > passed explicitly as a path in `$ARGUMENTS` — through `git show FETCH_HEAD:<path>` FIRST
-   > (Step 1.1 already fetched); fall back to a local read only if the path isn't on
-   > `origin/main` (an as-yet-unpushed handover). **Never `Read` the pasted path against the
+   > passed explicitly as a path in `$ARGUMENTS` — through `python3 "$RH" show <path>` FIRST
+   > (it fetches, and reads the notes branch when `state.branch` is set); fall back to a local read only if the path isn't
+   > there (an as-yet-unpushed handover). **Never read a note from the local checkout when `state.branch` is set**: a worktree forked from `main` holds a frozen copy. **Never `Read` the pasted path against the
    > local checkout first** — on a behind `main` it misses, and you narrate a hunt for
    > something that was there on the remote all along.
    > **Structured checkpoint (first-slice runtime).** If a durable checkpoint exists for the
@@ -90,7 +100,7 @@ main is merged in locally.
    > (installed on PATH → plugin cache → this checkout), then run `resume`:
    > ```bash
    > RH="$(command -v relay_harvest.py 2>/dev/null)"
-   > [ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort | tail -1)"
+   > [ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
    > [ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
    > python3 "$RH" --repo "$PWD" resume <track/slug>
    > ```
@@ -98,7 +108,7 @@ main is merged in locally.
    > **no previous-worker transcript and no provider session id are needed.** Fall back to the
    > Markdown handover only when no checkpoint file exists yet.
 5. Fallback (no board, or empty): newest handover on main —
-   `git ls-tree -r --name-only FETCH_HEAD <root>/handover/ | grep -E 'next-.*\.md$' | sort | tail -1`
+   `python3 "$RH" ls <root>/handover | grep -E 'next-.*\.md$' | sort -V | tail -1`
    — or newest local `ls -t <root>/handover/next-*.md 2>/dev/null | head -1`. If neither
    exists, STOP — nothing to continue.
 6. Remember the item slug, source, and filename you used; report them in Step 4.

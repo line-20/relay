@@ -1,7 +1,7 @@
 ---
-description: Generate a cold-start handover for the next phase, commit it to main, and print a compact terminal summary
+description: Generate a cold-start handover for the next phase, commit it where Relay's notes live (main, or state.branch), and print a compact terminal summary
 argument-hint: "[optional focus, e.g. 'health monitoring metering']"
-allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(python3:*), Bash(sed:*), Bash(cat:*), Read, Write, Edit, ExitWorktree
+allowed-tools: Bash(gh pr view:*), Bash(git log:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git fetch:*), Bash(git read-tree:*), Bash(git add:*), Bash(git write-tree:*), Bash(git commit-tree:*), Bash(git push:*), Bash(git show:*), Bash(git ls-tree:*), Bash(git checkout:*), Bash(git rev-parse:*), Bash(git worktree:*), Bash(date:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(ls:*), Bash(python3:*), Bash(sed:*), Bash(cat:*), Bash(cp:*), Bash(find:*), Bash(mv:*), Read, Write, Edit, ExitWorktree
 ---
 
 ## Usage
@@ -120,18 +120,19 @@ phase: <roadmap phase/milestone>
 <Anything unresolved the next session should decide or ask the user about. "None." if there are none.>
 
 ## Step 4 — Replicate the resume checkpoint (first), then commit the handover
-Two durable records land on `main` this step: the structured **resume checkpoint** (so a fresh
+Two durable records land on the notes branch this step (**`main`**, unless the project set `state.branch`, which `relay_harvest.py state-branch` prints): the structured **resume checkpoint** (so a fresh
 clone on another machine/phone resumes with no access to this worktree) and the human-readable
 **handover** + `<root>/board.md`. The checkpoint goes **first** — the handover is a projection of
-it, so main should never advertise a handover whose checkpoint hasn't landed. Both go to `main`
-with no branch and no PR, without switching branches or disturbing your working tree.
+it, so the notes branch should never advertise a handover whose checkpoint hasn't landed. Both go there
+with no branch and no PR, without switching branches or disturbing your working tree. (With
+`state.branch` set, nothing in this step touches `main`, so a merge queue is never disturbed.)
 
 ### 4a — Emit + apply the checkpoint
 The checkpoint carries exactly the resume state you just wrote in Step 3 — the next objective, the
 in-flight state, the scope edges, the open questions — as structured JSON the resume side reads
 first (`/continue` → `relay_harvest.py resume`). Hand a harvest **result** built from that same
 content to the runtime; it writes the canonical `<root>/harvest/<slug>/checkpoint.json` and pushes it
-to `origin/main` via a temp index built from the freshly-fetched remote tip — so this works from
+to the notes branch (`origin/main` by default) via a temp index built from the freshly-fetched remote tip — so this works from
 **this worktree** (no reaching into the main checkout) and never touches any working tree, index, or
 local branch.
 
@@ -166,7 +167,7 @@ plugin cache → this repo's own source) and invoke via `python3`:
 ```bash
 SLUG="<track/slug from the handover's item: frontmatter>"
 RH="$(command -v relay_harvest.py 2>/dev/null)"
-[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort | tail -1)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
 [ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
 python3 "$RH" emit < <scratch-result.json>
 python3 "$RH" apply --slug "$SLUG" \
@@ -175,7 +176,7 @@ rm -f <scratch-result.json>
 ```
 
 Read the `apply` summary's `replication[0]`: `replicated: true` means the checkpoint is on
-`origin/main` — cross-device resume is live for this thread. `committed: true, replicated: false`
+the remote notes branch — cross-device resume is live for this thread. `committed: true, replicated: false`
 means the commit was built but the push didn't land (offline, or a sibling advanced the remote
 between the fetch and the push) — nothing local changed, so the next lifecycle run rebuilds from a
 fresh fetch and re-pushes (self-heal). `committed: false` with a `reason` is a no-op (offline fetch,
@@ -184,17 +185,22 @@ exactly as before, so **never let a checkpoint outcome block the handover push b
 is the floor, the checkpoint is the upgrade. Note a non-`true` result in Step 5.
 
 ### 4b — Commit the handover + board
-First bring the board to main's version and apply this thread's update to it. The board is
-**main-owned** — always start from main's copy so you don't clobber a parallel session's edits:
+Each Bash call is a fresh shell, so every block below resolves `$RH` itself and uses literal values (`<TS>` from
+Step 3, `<track/slug>` from the `item:` frontmatter).
 
+First note the tip you are about to read the board from, and read it at exactly that tip (the commit is built on
+it, so a sibling's change in between is rejected, not overwritten):
 ```bash
-git fetch origin main
-git show FETCH_HEAD:<root>/board.md > <root>/board.md   # refresh to main's copy
+RH="$(command -v relay_harvest.py 2>/dev/null)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
+[ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
+python3 "$RH" state tip                                                      # prints {"branch": …, "tip": "<BASE>"}: note it
+python3 "$RH" show --at <BASE> <root>/board.md > /tmp/relay-board-<TS>.md    # the board as of that tip
 ```
-
-Now edit `<root>/board.md` for this thread's item (`item:` slug from the frontmatter):
+Edit **`/tmp/relay-board-<TS>.md`** (not the working tree's board, which may be a frozen leftover) for this
+thread's item (`item:` slug from the frontmatter):
 - Update its row in the **Open threads** table — set `Status`, `Owner`, and
-  `Latest handover` → `handover/next-$TS.md`. **`Owner` = `—` for a hand-off.**
+  `Latest handover` → `handover/next-<TS>.md`. **`Owner` = `—` for a hand-off.**
   Writing a handover means you are RELINQUISHING the thread for a cold session to
   resume, so no live session owns it (the branch is still discoverable via the
   handover's `branch:` frontmatter). Only name a worktree/branch here when a
@@ -204,28 +210,30 @@ Now edit `<root>/board.md` for this thread's item (`item:` slug from the frontma
   threads and move it to its track's ✅ Done line.
 - Keep edits minimal and surgical — one thread, one item.
 
-Then commit **both files** onto main via a temporary index (no branch switch, working tree untouched):
-
+Then commit the handover and the edited board onto the notes branch, built on `<BASE>`. The message goes in a
+file, never on the command line:
 ```bash
-TMPIDX="$(mktemp)"
-GIT_INDEX_FILE="$TMPIDX" git read-tree FETCH_HEAD
-GIT_INDEX_FILE="$TMPIDX" git add "<root>/handover/next-$TS.md" <root>/board.md
-TREE="$(GIT_INDEX_FILE="$TMPIDX" git write-tree)"
-COMMIT="$(git commit-tree "$TREE" -p FETCH_HEAD -m "docs(handover+board): $TS — <item>")"
-git push origin "$COMMIT:main"
-rm -f "$TMPIDX"
-git checkout HEAD -- <root>/board.md 2>/dev/null || true   # restore branch's board; keep the feature branch clean
+RH="$(command -v relay_harvest.py 2>/dev/null)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
+[ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
+MSG="$(mktemp)"; printf '%s\n' "docs(handover+board): <TS> — <track/slug>" > "$MSG"
+python3 "$RH" state-commit --base <BASE> --message-file "$MSG" \
+  --add "<root>/handover/next-<TS>.md" --put <root>/board.md /tmp/relay-board-<TS>.md
+echo "exit: $?"; rm -f "$MSG" /tmp/relay-board-<TS>.md
 ```
-
-If the push is rejected (main moved on, or direct pushes to main are blocked), STOP and
-say so — both files are already correct locally, so nothing is lost and the user can
-commit them. The handover stays untracked on the current feature branch until main
-propagates; that's expected.
+It prints a JSON status (`status`, `branch`, `sha`, `reason`). Exit codes:
+- `0` pushed (or nothing to commit).
+- `1` the notes branch moved since you read it, or the remote is unreachable. Go back to `state tip`, re-read the
+  board, **re-apply your one row to the fresh copy** and commit again (up to 3 attempts); then STOP and say so —
+  the handover is untracked on this branch and the edit is just one row.
+- `2` refused. If the message says `state.branch` is set but the branch is missing: **never create it from here
+  and never fall back to `main`**; tell the user to run `relay_harvest.py state init`. Other refusals: show the message.
+- `3` could not build the commit (git identity, a gitignored path…): show the message and STOP.
 
 ## Step 4.5 — Tidy the record (archive superseded notes, trim done rows)
 `/handover` and `/review` mint a new file every session and the board keeps every row it ever
 opened, so `<root>/handover/`, `<root>/reviews/` and *Open threads* all grow without bound. Since
-you've just synced with `main` and are already committing there, do the housekeeping in the same
+you've just synced with the notes branch and are already committing there, do the housekeeping in the same
 breath — nothing is deleted, git keeps full history, so this is always safe and reversible. **Skip
 this step entirely if Step 4's push FAILED** (you're not synced with main; don't touch the record).
 
@@ -241,7 +249,7 @@ TRIM_OP="$(jq -r '.tidy.ops.trim // "unset"' relay.config.json 2>/dev/null || ec
 
 **PRUNE — always, unless `TIDY_LEVEL` is `none`.** The rule is "keep only what's still live":
 - **Handovers** — the board's *Open threads* table is the source of truth. Archive every
-  `<root>/handover/next-*.md` on main whose basename is **not** linked from `<root>/board.md`
+  `<root>/handover/next-*.md` on the notes branch whose basename is **not** linked from `<root>/board.md`
   (the one you just wrote IS linked, so it stays). Keep the ones the board still points at.
 - **PR reviews** — a review doc is consumed at merge time. Keep the **20 most recent**
   `<root>/reviews/*.md` (`tidy.retention.reviews`) and archive the rest.
@@ -271,11 +279,14 @@ once per repo and never again — an owner who wants it automatic from the start
 `tidy.ops.trim` ahead of time and is never asked at all. An explicit `true`/`false` always wins over
 the level preset.
 
-Do it on `main` with the same temp-index pattern as Step 4 (no branch switch). Refresh from main,
-compute all the moves together, and commit them as **one** housekeeping commit — `git read-tree
-FETCH_HEAD`, stage the renames into `<root>/handover/archive/` and `<root>/reviews/archive/` plus the
-edited `<root>/board.md` in the temp index, `write-tree`, `commit-tree -p FETCH_HEAD`, push to
-`main`. If nothing qualifies, skip the commit. Report one line naming each op that did something
+Do it on the notes branch with the same runtime as Step 4, from a **snapshot** (the checkout's own `<root>/` may be
+a frozen leftover): `python3 "$RH" state snapshot --out "$(mktemp -d)"` (resolve `$RH` as in Step 4; it prints
+`dir` and `base`: note both). Inside `<dir>/<root>/` do the moves — `mv` unlinked handovers into
+`handover/archive/`, over-retention reviews into `reviews/archive/` — and edit `board.md` for the trim, then commit
+everything as **one** housekeeping commit, a delta against `<base>`:
+`MSG="$(mktemp)"; printf '%s\n' "chore(handover): housekeeping" > "$MSG"; python3 "$RH" state-commit --sync-dir <dir> --message-file "$MSG"` (pass the snapshot directory itself; message in a file; exit codes
+as in Step 4: on `1` take a fresh snapshot and redo the moves, up to 3 attempts, then STOP). If nothing
+qualifies, skip the commit. Report one line naming each op that did something
 (e.g. "archived 3 handovers, 5 reviews · trimmed 13 done rows") or say "nothing to archive".
 
 ## Step 5 — Print a COMPACT terminal summary
@@ -283,11 +294,11 @@ Do NOT paste the full handover into the terminal. Print only a short summary plu
 open questions:
 
 ```
-📋 Handover → <root>/handover/next-$TS.md   (pushed to main: <short-sha>)
+📋 Handover → <root>/handover/next-$TS.md   (pushed to <notes branch>: <short-sha>)
    Item:   <track/slug>  →  <new status on the board>
    Next:   <next objective, one line>
    Landed: <what just landed, one line>
-   Resume: <checkpoint on origin/main ✓ — resumable on any device | built, push pending (self-heals next lap) | not replicated (offline)>
+   Resume: <checkpoint on the notes branch ✓ — resumable on any device | built, push pending (self-heals next lap) | not replicated (offline)>
 ```
 
 The `Resume:` line reflects Step 4a's `replication[0]` — `✓` when `replicated: true`. If it wasn't
@@ -303,7 +314,7 @@ Then print the Open Questions IN FULL — these need attention before the next s
 ```
 
 If there are none, print `❓ Open questions: none.`
-If the push failed in Step 4, replace the `(pushed to main: …)` note with
+If the push failed in Step 4, replace the `(pushed to <notes branch>: …)` note with
 `(NOT pushed — commit it yourself)` and say why.
 
 Finally, print the **ready-to-paste continuation line** as the very last thing —
@@ -313,7 +324,7 @@ cold session picks up *this* thread with no hunting:
 
 Emit the literal path (e.g. `/rlc relay/handover/next-2026-08-22-0821.md`), never the
 `<root>`/`$TS` placeholders. If Step 4's push FAILED, still print the line — the file
-exists locally — but add ` (commit it to main first)` so the cold session isn't reading
+exists locally — but add ` (commit it first)` so the cold session isn't reading
 a handover that never shipped.
 
 ## Step 6 — Leave a clean tree and release the worktree
@@ -321,12 +332,12 @@ End the session with **nothing stray left behind** — no orphaned handover file
 half-written board, no worktree lock blocking the next `/continue`. This part regularly
 gets skipped, so do it explicitly.
 
-**Only if Step 4's push SUCCEEDED** (main now holds both files — the durable copy
+**Only if Step 4's push SUCCEEDED** (the notes branch now holds both files — the durable copy
 `/continue` reads), clean the local working tree of the now-redundant artifacts:
 
 ```bash
-rm -f "<root>/handover/next-$TS.md"                        # committed to main via the temp index, but still UNTRACKED here
-rm -f "<root>/harvest/<slug>/checkpoint.json" "<root>/harvest/<slug>/applied.json"  # Step 4a wrote these here; they're on origin/main now, untracked in this worktree
+rm -f "<root>/handover/next-$TS.md"                        # committed to the notes branch via the temp index, but still UNTRACKED here
+rm -f "<root>/harvest/<slug>/checkpoint.json" "<root>/harvest/<slug>/applied.json"  # Step 4a wrote these here; they're on the notes branch now, untracked in this worktree
 git checkout HEAD -- <root>/board.md 2>/dev/null || true    # restore the branch's board (idempotent with Step 4)
 git status --porcelain                                    # expect EMPTY
 ```

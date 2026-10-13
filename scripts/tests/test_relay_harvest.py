@@ -921,14 +921,18 @@ class CheckpointDurabilityTest(unittest.TestCase):
             os.path.join(self.relay, "handover", f"next-{rh._slug_key('lap-1')}.md")))
 
 
-class StateBranchReaderTest(unittest.TestCase):
-    """state.branch: Relay's notes live on their own branch. Readers must follow it and must never
-    consult the worktree's frozen copy of a note (a worktree forked from main still holds one)."""
+class StateFixture(unittest.TestCase):
+    """Shared fixture for state.branch tests: a bare origin, main holding FROZEN notes, an orphan
+    `relay-notes` branch holding the LIVE notes, and a session clone plus a topic worktree."""
 
     SLUG = "masterdata/import"
     ROOT = "relay"
 
+    ONLY = None        # a subclass can restrict itself to the root-sensitive tests
+
     def setUp(self):
+        if self.ONLY is not None and self._testMethodName not in self.ONLY:
+            self.skipTest("not root-sensitive")
         R = self.ROOT
         self.parent = tempfile.mkdtemp()
         self.origin = os.path.join(self.parent, "origin.git")
@@ -968,11 +972,13 @@ class StateBranchReaderTest(unittest.TestCase):
         # the session's checkout: a plain clone of main (so it holds the FROZEN notes in its worktree)
         self.repo = os.path.join(self.parent, "repo")
         git(["clone", "-q", self.origin, self.repo], self.parent)
+        for k, v in (("user.email", "t@t"), ("user.name", "t")):
+            git(["config", k, v], self.repo)                 # a clean CI runner has no global identity
         git(["worktree", "add", "-q", os.path.join(self.parent, "wt"), "-b", "wt-masterdata"], self.repo)
         self.relay = os.path.join(self.repo, R)
 
     def tearDown(self):
-        shutil.rmtree(self.parent, ignore_errors=True)
+        shutil.rmtree(getattr(self, "parent", "/nonexistent"), ignore_errors=True)
 
     def _config(self, **extra):
         cfg = dict(extra)
@@ -1010,6 +1016,12 @@ class StateBranchReaderTest(unittest.TestCase):
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
             code = rh.main(["--repo", repo or self.repo, *a])
         return code, buf.getvalue(), err.getvalue()
+
+
+
+class StateBranchReaderTest(StateFixture):
+    """state.branch: Relay's notes live on their own branch. Readers must follow it and must never
+    consult the worktree's frozen copy of a note (a worktree forked from main still holds one)."""
 
     # ---- unset: unchanged ----
     def test_unset_reads_the_worktree_as_before(self):
@@ -1200,6 +1212,8 @@ class StateBranchReaderTest(unittest.TestCase):
         R = self.ROOT
         self.assertTrue(rh._is_state_path(f"{R}/board.md", R))
         self.assertTrue(rh._is_state_path(f"{R}/handover/next-a.md", R))
+        self.assertTrue(rh._is_state_path(f"{R}/archive/old-brief.md", R))
+        self.assertTrue(rh._is_state_path(f"{R}/audits/2026-10-13.md", R))
         self.assertTrue(rh._is_state_path(f"./{R}/board.md", R))
         self.assertTrue(rh._is_state_path(f"{R}//board.md", R))
         self.assertFalse(rh._is_state_path(f"{R}/knowledge/guardrails.md", R))
@@ -1273,9 +1287,698 @@ class StateBranchReaderTest(unittest.TestCase):
 class StateBranchNonDefaultRootTest(StateBranchReaderTest):
     """The same behaviour with the notes folder moved (`root: docs`): nothing may hardcode `relay/`."""
     ROOT = "docs"
+    ONLY = {"test_only_the_volatile_allow_list_is_a_note", "test_read_note_routes_notes_to_the_branch_and_the_rest_to_main",
+            "test_list_notes_merges_notes_from_the_branch_with_the_rest_from_main",
+            "test_resume_reads_the_notes_branch_never_the_frozen_worktree_copy",
+            "test_cli_state_branch_show_ls_and_resume", "test_cli_discover_and_bootstrap_read_the_branch",
+            "test_default_root_is_not_notes", "test_the_default_root_is_not_treated_as_notes"}
 
     def test_the_default_root_is_not_treated_as_notes(self):
         self.assertFalse(rh._is_state_path("relay/board.md", "docs"))
+
+
+class StateWritersTest(StateFixture):
+    """Writers follow state.branch: notes go to the notes branch (never main) when it is set, to the
+    durable branch when it is not, the branch is only ever created by `state init`, a push that is rejected
+    is reported (not retried), a shared note is never overwritten behind a sibling's back, and nothing but
+    notes can be committed."""
+
+    def _stage_note(self, name="new.md", text="# a new brief\n"):
+        rel = f"{self.ROOT}/briefs/{name}"
+        self._write(self.repo, rel, text)
+        return rel
+
+    def _remote_has(self, branch, rel):
+        r = subprocess.run(["git", "cat-file", "-e", f"{branch}:{rel}"], cwd=self.origin, capture_output=True)
+        return r.returncode == 0
+
+    def _remote_text(self, branch, rel):
+        return git(["show", f"{branch}:{rel}"], self.origin)
+
+    def _tip(self, branch):
+        return git(["rev-parse", branch], self.origin)
+
+    def _msg(self, text="relay: test commit"):
+        path = os.path.join(self.parent, "msg.txt")
+        with open(path, "w") as fh:
+            fh.write(text)
+        return path
+
+    def _scratch(self, text, name="scratch.md"):
+        path = os.path.join(self.parent, name)
+        with open(path, "w") as fh:
+            fh.write(text)
+        return path
+
+    def _reject_every_push(self, counter=None):
+        hook = os.path.join(self.origin, "hooks", "pre-receive")
+        body = "#!/bin/sh\n"
+        if counter:
+            body += f"echo x >> '{counter}'\n"
+        body += "echo 'rejected for the test' >&2\nexit 1\n"
+        with open(hook, "w") as fh:
+            fh.write(body)
+        os.chmod(hook, 0o755)
+
+    def _offline(self):
+        git(["remote", "set-url", "origin", os.path.join(self.parent, "nowhere.git")], self.repo)
+
+    # ---- which branch a write goes to ----
+    def test_unset_commits_to_the_durable_branch_without_touching_the_checkout(self):
+        rel = self._stage_note()
+        notes_before = self._tip("relay-notes")
+        res = rh.state_commit(self.repo, "relay: add a brief", add=[rel])
+        self.assertEqual(res["status"], "pushed")
+        self.assertEqual(res["branch"], "main")
+        self.assertTrue(self._remote_has("main", rel))
+        self.assertEqual(self._tip("relay-notes"), notes_before)       # the notes branch is untouched
+        self.assertEqual(git(["diff", "--cached", "--name-only"], self.repo), "")
+        self.assertIn(rel, git(["status", "--porcelain", "-uall"], self.repo))
+
+    def test_set_commits_to_the_notes_branch_and_never_moves_main(self):
+        self._turn_on()
+        main_before = self._tip("main")
+        rel = self._stage_note()
+        res = rh.state_commit(self.repo, "relay: add a brief", add=[rel])
+        self.assertEqual((res["status"], res["branch"]), ("pushed", "relay-notes"))
+        self.assertTrue(self._remote_has("relay-notes", rel))
+        self.assertEqual(self._tip("main"), main_before)                # main did not move at all
+        # remove and move are also confined to the notes branch
+        old = f"{self.ROOT}/handover/next-a.md"
+        self.assertEqual(rh.state_commit(self.repo, "m", moves=[(old, f"{self.ROOT}/handover/archive/next-a.md")])["status"], "pushed")
+        self.assertEqual(rh.state_commit(self.repo, "m", remove=[rel])["status"], "pushed")
+        self.assertEqual(self._tip("main"), main_before)
+
+    def test_only_notes_are_accepted_in_both_modes(self):
+        for turn_on in (False, True):
+            if turn_on:
+                self._turn_on()
+            main_before = self._tip("main")
+            for rel in (f"{self.ROOT}/knowledge/new.md", f"{self.ROOT}/decisions.md", "src/code.py"):
+                self._write(self.repo, rel, "x\n")
+                with self.subTest(set=turn_on, path=rel):
+                    with self.assertRaises(rh.HarvestError):
+                        rh.state_commit(self.repo, "m", add=[rel])
+                    with self.assertRaises(rh.HarvestError):
+                        rh.state_commit(self.repo, "m", remove=[rel])
+            self.assertEqual(self._tip("main"), main_before)
+            self.assertIn("durable decisions", self._remote_text("main", f"{self.ROOT}/decisions.md"))
+
+    def test_set_but_missing_branch_fails_loud_and_is_never_created_by_a_writer(self):
+        self._turn_on()
+        git(["push", "-q", "origin", "--delete", "relay-notes"], self.seed)
+        git(["update-ref", "-d", "refs/remotes/origin/relay-notes"], self.repo)
+        main_before = self._tip("main")
+        rel = self._stage_note()
+        with self.assertRaises(rh.HarvestError) as cm:
+            rh.state_commit(self.repo, "m", add=[rel])
+        self.assertIn("never fall back", str(cm.exception))
+        self.assertNotIn("relay-notes", git(["branch", "--list"], self.origin))     # not created
+        self.assertEqual(self._tip("main"), main_before)                             # nothing went to main instead
+
+    # ---- a shared note is never overwritten behind a sibling's back ----
+    def test_board_needs_a_base(self):
+        board = f"{self.ROOT}/board.md"
+        scratch = self._scratch(BOARD + "\n| `a/b` | 🔜 next | — | — |\n")
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", put=[(board, scratch)])
+        self._write(self.repo, board, BOARD + "x\n")
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", add=[board])
+
+    def test_a_sibling_edit_between_read_and_commit_is_rejected_not_overwritten(self):
+        self._turn_on()
+        board = f"{self.ROOT}/board.md"
+        tip_a = rh.state_tip(self.repo)["tip"]                          # session A reads the board at this tip
+        board_a = rh.read_note(self.repo, board, at=tip_a)
+        # session B edits the same board and lands first
+        tip_b = rh.state_tip(self.repo)["tip"]
+        resb = rh.state_commit(self.repo, "B", base=tip_b, put=[(board, self._scratch(board_a + "| row from B |\n", "b.md"))])
+        self.assertEqual(resb["status"], "pushed")
+        # session A, still holding the old read, commits its own edit: it must NOT land
+        resa = rh.state_commit(self.repo, "A", base=tip_a, put=[(board, self._scratch(board_a + "| row from A |\n", "a.md"))])
+        self.assertEqual(resa["status"], "rejected")
+        self.assertIn("moved since you read it", resa["reason"])
+        remote_board = self._remote_text("relay-notes", board)
+        self.assertIn("row from B", remote_board); self.assertNotIn("row from A", remote_board)
+        # A re-reads and re-applies: now it lands, and B's row survives
+        fresh = rh.state_tip(self.repo)["tip"]
+        text = rh.read_note(self.repo, board, at=fresh)
+        resa2 = rh.state_commit(self.repo, "A2", base=fresh, put=[(board, self._scratch(text + "| row from A |\n", "a2.md"))])
+        self.assertEqual(resa2["status"], "pushed")
+        final = self._remote_text("relay-notes", board)
+        self.assertIn("row from A", final); self.assertIn("row from B", final)
+
+    def test_a_sibling_that_pushes_between_the_check_and_the_push_is_rejected_by_git(self):
+        self._turn_on()
+        rel = self._stage_note()
+        real_push = rh._push
+        def sibling_first(top, remote, sha, branch):
+            other = os.path.join(self.parent, "sibling")
+            git(["clone", "-q", "-b", "relay-notes", self.origin, other], self.parent)
+            for k, v in (("user.email", "t@t"), ("user.name", "t")):
+                git(["config", k, v], other)
+            self._write(other, f"{self.ROOT}/briefs/sibling.md", "# sibling\n")
+            git(["add", "-A"], other); git(["commit", "-q", "-m", "sibling"], other)
+            git(["push", "-q", "origin", "relay-notes"], other)
+            return real_push(top, remote, sha, branch)
+        rh._push = sibling_first
+        try:
+            res = rh.state_commit(self.repo, "m", add=[rel])
+        finally:
+            rh._push = real_push
+        self.assertEqual(res["status"], "rejected")
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/briefs/sibling.md"))   # the sibling's file survived
+        self.assertFalse(self._remote_has("relay-notes", rel))
+
+    def test_state_tip_and_show_at_read_a_fixed_commit(self):
+        self._turn_on()
+        tip = rh.state_tip(self.repo)["tip"]
+        rh.state_commit(self.repo, "m", add=[self._stage_note()])
+        old = rh.read_note(self.repo, f"{self.ROOT}/briefs/masterdata__import.md", at=tip)
+        self.assertIn("LIVE brief", old)
+        self.assertIsNone(rh.read_note(self.repo, f"{self.ROOT}/briefs/new.md", at=tip))   # not there yet at that tip
+
+    # ---- hostile or odd inputs ----
+    def test_a_newline_in_a_path_cannot_inject_extra_entries(self):
+        self._turn_on()
+        evil = f"{self.ROOT}/handover/x\n100755 {'0' * 40}\t.github/workflows/pwn.yml"
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", moves=[(f"{self.ROOT}/handover/next-a.md", evil)])
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", remove=[evil])
+        self.assertFalse(self._remote_has("relay-notes", ".github/workflows/pwn.yml"))
+
+    def test_export_skips_a_notes_branch_entry_whose_name_contains_a_newline(self):
+        self._turn_on()
+        blob = git(["hash-object", "-w", "--stdin"], self.notes) if False else subprocess.run(
+            ["git", "hash-object", "-w", "--stdin"], cwd=self.notes, input="pwned\n", capture_output=True, text=True).stdout.strip()
+        evil = f"{self.ROOT}/briefs/y\n100644 {blob}\tapp.py"
+        env = {**os.environ, "GIT_INDEX_FILE": os.path.join(self.parent, "evil.idx")}
+        subprocess.run(["git", "read-tree", "HEAD"], cwd=self.notes, env=env, check=True)
+        subprocess.run(["git", "update-index", "--add", "-z", "--index-info"], cwd=self.notes, env=env, check=True,
+                       input=f"100644 {blob}\t{evil}\0".encode())
+        tree = subprocess.run(["git", "write-tree"], cwd=self.notes, env=env, capture_output=True, text=True).stdout.strip()
+        commit = git(["commit-tree", tree, "-p", "HEAD", "-m", "evil"], self.notes)
+        git(["push", "-q", "origin", f"{commit}:refs/heads/relay-notes"], self.notes)
+        git(["fetch", "-q", "origin"], self.repo)
+        rh.state_export(self.repo)
+        self.assertFalse(self._remote_has("main", "app.py"))            # nothing was injected onto main
+
+    def test_remove_is_literal_never_a_wildcard_and_must_exist(self):
+        self._turn_on()
+        before = self._tip("relay-notes")
+        for bad in (f"{self.ROOT}/handover/*", f"{self.ROOT}/briefs", f"{self.ROOT}/handover/ghost.md"):
+            with self.subTest(remove=bad):
+                res = rh.state_commit(self.repo, "m", remove=[bad])
+                self.assertEqual(res["status"], "error")
+                self.assertIn("cannot remove", res["reason"])
+        self.assertEqual(self._tip("relay-notes"), before)              # nothing was deleted
+
+    def test_symlinks_are_refused_everywhere(self):
+        self._turn_on()
+        link = os.path.join(self.repo, self.ROOT, "briefs", "link.md")
+        os.makedirs(os.path.dirname(link), exist_ok=True)
+        os.symlink("/etc/passwd", link)
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", add=[f"{self.ROOT}/briefs/link.md"])
+        scratch_link = os.path.join(self.parent, "scratch-link.md")
+        os.symlink("/etc/passwd", scratch_link)
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", put=[(f"{self.ROOT}/briefs/other.md", scratch_link)])
+        # a symlink that lives on the branch is never moved or exported
+        blob = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=self.notes, input="/etc/passwd", capture_output=True, text=True).stdout.strip()
+        env = {**os.environ, "GIT_INDEX_FILE": os.path.join(self.parent, "sym.idx")}
+        subprocess.run(["git", "read-tree", "HEAD"], cwd=self.notes, env=env, check=True)
+        subprocess.run(["git", "update-index", "--add", "--cacheinfo", f"120000,{blob},{self.ROOT}/briefs/sym.md"], cwd=self.notes, env=env, check=True)
+        tree = subprocess.run(["git", "write-tree"], cwd=self.notes, env=env, capture_output=True, text=True).stdout.strip()
+        commit = git(["commit-tree", tree, "-p", "HEAD", "-m", "symlink"], self.notes)
+        git(["push", "-q", "origin", f"{commit}:refs/heads/relay-notes"], self.notes)
+        res = rh.state_commit(self.repo, "m", moves=[(f"{self.ROOT}/briefs/sym.md", f"{self.ROOT}/briefs/archive/sym.md")])
+        self.assertEqual(res["status"], "error")
+        rh.state_export(self.repo)
+        self.assertFalse(self._remote_has("main", f"{self.ROOT}/briefs/sym.md"))
+
+    def test_odd_file_names_round_trip_through_add_move_and_remove(self):
+        self._turn_on()
+        for name in ("has space.md", "café.md", "-dash.md"):
+            with self.subTest(name=name):
+                rel = self._stage_note(name)
+                self.assertEqual(rh.state_commit(self.repo, "add", add=[rel])["status"], "pushed")
+                listing = git(["ls-tree", "-r", "-z", "--name-only", "relay-notes"], self.origin).split("\0")
+                self.assertIn(rel, listing)
+                dest = f"{self.ROOT}/briefs/archive/{name}"
+                self.assertEqual(rh.state_commit(self.repo, "move", moves=[(rel, dest)])["status"], "pushed")
+                self.assertTrue(self._remote_has("relay-notes", dest)); self.assertFalse(self._remote_has("relay-notes", rel))
+                self.assertEqual(rh.state_commit(self.repo, "rm", remove=[dest])["status"], "pushed")
+                self.assertFalse(self._remote_has("relay-notes", dest))
+
+    # ---- moves and removes ----
+    def test_add_and_remove_in_one_commit_like_a_tidy_archive(self):
+        self._turn_on()
+        old = f"{self.ROOT}/handover/next-a.md"
+        archived = f"{self.ROOT}/handover/archive/next-a.md"
+        self._write(self.repo, archived, "---\nbranch: wt-masterdata\n---\nlive handover\n")
+        res = rh.state_commit(self.repo, "relay: archive", add=[archived], remove=[old])
+        self.assertEqual(res["status"], "pushed")
+        self.assertTrue(self._remote_has("relay-notes", archived)); self.assertFalse(self._remote_has("relay-notes", old))
+
+    def test_move_takes_the_content_from_the_branch_without_a_working_tree_copy(self):
+        self._turn_on()
+        old, new = f"{self.ROOT}/handover/next-a.md", f"{self.ROOT}/handover/archive/next-a.md"
+        before = self._remote_text("relay-notes", old)
+        res = rh.state_commit(self.repo, "relay: archive", moves=[(old, new)])
+        self.assertEqual(res["status"], "pushed", res)
+        self.assertFalse(self._remote_has("relay-notes", old))
+        self.assertEqual(self._remote_text("relay-notes", new), before)
+        self.assertFalse(os.path.exists(os.path.join(self.repo, new)))
+
+    def test_move_of_a_file_that_is_not_on_the_branch_is_reported_not_invented(self):
+        self._turn_on()
+        res = rh.state_commit(self.repo, "m", moves=[(f"{self.ROOT}/handover/ghost.md", f"{self.ROOT}/handover/archive/ghost.md")])
+        self.assertEqual(res["status"], "error"); self.assertIn("cannot move", res["reason"])
+        res = rh.state_commit(self.repo, "m", moves=[(f"{self.ROOT}/handover", f"{self.ROOT}/handover/archive")])   # a directory
+        self.assertEqual(res["status"], "error")
+
+    def test_move_onto_an_existing_different_file_is_refused_but_identical_is_idempotent(self):
+        self._turn_on()
+        a, b = f"{self.ROOT}/handover/next-a.md", f"{self.ROOT}/briefs/masterdata__import.md"
+        res = rh.state_commit(self.repo, "m", moves=[(a, f"{self.ROOT}/briefs/masterdata__import.md")])
+        self.assertEqual(res["status"], "error"); self.assertIn("already exists", res["reason"])
+        self.assertTrue(self._remote_has("relay-notes", a))             # nothing was destroyed
+
+    def test_move_to_or_from_a_path_that_is_not_a_note_is_refused(self):
+        self._turn_on()
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", moves=[(f"{self.ROOT}/handover/next-a.md", f"{self.ROOT}/knowledge/next-a.md")])
+
+    def test_identical_content_is_nothing_to_commit(self):
+        self._turn_on()
+        rel = f"{self.ROOT}/handover/next-a.md"
+        self._write(self.repo, rel, "---\nbranch: wt-masterdata\n---\nlive handover\n")
+        res = rh.state_commit(self.repo, "m", add=[rel])
+        self.assertEqual((res["status"], res["reason"], res["committed"], res["pushed"]), ("nothing", "nothing to commit", False, True))
+
+    def test_a_missing_file_is_an_error_not_a_silent_skip(self):
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", add=[f"{self.ROOT}/briefs/ghost.md"])
+
+    # ---- sync from a snapshot ----
+    def test_snapshot_edit_sync_is_a_delta_against_the_tip_it_was_taken_from(self):
+        self._turn_on()
+        out = os.path.join(self.parent, "snap")
+        snap = rh.state_snapshot_dir(self.repo, out)
+        board = os.path.join(out, self.ROOT, "board.md")
+        self.assertTrue(os.path.exists(board)); self.assertEqual(snap["branch"], "relay-notes")
+        # tidy-like edits inside the snapshot: archive a handover, edit the board, add a brief
+        os.makedirs(os.path.join(out, self.ROOT, "handover", "archive"))
+        os.rename(os.path.join(out, self.ROOT, "handover", "next-a.md"), os.path.join(out, self.ROOT, "handover", "archive", "next-a.md"))
+        with open(board, "a") as fh:
+            fh.write("| `tidy/x` | ✅ done | — | — |\n")
+        res = rh.state_commit(self.repo, "chore(tidy)", sync_dir=out, base=snap["base"])
+        self.assertEqual(res["status"], "pushed", res)
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/handover/archive/next-a.md"))
+        self.assertFalse(self._remote_has("relay-notes", f"{self.ROOT}/handover/next-a.md"))
+        self.assertIn("tidy/x", self._remote_text("relay-notes", f"{self.ROOT}/board.md"))
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/briefs/masterdata__import.md"))   # untouched files stay
+
+    def test_sync_after_the_branch_moved_is_rejected_and_loses_nothing(self):
+        self._turn_on()
+        out = os.path.join(self.parent, "snap2")
+        snap = rh.state_snapshot_dir(self.repo, out)
+        rh.state_commit(self.repo, "sibling", add=[self._stage_note("sibling.md")])
+        os.remove(os.path.join(out, self.ROOT, "handover", "next-a.md"))
+        res = rh.state_commit(self.repo, "tidy", sync_dir=out, base=snap["base"])
+        self.assertEqual(res["status"], "rejected")
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/briefs/sibling.md"))
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/handover/next-a.md"))
+
+    def test_sync_needs_a_real_snapshot_and_refuses_a_non_empty_target_and_symlinks(self):
+        self._turn_on()
+        out = os.path.join(self.parent, "snap3")
+        snap = rh.state_snapshot_dir(self.repo, out)
+        with self.assertRaises(rh.HarvestError):
+            rh.state_snapshot_dir(self.repo, out)                        # not empty
+        notsnap = os.path.join(self.parent, "plain-dir"); os.makedirs(os.path.join(notsnap, self.ROOT))
+        with self.assertRaises(rh.HarvestError):                          # no marker: not a snapshot
+            rh.state_commit(self.repo, "m", sync_dir=notsnap)
+        with self.assertRaises(rh.HarvestError):                          # the folder inside it, not the snapshot
+            rh.state_commit(self.repo, "m", sync_dir=os.path.join(out, self.ROOT))
+        with self.assertRaises(rh.HarvestError):                          # a typo'd path
+            rh.state_commit(self.repo, "m", sync_dir=os.path.join(self.parent, "no-such-dir"))
+        with self.assertRaises(rh.HarvestError):                          # --base that is not the snapshot's tip
+            rh.state_commit(self.repo, "m", sync_dir=out, base="0" * 40)
+        os.symlink("/etc/passwd", os.path.join(out, self.ROOT, "briefs", "evil.md"))
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", sync_dir=out)
+
+    def test_a_snapshot_taken_at_an_older_tip_can_never_revert_a_sibling(self):
+        self._turn_on()
+        out = os.path.join(self.parent, "old-snap")
+        rh.state_snapshot_dir(self.repo, out)                             # taken at T1
+        rh.state_commit(self.repo, "sibling", add=[self._stage_note("sibling.md")])   # branch moves to T2
+        rh.state_tip(self.repo)                                           # the "natural retry": ask for the tip again...
+        os.remove(os.path.join(out, self.ROOT, "handover", "next-a.md"))
+        res = rh.state_commit(self.repo, "tidy", sync_dir=out)            # ...and reuse the same directory
+        self.assertEqual(res["status"], "rejected")                       # the snapshot's own tip is the base
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/briefs/sibling.md"))
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/handover/next-a.md"))
+
+    def test_a_sync_that_would_delete_most_notes_is_refused_unless_forced(self):
+        self._turn_on()
+        for i in range(8):
+            self.assertEqual(rh.state_commit(self.repo, "m", add=[self._stage_note(f"n{i}.md")])["status"], "pushed")
+        out = os.path.join(self.parent, "mass")
+        rh.state_snapshot_dir(self.repo, out)
+        shutil.rmtree(os.path.join(out, self.ROOT, "briefs"))
+        before = self._tip("relay-notes")
+        with self.assertRaises(rh.HarvestError) as cm:
+            rh.state_commit(self.repo, "m", sync_dir=out)
+        self.assertIn("would delete", str(cm.exception))
+        self.assertEqual(self._tip("relay-notes"), before)
+        self.assertEqual(rh.state_commit(self.repo, "m", sync_dir=out, allow_mass_delete=True)["status"], "pushed")
+
+    def test_sync_skips_editor_junk_and_reports_non_notes_instead_of_dropping_them_silently(self):
+        self._turn_on()
+        out = os.path.join(self.parent, "junk")
+        rh.state_snapshot_dir(self.repo, out)
+        self._write(out, f"{self.ROOT}/briefs/.DS_Store", "junk")
+        self._write(out, f"{self.ROOT}/briefs/notes.md~", "junk")
+        self._write(out, f"{self.ROOT}/knowledge/k.md", "not a note")
+        self._write(out, f"{self.ROOT}/briefs/real.md", "# real\n")
+        res = rh.state_commit(self.repo, "m", sync_dir=out)
+        self.assertEqual(res["status"], "pushed")
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/briefs/real.md"))
+        self.assertFalse(self._remote_has("relay-notes", f"{self.ROOT}/briefs/.DS_Store"))
+        self.assertFalse(self._remote_has("relay-notes", f"{self.ROOT}/briefs/notes.md~"))
+        self.assertFalse(self._remote_has("relay-notes", f"{self.ROOT}/knowledge/k.md"))
+        self.assertEqual(res["ignored"], [f"{self.ROOT}/knowledge/k.md"])
+
+    def test_base_must_be_a_full_commit_id_not_a_ref_name(self):
+        self._turn_on()
+        board = f"{self.ROOT}/board.md"
+        scratch = self._scratch(BOARD + "| x |\n")
+        for bad in ("origin/relay-notes", "FETCH_HEAD", "HEAD", "abc123"):
+            with self.subTest(base=bad):
+                with self.assertRaises(rh.HarvestError):
+                    rh.state_commit(self.repo, "m", put=[(board, scratch)], base=bad)
+
+    def test_put_reads_only_regular_files_under_temp_or_the_repo(self):
+        self._turn_on()
+        rel = f"{self.ROOT}/briefs/p.md"
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", put=[(rel, "/etc/hosts")])               # outside temp and the repo
+        link = os.path.join(self.parent, "link-to-scratch")
+        os.symlink(self._scratch("x"), link)
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", put=[(rel, link)])                          # a symlink, even inside temp
+        with self.assertRaises(rh.HarvestError):
+            rh.state_commit(self.repo, "m", put=[(rel, self.parent)])                   # a directory
+        self.assertEqual(rh.state_commit(self.repo, "m", put=[(rel, self._scratch("# fine\n"))])["status"], "pushed")
+
+    def test_snapshot_out_must_be_a_new_or_empty_real_directory(self):
+        self._turn_on()
+        afile = os.path.join(self.parent, "afile"); open(afile, "w").write("x")
+        with self.assertRaises(rh.HarvestError):
+            rh.state_snapshot_dir(self.repo, afile)
+        real = os.path.join(self.parent, "real-empty"); os.makedirs(real)
+        alias = os.path.join(self.parent, "alias"); os.symlink(real, alias)
+        with self.assertRaises(rh.HarvestError):
+            rh.state_snapshot_dir(self.repo, alias)
+        self.assertEqual(self._cli("state", "snapshot", "--out", afile)[0], 2)           # an error, not a traceback
+        self.assertTrue(rh.state_snapshot_dir(self.repo, real)["files"] > 0)             # an empty real dir is fine
+
+    def test_applying_a_checkpoint_never_replicates_the_worktrees_own_board(self):
+        self._turn_on()
+        board = os.path.join(self.relay, "board.md")
+        live_before = self._remote_text("relay-notes", f"{self.ROOT}/board.md")
+        head = git(["rev-parse", "HEAD"], self.repo)
+        disc = [{"id": "abc123", "title": "race in Y", "one_line": "module Y unguarded"}]
+        rh.emit_result(self.relay, make_result(self.SLUG, "wt-masterdata", "lap-3", head, discoveries=disc))
+        rh.apply_pending(self.relay, slug=self.SLUG, repo_root=self.repo, write_projection=False, board_path=board)
+        self.assertEqual(self._remote_text("relay-notes", f"{self.ROOT}/board.md"), live_before)   # live board untouched
+        self.assertIn("lap-3", self._remote_text("relay-notes", f"{self.ROOT}/harvest/masterdata__import/checkpoint.json"))
+
+    def test_export_lists_notes_it_had_to_skip(self):
+        self._turn_on()
+        blob = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=self.notes, input="x\n", capture_output=True, text=True).stdout.strip()
+        evil = f"{self.ROOT}/briefs/odd\nname.md"
+        env = {**os.environ, "GIT_INDEX_FILE": os.path.join(self.parent, "skip.idx")}
+        subprocess.run(["git", "read-tree", "HEAD"], cwd=self.notes, env=env, check=True)
+        subprocess.run(["git", "update-index", "--add", "-z", "--index-info"], cwd=self.notes, env=env, check=True,
+                       input=f"100644 {blob}\t{evil}\0".encode())
+        tree = subprocess.run(["git", "write-tree"], cwd=self.notes, env=env, capture_output=True, text=True).stdout.strip()
+        commit = git(["commit-tree", tree, "-p", "HEAD", "-m", "odd"], self.notes)
+        git(["push", "-q", "origin", f"{commit}:refs/heads/relay-notes"], self.notes)
+        git(["fetch", "-q", "origin"], self.repo)
+        res = rh.state_export(self.repo)
+        self.assertEqual(res["skipped"], [evil])
+
+    def test_init_exits_1_when_the_branch_already_exists_and_defaults_to_the_configured_name(self):
+        self._turn_on()
+        self.assertEqual(self._cli("state", "init")[0], 1)                                # exists: caller must look
+        self._turn_on("notes/relay")                                                       # a different configured name, not created yet
+        code, out, err = self._cli("state", "init")                                        # bare init uses the configured name
+        self.assertEqual(code, 0, err); self.assertEqual(json.loads(out)["branch"], "notes/relay")
+        self.assertTrue(self._remote_has("notes/relay", f"{self.ROOT}/board.md"))
+
+    # ---- rejected / offline / exit codes ----
+    def test_a_rejected_push_is_reported_once_not_raised_or_retried(self):
+        self._turn_on()
+        counter = os.path.join(self.parent, "hook-count")
+        self._reject_every_push(counter)
+        rel = self._stage_note()
+        res = rh.state_commit(self.repo, "m", add=[rel])
+        self.assertEqual(res["status"], "rejected")
+        self.assertIn("rejected for the test", res["reason"])
+        with open(counter) as fh:
+            self.assertEqual(len(fh.read().split()), 1)                 # exactly one push attempt
+        self.assertFalse(self._remote_has("relay-notes", rel))
+
+    def test_offline_is_reported_as_offline(self):
+        self._turn_on()
+        self._offline()
+        res = rh.state_commit(self.repo, "m", add=[self._stage_note()])
+        self.assertEqual(res["status"], "offline")
+
+    def test_cli_exit_codes(self):
+        self._turn_on()
+        rel = self._stage_note("cli.md")
+        code, out, err = self._cli("state-commit", "--message-file", self._msg(), "--add", rel)
+        self.assertEqual(code, 0, err); self.assertEqual(json.loads(out)["status"], "pushed")
+        self.assertTrue(self._remote_has("relay-notes", rel))
+        code, out, _ = self._cli("state-commit", "--message-file", self._msg(), "--add", rel)
+        self.assertEqual((code, json.loads(out)["status"]), (0, "nothing"))             # nothing to commit: still 0
+        self.assertEqual(self._cli("state-commit", "--message-file", self._msg(), "--add", f"{self.ROOT}/briefs/ghost.md")[0], 2)
+        self.assertEqual(self._cli("state-commit", "--message-file", self._msg(), "--add", f"{self.ROOT}/knowledge/x.md")[0], 2)
+        self.assertEqual(self._cli("state-commit", "--message-file", self._msg(), "--put", f"{self.ROOT}/board.md", self._scratch("x"))[0], 2)  # no base
+        self.assertEqual(self._cli("state-commit", "--message-file", self._msg(), "--move", f"{self.ROOT}/handover/ghost.md", f"{self.ROOT}/handover/archive/g.md")[0], 3)
+        self._reject_every_push()
+        code, out, _ = self._cli("state-commit", "--message-file", self._msg(), "--add", self._stage_note("rej.md"))
+        self.assertEqual((code, json.loads(out)["status"]), (1, "rejected"))
+        self.assertEqual(self._cli("state", "init", "--branch", "HEAD")[0], 2)
+        self.assertEqual(self._cli("state", "snapshot")[0], 2)                           # needs --out
+
+    def test_cli_tip_snapshot_show_at_and_sync(self):
+        self._turn_on()
+        code, out, _ = self._cli("state", "tip")
+        tip = json.loads(out)["tip"]; self.assertEqual(code, 0)
+        code, out, _ = self._cli("show", "--at", tip, f"{self.ROOT}/briefs/masterdata__import.md")
+        self.assertEqual(code, 0); self.assertIn("LIVE brief", out)
+        snapdir = os.path.join(self.parent, "cli-snap")
+        code, out, _ = self._cli("state", "snapshot", "--out", snapdir)
+        info = json.loads(out); self.assertEqual((code, info["base"]), (0, tip))
+        os.remove(os.path.join(snapdir, self.ROOT, "handover", "next-a.md"))
+        code, out, err = self._cli("state-commit", "--message-file", self._msg(), "--base", tip, "--sync-dir", snapdir)
+        self.assertEqual(code, 0, err); self.assertFalse(self._remote_has("relay-notes", f"{self.ROOT}/handover/next-a.md"))
+
+    # ---- the checkpoint push ----
+    def test_checkpoint_replication_goes_to_the_notes_branch_when_set(self):
+        self._turn_on()
+        main_before = self._tip("main")
+        head = git(["rev-parse", "HEAD"], self.repo)
+        rh.emit_result(self.relay, make_result(self.SLUG, "wt-masterdata", "lap-2", head))
+        summary = rh.apply_pending(self.relay, slug=self.SLUG, repo_root=self.repo, write_projection=True, board_path=None)
+        self.assertTrue(summary["replication"][0]["replicated"], summary["replication"])
+        cp = f"{self.ROOT}/harvest/masterdata__import/checkpoint.json"
+        self.assertIn("lap-2", self._remote_text("relay-notes", cp))
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/harvest/masterdata__import/applied.json"))
+        self.assertTrue(self._remote_has("relay-notes", f"{self.ROOT}/handover/next-lap-2.md"))
+        self.assertEqual(self._tip("main"), main_before)                 # main never moved
+        self.assertIn("STALE", self._remote_text("main", cp))
+        self.assertTrue(rh._checkpoint_on_remote(self.repo, self.relay, self.SLUG))
+        # a second apply of the same lap makes no new commit and still reports replicated
+        tip = self._tip("relay-notes")
+        again = rh.apply_pending(self.relay, slug=self.SLUG, repo_root=self.repo, write_projection=True, board_path=None)
+        self.assertEqual(self._tip("relay-notes"), tip)
+        self.assertTrue(again["replication"][0]["replicated"] if again["replication"] else True)
+
+    def test_checkpoint_replication_reports_loudly_when_the_branch_is_missing(self):
+        self._turn_on()
+        git(["push", "-q", "origin", "--delete", "relay-notes"], self.seed)
+        git(["update-ref", "-d", "refs/remotes/origin/relay-notes"], self.repo)
+        head = git(["rev-parse", "HEAD"], self.repo)
+        rh.emit_result(self.relay, make_result(self.SLUG, "wt-masterdata", "lap-2", head))
+        summary = rh.apply_pending(self.relay, slug=self.SLUG, repo_root=self.repo, write_projection=False, board_path=None)
+        rep = summary["replication"][0]
+        self.assertFalse(rep["replicated"]); self.assertIn("never fall back", rep["reason"])
+        self.assertIn("STALE", self._remote_text("main", f"{self.ROOT}/harvest/masterdata__import/checkpoint.json"))
+
+    def test_checkpoint_replication_rejected_push_is_reported_not_raised(self):
+        self._turn_on()
+        self._reject_every_push()
+        head = git(["rev-parse", "HEAD"], self.repo)
+        rh.emit_result(self.relay, make_result(self.SLUG, "wt-masterdata", "lap-2", head))
+        summary = rh.apply_pending(self.relay, slug=self.SLUG, repo_root=self.repo, write_projection=False, board_path=None)
+        rep = summary["replication"][0]
+        self.assertFalse(rep["replicated"]); self.assertTrue(rep["reason"])
+
+    # ---- state init / export / status ----
+    def _drop_notes_branch(self):
+        git(["push", "-q", "origin", "--delete", "relay-notes"], self.seed)
+        git(["update-ref", "-d", "refs/remotes/origin/relay-notes"], self.repo)
+
+    def test_init_seeds_an_orphan_branch_with_only_the_volatile_notes(self):
+        self._drop_notes_branch()
+        res = rh.state_init(self.repo)
+        self.assertTrue(res["created"]); self.assertEqual(res["branch"], "relay-notes")
+        R = self.ROOT
+        self.assertTrue(self._remote_has("relay-notes", f"{R}/board.md"))
+        self.assertTrue(self._remote_has("relay-notes", f"{R}/briefs/masterdata__import.md"))
+        self.assertTrue(self._remote_has("relay-notes", f"{R}/harvest/masterdata__import/checkpoint.json"))
+        self.assertFalse(self._remote_has("relay-notes", f"{R}/knowledge/guardrails.md"))
+        self.assertFalse(self._remote_has("relay-notes", f"{R}/decisions.md"))
+        self.assertFalse(self._remote_has("relay-notes", "relay.config.json"))
+        self.assertEqual(git(["rev-list", "--parents", "-n", "1", "relay-notes"], self.origin).split(), [res["sha"]])
+
+    def test_init_is_idempotent_and_never_touches_an_existing_branch(self):
+        before = self._tip("relay-notes")
+        res = rh.state_init(self.repo)
+        self.assertFalse(res["created"])
+        self.assertEqual(self._tip("relay-notes"), before)
+
+    def test_a_racing_init_loses_cleanly_and_reports_already_exists(self):
+        self._drop_notes_branch()
+        real_push = rh._push
+        def other_init_first(top, remote, sha, branch):
+            git(["push", "-q", "origin", f"{git(['rev-parse', 'HEAD'], self.notes)}:refs/heads/relay-notes"], self.notes)
+            return real_push(top, remote, sha, branch)
+        rh._push = other_init_first
+        try:
+            res = rh.state_init(self.repo)
+        finally:
+            rh._push = real_push
+        self.assertFalse(res["created"]); self.assertIn("concurrent", res["reason"])
+
+    def test_init_with_an_unreachable_remote_is_an_error(self):
+        self._offline()
+        with self.assertRaises(rh.HarvestError):
+            rh.state_init(self.repo)
+
+    def test_init_with_no_notes_on_main_makes_an_empty_orphan(self):
+        self._drop_notes_branch()
+        git(["rm", "-rq", "--", self.ROOT], self.seed)
+        git(["commit", "-q", "-m", "no notes"], self.seed); git(["push", "-q", "origin", "main"], self.seed)
+        git(["fetch", "-q", "origin"], self.repo)
+        res = rh.state_init(self.repo)
+        self.assertTrue(res["created"]); self.assertEqual(res["files"], 0)
+        self.assertEqual(git(["ls-tree", "-r", "--name-only", "relay-notes"], self.origin), "")
+
+    def test_init_refuses_unusable_names(self):
+        for bad in ("HEAD", "main", "a..b", "x.lock"):
+            with self.subTest(name=bad):
+                with self.assertRaises(rh.HarvestError):
+                    rh.state_init(self.repo, branch=bad)
+
+    def test_export_overlays_by_default_keeping_notes_that_exist_only_on_main(self):
+        self._turn_on()
+        R = self.ROOT
+        rel = self._stage_note("fresh.md", "# written while the setting was on\n")
+        self.assertEqual(rh.state_commit(self.repo, "m", add=[rel])["status"], "pushed")
+        self._write(self.seed, f"{R}/handover/next-gap.md", "written to main in the gap\n")
+        git(["add", "-A"], self.seed); git(["commit", "-q", "-m", "gap note"], self.seed); git(["push", "-q", "origin", "main"], self.seed)
+        res = rh.state_export(self.repo)
+        self.assertTrue(res["exported"], res)
+        self.assertTrue(self._remote_has("main", rel))
+        self.assertIn("LIVE", self._remote_text("main", f"{R}/harvest/masterdata__import/checkpoint.json"))
+        self.assertTrue(self._remote_has("main", f"{R}/handover/next-gap.md"))          # kept, not deleted
+        self.assertEqual(res["left_on_main"], [f"{R}/handover/next-gap.md"])
+        self.assertTrue(self._remote_has("main", f"{R}/knowledge/guardrails.md"))
+        self.assertIn("durable decisions", self._remote_text("main", f"{R}/decisions.md"))
+        before = self._tip("main")
+        again = rh.state_export(self.repo)
+        self.assertEqual((again["exported"], again["reason"]), (False, "the durable branch already matches the notes branch"))
+        self.assertEqual(self._tip("main"), before)                                       # no new commit
+
+    def test_export_prune_deletes_notes_that_exist_only_on_main(self):
+        self._turn_on()
+        R = self.ROOT
+        self._write(self.seed, f"{R}/handover/next-stale.md", "stale\n")
+        git(["add", "-A"], self.seed); git(["commit", "-q", "-m", "stale"], self.seed); git(["push", "-q", "origin", "main"], self.seed)
+        res = rh.state_export(self.repo, prune=True)
+        self.assertTrue(res["exported"]); self.assertEqual(res["removed"], 1)
+        self.assertFalse(self._remote_has("main", f"{R}/handover/next-stale.md"))
+
+    def test_export_works_after_the_setting_is_off_when_the_branch_is_named_and_can_delete_it(self):
+        self._turn_on()
+        self.assertEqual(rh.state_commit(self.repo, "m", add=[self._stage_note("late.md")])["status"], "pushed")
+        self._publish_config(self._config())                                              # setting removed from main
+        with self.assertRaises(rh.HarvestError):
+            rh.state_export(self.repo)                                                    # no branch to infer
+        res = rh.state_export(self.repo, branch="relay-notes", delete_branch=True)
+        self.assertTrue(res["exported"] and res["branch_deleted"], res)
+        self.assertTrue(self._remote_has("main", f"{self.ROOT}/briefs/late.md"))
+        self.assertNotIn("relay-notes", git(["branch", "--list"], self.origin))
+
+    def test_export_validates_the_branch_name_and_reports_a_failed_push(self):
+        for bad in ("--upload-pack=x", "HEAD", "a..b"):
+            with self.assertRaises(rh.HarvestError):
+                rh.state_export(self.repo, branch=bad)
+        self._turn_on()
+        self._reject_every_push()
+        code, out, _ = self._cli("state", "export")
+        self.assertEqual(code, 1); self.assertFalse(json.loads(out)["exported"])
+
+    def test_export_without_any_branch_is_an_error(self):
+        with self.assertRaises(rh.HarvestError):
+            rh.state_export(self.repo)
+        self.assertEqual(self._cli("state", "export")[0], 2)
+
+    def test_export_with_an_unreachable_remote_is_an_error(self):
+        self._turn_on()
+        self._offline()
+        with self.assertRaises(rh.HarvestError):
+            rh.state_export(self.repo)
+
+    def test_status_says_where_the_notes_live(self):
+        self.assertIsNone(rh.state_status(self.repo)["state_branch"])
+        self._turn_on()
+        st = rh.state_status(self.repo)
+        self.assertEqual((st["state_branch"], st["exists_locally"]), ("relay-notes", True))
+        self.assertGreater(st["files"], 0)
+        self._publish_config({"state": {"branch": "HEAD"}})
+        self.assertIn("not a usable", rh.state_status(self.repo)["problem"])
+
+    def test_cli_init_export_status(self):
+        self._turn_on()
+        code, out, _ = self._cli("state", "status")
+        self.assertEqual(json.loads(out)["state_branch"], "relay-notes")
+        self.assertEqual(self._cli("state", "init")[0], 1)                               # already exists: exit 1
+        self.assertTrue(json.loads(self._cli("state", "init")[1])["created"] is False)
+        code, out, _ = self._cli("state", "export")
+        self.assertEqual(code, 0); self.assertIn("exported", json.loads(out))
+
+
+class StateWritersDocsRootTest(StateWritersTest):
+    """The same writer behaviour with the notes folder moved (`root: docs`): only the root-sensitive tests."""
+    ROOT = "docs"
+    ONLY = {"test_set_commits_to_the_notes_branch_and_never_moves_main", "test_only_notes_are_accepted_in_both_modes",
+            "test_add_and_remove_in_one_commit_like_a_tidy_archive",
+            "test_move_takes_the_content_from_the_branch_without_a_working_tree_copy",
+            "test_snapshot_edit_sync_is_a_delta_against_the_tip_it_was_taken_from",
+            "test_checkpoint_replication_goes_to_the_notes_branch_when_set",
+            "test_init_seeds_an_orphan_branch_with_only_the_volatile_notes",
+            "test_export_overlays_by_default_keeping_notes_that_exist_only_on_main"}
 
 
 if __name__ == "__main__":
