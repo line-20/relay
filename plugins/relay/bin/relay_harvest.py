@@ -122,50 +122,106 @@ def _applied_path(relay_root, slug):
 # forked from main holds a frozen copy that would silently resume the wrong lap.
 #
 # Unset (the default) changes nothing: `state_branch()` is None and every reader behaves as before.
+# A setting that is present but unusable is NEVER treated as unset: that would read the durable branch
+# while the writers believe the notes live elsewhere, splitting the state in two. It raises instead.
 
 # The volatile notes, as an explicit allow-list under <root>/ (a repo may also keep durable knowledge,
 # decisions or reference docs there; those stay on the durable branch and are never read from here).
 STATE_PATHS = ("board.md", "briefs", "handover", "reviews", "harvest")
 
 
+def _toplevel(repo_root):
+    """The git top-level directory. Every state git call runs from here: `ls-tree -- <path>` is relative
+    to the current directory while `git show <ref>:<path>` is relative to the repo root, so running from
+    a subdirectory would silently list nothing."""
+    r = _run_git(["rev-parse", "--show-toplevel"], repo_root)
+    top = r.stdout.strip() if r.returncode == 0 else ""
+    return top or repo_root
+
+
 def _remote_config(repo_root, remote="origin"):
     """relay.config.json as published on the remote's durable branch, so the setting does not depend on
     which branch a worktree forked from (an older slice branch would otherwise keep writing to main).
-    Falls back to the checked-out file only when the remote copy cannot be read."""
-    text = None
-    if repo_root:
-        r = _run_git(["show", f"{remote}/{_durable_branch(repo_root)}:relay.config.json"], repo_root)
-        if r.returncode == 0:
-            text = r.stdout
-        else:
-            try:
-                with open(os.path.join(repo_root, "relay.config.json")) as fh:
-                    text = fh.read()
-            except OSError:
-                return {}
+    The checked-out file is used ONLY when there is no remote durable branch to read at all (no remote,
+    never fetched). A remote branch that simply lacks the file means "no config", never "use the local one":
+    otherwise turning the setting off on main would not reach a stale checkout, and an untrusted PR branch
+    could switch it on."""
+    if not repo_root:
+        return {}
+    top = _toplevel(repo_root)
+    ref = f"{remote}/{_durable_branch(top)}"
+    if _run_git(["rev-parse", "--verify", "--quiet", ref], top).returncode == 0:
+        r = _run_git(["show", f"{ref}:relay.config.json"], top)
+        text = r.stdout if r.returncode == 0 else None
+    else:
+        try:
+            with open(os.path.join(top, "relay.config.json")) as fh:
+                text = fh.read()
+        except OSError:
+            text = None
+    if not text:
+        return {}
     try:
-        cfg = json.loads(text) if text else {}
+        cfg = json.loads(text)
     except ValueError:
+        if '"state"' in text:
+            raise HarvestError("relay.config.json is not valid JSON, so it cannot be told whether "
+                               "state.branch is set. Fix the file before reading Relay's notes.")
         return {}
     return cfg if isinstance(cfg, dict) else {}
 
 
+def _valid_state_branch(name, durable):
+    """A usable notes-branch name: ref-shaped, no `..` or `//`, not a lock file or a trailing `/`/`.`,
+    and never HEAD or the durable branch itself (either would make 'the notes branch' mean the code)."""
+    return (isinstance(name, str) and _valid_branch(name) and ".." not in name and "//" not in name
+            and not name.endswith(("/", ".", ".lock")) and name != "HEAD" and name != durable)
+
+
 def state_branch(repo_root, remote="origin"):
-    """The configured notes branch, or None when notes live on the durable branch (the default)."""
-    st = _remote_config(repo_root, remote).get("state")
-    b = st.get("branch") if isinstance(st, dict) else None
-    return b if isinstance(b, str) and _valid_branch(b) else None
+    """The configured notes branch, or None when the setting is absent (notes live on the durable branch).
+    Raises HarvestError when the setting is present but unusable: never silently 'unset'."""
+    cfg = _remote_config(repo_root, remote)
+    st = cfg.get("state")
+    if st is None:
+        return None
+    if not isinstance(st, dict):
+        raise HarvestError('`state` in relay.config.json must be an object like {"branch": "relay-notes"}.')
+    branch = st.get("branch")
+    if branch is None:
+        return None
+    durable = _durable_branch(_toplevel(repo_root))
+    if not _valid_state_branch(branch, durable):
+        raise HarvestError(f"state.branch {branch!r} is not a usable branch name (it must be a plain "
+                           f"branch name, not HEAD or the durable branch {durable!r}).")
+    return branch
 
 
 def _rel_root(repo_root, relay_root):
-    return os.path.relpath(relay_root, repo_root).replace(os.sep, "/")
+    """<root> as a repo-relative POSIX path, measured from the git top-level. Raises when the notes
+    folder is outside the repository."""
+    top = os.path.realpath(_toplevel(repo_root))
+    rel = os.path.relpath(os.path.realpath(relay_root), top).replace(os.sep, "/")
+    if rel == ".." or rel.startswith("../") or os.path.isabs(rel):
+        raise HarvestError(f"the notes folder {relay_root!r} is outside the repository {top!r}.")
+    return rel
+
+
+def _norm_rel(rel):
+    """A repo-relative POSIX path, normalised; raises on absolute paths and `..` escapes."""
+    import posixpath
+    rel = posixpath.normpath(rel.replace(os.sep, "/"))
+    if rel.startswith("/") or rel == ".." or rel.startswith("../"):
+        raise HarvestError(f"{rel!r} is not a repo-relative path.")
+    return rel
 
 
 def _is_state_path(rel, rel_root):
     """Is this repo-relative path one of the volatile notes (board, briefs, handover, reviews, harvest)?"""
-    rel = rel.replace(os.sep, "/")
-    if rel.startswith("./"):
-        rel = rel[2:]
+    try:
+        rel = _norm_rel(rel)
+    except HarvestError:
+        return False
     prefix = rel_root.rstrip("/") + "/"
     if not rel.startswith(prefix):
         return False
@@ -175,52 +231,67 @@ def _is_state_path(rel, rel_root):
 def _state_ref(repo_root, remote="origin", fetch=False):
     """(branch, ref) for the notes branch, or (None, None) when unset. Fails LOUD when the setting is
     on but the branch is missing: falling back to the durable branch would silently split the state."""
-    branch = state_branch(repo_root, remote)
+    top = _toplevel(repo_root)
+    branch = state_branch(top, remote)
     if not branch:
         return (None, None)
     if fetch:
-        _run_git(["fetch", remote, branch], repo_root)      # best effort; offline reads the local ref
+        _run_git(["fetch", remote, branch], top)             # best effort; offline reads the local ref
     ref = f"{remote}/{branch}"
-    if _run_git(["rev-parse", "--verify", "--quiet", ref], repo_root).returncode != 0:
+    if _run_git(["rev-parse", "--verify", "--quiet", f"refs/remotes/{ref}"], top).returncode != 0:
         raise HarvestError(
             f"state.branch is set to {branch!r} but {ref} does not exist here. "
-            f"Run `git fetch {remote} {branch}`, or create it once with the state init command — "
+            f"Run `git fetch {remote} {branch}`, or create it once with the state init command; "
             f"never fall back to the durable branch, that would split the notes in two.")
     return (branch, ref)
 
 
-def _git_blob(repo_root, ref, rel):
+def _git_blob(top, ref, rel):
     try:
-        r = subprocess.run(["git", "show", f"{ref}:{rel}"], cwd=repo_root, capture_output=True)
+        r = subprocess.run(["git", "show", f"{ref}:{rel}"], cwd=top, capture_output=True)
     except OSError:
         return None
     return r.stdout if r.returncode == 0 else None
 
 
-def _state_files(repo_root, ref, rel_root):
-    r = _run_git(["ls-tree", "-r", "--name-only", ref, "--", rel_root], repo_root)
+def _ls_tree(top, ref, prefix):
+    """Repo-relative file names under `prefix` at `ref`. NUL-separated, so a name with non-ASCII
+    characters is never C-quoted (and then silently dropped by a path filter)."""
+    try:
+        r = subprocess.run(["git", "ls-tree", "-r", "-z", "--name-only", ref, "--", prefix],
+                           cwd=top, capture_output=True)
+    except OSError:
+        return []
     if r.returncode != 0:
         return []
-    return [n for n in r.stdout.splitlines() if _is_state_path(n, rel_root)]
+    return [n for n in r.stdout.decode("utf-8", "surrogateescape").split("\0") if n]
+
+
+def _state_files(top, ref, rel_root):
+    return [n for n in _ls_tree(top, ref, rel_root) if _is_state_path(n, rel_root)]
 
 
 @contextlib.contextmanager
 def state_snapshot(repo_root, relay_root, remote="origin", fetch=False):
-    """Yield (relay_root_to_read, state_ref). Unset: (relay_root, None) — the working tree, as before.
+    """Yield (relay_root_to_read, state_ref). Unset: (relay_root, None), the working tree, as before.
     Set: a throwaway copy of the notes branch's volatile files laid out like the repo, so every existing
     reader works unchanged on it and the worktree's frozen copies are never consulted."""
     _, ref = _state_ref(repo_root, remote, fetch=fetch)
     if not ref:
         yield (relay_root, None)
         return
+    top = _toplevel(repo_root)
     rel_root = _rel_root(repo_root, relay_root)
     tmp = tempfile.mkdtemp(prefix="relay-state-")
+    tmp_real = os.path.realpath(tmp)
     try:
-        for name in _state_files(repo_root, ref, rel_root):
-            data = _git_blob(repo_root, ref, name)
+        for name in _state_files(top, ref, rel_root):
+            data = _git_blob(top, ref, name)
             if data is None:
                 continue
-            dest = os.path.join(tmp, name)
+            dest = os.path.realpath(os.path.join(tmp, name))
+            if not dest.startswith(tmp_real + os.sep):
+                continue                                        # never write outside the snapshot
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             with open(dest, "wb") as fh:
                 fh.write(data)
@@ -233,35 +304,36 @@ def read_note(repo_root, rel, remote="origin", fetch=True):
     """Read one repo-relative file the way a reader should: a volatile note comes from the notes branch
     when state.branch is set, everything else from the durable branch. Replaces the markdown commands'
     `git fetch origin main; git show FETCH_HEAD:<path>`. Returns text, or None when absent."""
-    root = _relay_root_of(repo_root)
-    branch, ref = _state_ref(repo_root, remote, fetch=fetch)
-    if ref and _is_state_path(rel, root):
-        data = _git_blob(repo_root, ref, rel)
-    else:
-        durable = _durable_branch(repo_root)
-        if fetch:
-            _run_git(["fetch", remote, durable], repo_root)
-        data = _git_blob(repo_root, f"{remote}/{durable}", rel)
+    rel = _norm_rel(rel)
+    top = _toplevel(repo_root)
+    durable = _durable_branch(top)
+    if fetch:
+        _run_git(["fetch", remote, durable], top)    # the durable branch carries the setting itself
+    root = _relay_root_of(top)
+    branch, ref = _state_ref(top, remote, fetch=fetch)
+    data = _git_blob(top, ref if ref and _is_state_path(rel, root) else f"{remote}/{durable}", rel)
     return None if data is None else data.decode("utf-8", "replace")
 
 
 def list_notes(repo_root, prefix, remote="origin", fetch=True):
-    """List repo-relative files under a prefix, from the same place read_note would read them."""
-    root = _relay_root_of(repo_root)
-    branch, ref = _state_ref(repo_root, remote, fetch=fetch)
-    if ref and _is_state_path(prefix.rstrip("/") + "/x", root):
-        src = ref
-    else:
-        durable = _durable_branch(repo_root)
-        if fetch:
-            _run_git(["fetch", remote, durable], repo_root)
-        src = f"{remote}/{durable}"
-    r = _run_git(["ls-tree", "-r", "--name-only", src, "--", prefix], repo_root)
-    return sorted(r.stdout.splitlines()) if r.returncode == 0 else []
+    """List repo-relative files under a prefix. With the setting on, the notes come from the notes branch
+    and everything else from the durable branch, merged: `ls <root>` shows both, never main's frozen notes."""
+    prefix = _norm_rel(prefix)
+    top = _toplevel(repo_root)
+    durable = _durable_branch(top)
+    if fetch:
+        _run_git(["fetch", remote, durable], top)
+    root = _relay_root_of(top)
+    branch, ref = _state_ref(top, remote, fetch=fetch)
+    names = _ls_tree(top, f"{remote}/{durable}", prefix)
+    if ref:
+        names = [n for n in names if not _is_state_path(n, root)]
+        names += [n for n in _ls_tree(top, ref, prefix) if _is_state_path(n, root)]
+    return sorted(set(names))
 
 
 def _relay_root_of(repo_root):
-    """The <root> directory name (default `relay`), from the remote's config (`root`), as a repo-relative path."""
+    """The <root> directory (default `relay`), from the remote's config (`root`), as a repo-relative path."""
     root = _remote_config(repo_root).get("root")
     return root.strip("/") if isinstance(root, str) and root.strip("/") else "relay"
 
@@ -730,6 +802,12 @@ def _resolve_ref(repo_root, worktree_path, rel, state=None):
     worktree's copy is a frozen leftover and must never be preferred."""
     if not rel:
         return (None, None)
+    if os.path.isabs(rel) and state:
+        # a checkpoint may carry an absolute path to a note; with the setting on it is still a note
+        for base in (worktree_path, repo_root):
+            if base and rel.startswith(base.rstrip(os.sep) + os.sep):
+                rel = os.path.relpath(rel, base).replace(os.sep, "/")
+                break
     if os.path.isabs(rel):
         return (rel, "abs") if os.path.exists(rel) else (None, None)
     if state and _is_state_path(rel, state[1]):
@@ -912,6 +990,10 @@ def _durable_branch(repo_root):
     r = _run_git(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], repo_root)
     if r.returncode == 0 and r.stdout.strip():
         return r.stdout.strip().split("/", 1)[-1]
+    # origin/HEAD is unset after `git init` + `remote add` + `fetch`: prefer whichever of main/master exists
+    for cand in ("main", "master"):
+        if _run_git(["rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{cand}"], repo_root).returncode == 0:
+            return cand
     return "main"
 
 
@@ -1033,11 +1115,14 @@ def main(argv=None):
                     help="skip the Markdown projection handover (the caller authors its own richer one)")
     ap.add_argument("--no-board", action="store_true",
                     help="leave board.md untouched (the caller owns the board commit)")
-    sub.add_parser("discover", help="list active work from durable sources")
+    dc = sub.add_parser("discover", help="list active work from durable sources")
     rs = sub.add_parser("resume", help="print provider-neutral resume context for a work item")
     rs.add_argument("slug")
     bs = sub.add_parser("bootstrap", help="print a provider-neutral worker bootstrap for a work item")
     bs.add_argument("slug")
+    for sp in (dc, rs, bs):
+        sp.add_argument("--no-fetch", action="store_true",
+                        help="with state.branch set, read the local remote-tracking ref without fetching it")
     sub.add_parser("state-branch", help="print the configured notes branch (empty when notes live on the durable branch)")
     sh = sub.add_parser("show", help="print one repo-relative file from where its notes live (notes branch or durable branch)")
     sh.add_argument("path")
@@ -1082,7 +1167,9 @@ def main(argv=None):
     if args.cmd in ("discover", "resume", "bootstrap"):
         # Read through the notes branch when state.branch is set; otherwise the working tree, as before.
         try:
-            with state_snapshot(args.repo, relay_root) as (read_root, sref):
+            if state_branch(args.repo) and not args.relay_root:
+                relay_root = os.path.join(_toplevel(args.repo), _relay_root_of(args.repo))
+            with state_snapshot(args.repo, relay_root, fetch=not args.no_fetch) as (read_root, sref):
                 rel_root = _rel_root(args.repo, relay_root)
                 state = (sref, rel_root) if sref else None
                 read_board = os.path.join(read_root, "board.md")

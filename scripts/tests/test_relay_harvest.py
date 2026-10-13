@@ -926,8 +926,10 @@ class StateBranchReaderTest(unittest.TestCase):
     consult the worktree's frozen copy of a note (a worktree forked from main still holds one)."""
 
     SLUG = "masterdata/import"
+    ROOT = "relay"
 
     def setUp(self):
+        R = self.ROOT
         self.parent = tempfile.mkdtemp()
         self.origin = os.path.join(self.parent, "origin.git")
         git(["init", "-q", "--bare", "-b", "main", self.origin], self.parent)
@@ -937,14 +939,16 @@ class StateBranchReaderTest(unittest.TestCase):
             git(["config", k, v], seed)
         git(["checkout", "-q", "-b", "main"], seed)
         # main: code + a FROZEN copy of the notes (stale next_slice), config without state.branch
-        self._write(seed, "relay.config.json", json.dumps({"hooks": {}}))
-        self._write(seed, "relay/board.md", BOARD)
-        self._write(seed, "relay/briefs/masterdata__import.md", "# frozen brief on main\n")
-        self._write(seed, "relay/knowledge/guardrails.md", "# durable guardrails\n")
-        self._write(seed, "relay/harvest/masterdata__import/checkpoint.json",
+        self._write(seed, "relay.config.json", json.dumps(self._config()))
+        self._write(seed, f"{R}/board.md", BOARD)
+        self._write(seed, f"{R}/briefs/masterdata__import.md", "# frozen brief on main\n")
+        self._write(seed, f"{R}/knowledge/guardrails.md", "# durable guardrails\n")
+        self._write(seed, f"{R}/decisions.md", "# durable decisions\n")
+        self._write(seed, f"{R}/harvest/masterdata__import/checkpoint.json",
                     json.dumps(self._checkpoint("STALE frozen next slice")))
         git(["add", "-A"], seed); git(["commit", "-q", "-m", "init"], seed)
         git(["push", "-q", "origin", "main"], seed)
+        self.seed = seed
         # notes branch: orphan, fresh notes only, built in its own clone so main's files never leak in
         notes = os.path.join(self.parent, "notes-seed")
         git(["clone", "-q", self.origin, notes], self.parent)
@@ -952,22 +956,29 @@ class StateBranchReaderTest(unittest.TestCase):
             git(["config", k, v], notes)
         git(["checkout", "-q", "--orphan", "relay-notes"], notes)
         git(["rm", "-rfq", "."], notes)
-        self._write(notes, "relay/board.md", BOARD)
-        self._write(notes, "relay/briefs/masterdata__import.md", "# LIVE brief on the notes branch\n")
-        self._write(notes, "relay/harvest/masterdata__import/checkpoint.json",
+        self._write(notes, f"{R}/board.md", BOARD)
+        self._write(notes, f"{R}/briefs/masterdata__import.md", "# LIVE brief on the notes branch\n")
+        self._write(notes, f"{R}/briefs/caf\u00e9.md", "# a brief with a non-ASCII name\n")
+        self._write(notes, f"{R}/harvest/masterdata__import/checkpoint.json",
                     json.dumps(self._checkpoint("LIVE next slice from the notes branch")))
-        self._write(notes, "relay/handover/next-a.md", "---\nbranch: wt-masterdata\n---\nlive handover\n")
+        self._write(notes, f"{R}/handover/next-a.md", "---\nbranch: wt-masterdata\n---\nlive handover\n")
         git(["add", "-A"], notes); git(["commit", "-q", "-m", "notes"], notes)
         git(["push", "-q", "origin", "relay-notes"], notes)
-        self.seed = seed
+        self.notes = notes
         # the session's checkout: a plain clone of main (so it holds the FROZEN notes in its worktree)
         self.repo = os.path.join(self.parent, "repo")
         git(["clone", "-q", self.origin, self.repo], self.parent)
         git(["worktree", "add", "-q", os.path.join(self.parent, "wt"), "-b", "wt-masterdata"], self.repo)
-        self.relay = os.path.join(self.repo, "relay")
+        self.relay = os.path.join(self.repo, R)
 
     def tearDown(self):
         shutil.rmtree(self.parent, ignore_errors=True)
+
+    def _config(self, **extra):
+        cfg = dict(extra)
+        if self.ROOT != "relay":
+            cfg["root"] = self.ROOT
+        return cfg
 
     @staticmethod
     def _write(root, rel, text):
@@ -976,21 +987,31 @@ class StateBranchReaderTest(unittest.TestCase):
         with open(path, "w") as fh:
             fh.write(text)
 
-    @staticmethod
-    def _checkpoint(next_slice):
+    def _checkpoint(self, next_slice):
         return {"harvest_version": 1, "lap_id": "lap-1", "work_item": "masterdata/import",
                 "disposition": "advanced", "checkpoint_ref": "x",
-                "references": {"branch": "wt-masterdata", "brief": "relay/briefs/masterdata__import.md"},
+                "references": {"branch": "wt-masterdata", "brief": f"{self.ROOT}/briefs/masterdata__import.md"},
                 "resume_delta": {"stage": "build", "next_slice": next_slice, "in_flight": "clean",
                                  "scope_edges": [], "open_questions": []}}
 
-    def _turn_on(self):
-        """Publish state.branch on origin/main, the way the PR that flips the setting would."""
-        self._write(self.seed, "relay.config.json", json.dumps({"state": {"branch": "relay-notes"}}))
-        git(["add", "-A"], self.seed); git(["commit", "-q", "-m", "turn on"], self.seed)
+    def _publish_config(self, cfg):
+        """Publish relay.config.json on origin/main, the way the PR that flips the setting would."""
+        text = cfg if isinstance(cfg, str) else json.dumps(cfg)
+        self._write(self.seed, "relay.config.json", text)
+        git(["add", "-A"], self.seed); git(["commit", "-q", "-m", "config"], self.seed)
         git(["push", "-q", "origin", "main"], self.seed)
         git(["fetch", "-q", "origin"], self.repo)
 
+    def _turn_on(self, branch="relay-notes"):
+        self._publish_config(self._config(state={"branch": branch}))
+
+    def _cli(self, *a, repo=None):
+        buf, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
+            code = rh.main(["--repo", repo or self.repo, *a])
+        return code, buf.getvalue(), err.getvalue()
+
+    # ---- unset: unchanged ----
     def test_unset_reads_the_worktree_as_before(self):
         self.assertIsNone(rh.state_branch(self.repo))
         with rh.state_snapshot(self.repo, self.relay) as (root, ref):
@@ -998,13 +1019,100 @@ class StateBranchReaderTest(unittest.TestCase):
         ctx = rh.resume_context(self.repo, self.relay, self.SLUG)
         self.assertEqual(ctx["resume_delta"]["next_slice"], "STALE frozen next slice")
 
+    def test_unset_read_note_reads_the_durable_branch(self):
+        self.assertIn("frozen brief on main",
+                      rh.read_note(self.repo, f"{self.ROOT}/briefs/masterdata__import.md", fetch=False))
+
+    def test_unset_cli_state_branch_is_empty(self):
+        self.assertEqual(self._cli("state-branch")[:2], (0, "\n"))
+
+    # ---- condition 2: the setting is read from the remote ----
     def test_setting_is_read_from_the_remote_not_the_worktree(self):
         self._turn_on()
-        # the worktree on disk still has the old config (no state.branch); the remote wins
         with open(os.path.join(self.repo, "relay.config.json")) as fh:
-            self.assertNotIn("state", json.load(fh))
+            self.assertNotIn("state", json.load(fh))      # the checkout still has the old config
         self.assertEqual(rh.state_branch(self.repo), "relay-notes")
 
+    def test_remote_off_beats_a_checkout_that_still_says_on(self):
+        self._write(self.repo, "relay.config.json", json.dumps({"state": {"branch": "relay-notes"}}))
+        self.assertIsNone(rh.state_branch(self.repo))      # origin/main has no state.branch
+
+    def test_remote_without_the_file_is_no_config_never_the_local_file(self):
+        git(["rm", "-q", "relay.config.json"], self.seed)
+        git(["commit", "-q", "-m", "drop config"], self.seed); git(["push", "-q", "origin", "main"], self.seed)
+        git(["fetch", "-q", "origin"], self.repo)
+        self._write(self.repo, "relay.config.json", json.dumps({"state": {"branch": "relay-notes"}}))
+        self.assertIsNone(rh.state_branch(self.repo))
+
+    def test_local_file_is_used_only_when_there_is_no_remote_branch_to_read(self):
+        solo = os.path.join(self.parent, "solo")
+        os.makedirs(solo)
+        git(["init", "-q", "-b", "main"], solo)
+        self._write(solo, "relay.config.json", json.dumps({"state": {"branch": "relay-notes"}}))
+        self.assertEqual(rh.state_branch(solo), "relay-notes")
+
+    # ---- condition 3: a set-but-unusable setting is never 'unset' ----
+    def test_unusable_setting_raises_instead_of_reading_main(self):
+        for bad in ("my branch", "", "a..b", "x.lock", "x/", "HEAD", "main", 7, ["relay-notes"]):
+            with self.subTest(branch=bad):
+                self._publish_config({"state": {"branch": bad}})
+                with self.assertRaises(rh.HarvestError):
+                    rh.state_branch(self.repo)
+
+    def test_state_that_is_not_an_object_raises(self):
+        self._publish_config({"state": "relay-notes"})
+        with self.assertRaises(rh.HarvestError):
+            rh.state_branch(self.repo)
+
+    def test_broken_json_that_mentions_state_raises_but_other_broken_json_is_ignored(self):
+        self._publish_config('{"state": {"branch": "relay-notes"')
+        with self.assertRaises(rh.HarvestError):
+            rh.state_branch(self.repo)
+        self._publish_config('{"hooks": ')
+        self.assertIsNone(rh.state_branch(self.repo))
+
+    def test_null_state_or_branch_means_unset(self):
+        for cfg in ({"state": None}, {"state": {}}, {"state": {"branch": None}}):
+            self._publish_config(cfg)
+            self.assertIsNone(rh.state_branch(self.repo))
+
+    def test_branch_with_a_slash_works(self):
+        self._turn_on("notes/relay")
+        self.assertEqual(rh.state_branch(self.repo), "notes/relay")
+
+    def test_missing_branch_fails_loud_for_every_reader_never_falls_back(self):
+        self._turn_on()
+        git(["update-ref", "-d", "refs/remotes/origin/relay-notes"], self.repo)
+        git(["remote", "set-url", "origin", os.path.join(self.parent, "nowhere.git")], self.repo)  # no heal
+        with self.assertRaises(rh.HarvestError) as cm:
+            with rh.state_snapshot(self.repo, self.relay):
+                pass
+        self.assertIn("never fall back", str(cm.exception))
+        with self.assertRaises(rh.HarvestError):
+            rh.read_note(self.repo, f"{self.ROOT}/board.md", fetch=False)
+        with self.assertRaises(rh.HarvestError):
+            rh.list_notes(self.repo, f"{self.ROOT}/handover", fetch=False)
+        for cmd in (("show", f"{self.ROOT}/board.md", "--no-fetch"), ("ls", f"{self.ROOT}/handover", "--no-fetch"),
+                    ("resume", self.SLUG, "--no-fetch"), ("discover", "--no-fetch"),
+                    ("bootstrap", self.SLUG, "--no-fetch")):
+            with self.subTest(cmd=cmd[0]):
+                code, out, err = self._cli(*cmd)
+                self.assertEqual(code, 2)
+                self.assertEqual(out, "")                   # nothing from main leaks to stdout
+                self.assertIn("never fall back", err)
+
+    def test_a_fetch_heals_a_branch_that_exists_on_origin_but_not_locally(self):
+        self._turn_on()
+        git(["update-ref", "-d", "refs/remotes/origin/relay-notes"], self.repo)
+        self.assertIn("LIVE brief", rh.read_note(self.repo, f"{self.ROOT}/briefs/masterdata__import.md", fetch=True))
+
+    def test_offline_fetch_reads_the_local_ref_instead_of_failing(self):
+        self._turn_on()
+        git(["remote", "set-url", "origin", os.path.join(self.parent, "nowhere.git")], self.repo)
+        code, out, _ = self._cli("show", f"{self.ROOT}/briefs/masterdata__import.md")   # default = fetch
+        self.assertEqual(code, 0); self.assertIn("LIVE brief", out)
+
+    # ---- condition 1: readers read the ref, never the worktree ----
     def test_resume_reads_the_notes_branch_never_the_frozen_worktree_copy(self):
         self._turn_on()
         with rh.state_snapshot(self.repo, self.relay) as (root, ref):
@@ -1017,62 +1125,157 @@ class StateBranchReaderTest(unittest.TestCase):
         with rh.state_snapshot(self.repo, self.relay) as (root, ref):
             items = rh.discover_active(self.repo, root, state_ref=ref)
         item = next(i for i in items if i["work_item"] == self.SLUG)
-        self.assertTrue(item["has_checkpoint"])
-        self.assertTrue(item["replicated"])
+        self.assertTrue(item["has_checkpoint"]); self.assertTrue(item["replicated"])
 
     def test_bootstrap_brief_resolves_against_the_branch_not_the_worktree(self):
         self._turn_on()
         with rh.state_snapshot(self.repo, self.relay) as (root, ref):
-            state = (ref, "relay")
+            state = (ref, self.ROOT)
             bs = rh.assert_no_dangling(self.repo, rh.worker_bootstrap(self.repo, root, self.SLUG, state=state), state)
         self.assertEqual(bs["brief_source"], "origin/relay-notes")
         self.assertEqual(bs["board_source"], "origin/relay-notes")
 
-    def test_missing_branch_fails_loud_never_falls_back(self):
+    def test_a_brief_only_on_main_does_not_resolve_when_the_setting_is_on(self):
         self._turn_on()
-        git(["update-ref", "-d", "refs/remotes/origin/relay-notes"], self.repo)
-        with self.assertRaises(rh.HarvestError) as cm:
-            with rh.state_snapshot(self.repo, self.relay):
+        git(["rm", "-q", f"{self.ROOT}/briefs/masterdata__import.md"], self.notes)
+        git(["commit", "-q", "-m", "drop brief"], self.notes); git(["push", "-q", "origin", "relay-notes"], self.notes)
+        git(["fetch", "-q", "origin"], self.repo)
+        with rh.state_snapshot(self.repo, self.relay) as (root, ref):
+            bs = rh.worker_bootstrap(self.repo, root, self.SLUG, state=(ref, self.ROOT))
+        self.assertEqual(bs["brief_status"], "absent")      # main's frozen copy is NOT a fallback
+        self.assertIsNone(bs["brief_source"])
+        self.assertTrue(bs["brief_fallback"])
+
+    def test_an_absolute_brief_path_still_resolves_against_the_branch(self):
+        self._turn_on()
+        absolute = os.path.join(self.repo, self.ROOT, "briefs", "masterdata__import.md")
+        got = rh._resolve_ref(self.repo, None, absolute, ("origin/relay-notes", self.ROOT))
+        self.assertEqual(got[1], "origin/relay-notes")
+
+    def test_notes_branch_with_no_checkpoint_gives_the_missing_checkpoint_error(self):
+        self._turn_on()
+        git(["rm", "-rq", f"{self.ROOT}/harvest"], self.notes)
+        git(["commit", "-q", "-m", "drop cp"], self.notes); git(["push", "-q", "origin", "relay-notes"], self.notes)
+        git(["fetch", "-q", "origin"], self.repo)
+        with rh.state_snapshot(self.repo, self.relay) as (root, ref):
+            with self.assertRaises(rh.HarvestError) as cm:
+                rh.resume_context(self.repo, root, self.SLUG)
+        self.assertIn("no durable checkpoint", str(cm.exception))
+
+    def test_non_ascii_note_names_survive_the_snapshot(self):
+        self._turn_on()
+        with rh.state_snapshot(self.repo, self.relay) as (root, ref):
+            self.assertTrue(os.path.exists(os.path.join(root, "briefs", "caf\u00e9.md")))
+        self.assertIn(f"{self.ROOT}/briefs/caf\u00e9.md", rh.list_notes(self.repo, f"{self.ROOT}/briefs", fetch=False))
+
+    def test_snapshot_is_removed_after_use_and_after_an_error(self):
+        self._turn_on()
+        with rh.state_snapshot(self.repo, self.relay) as (root, ref):
+            self.assertTrue(os.path.isdir(root))
+        self.assertFalse(os.path.exists(root))
+        with self.assertRaises(RuntimeError):
+            with rh.state_snapshot(self.repo, self.relay) as (root2, _):
+                raise RuntimeError("boom")
+        self.assertFalse(os.path.exists(root2))
+
+    def test_a_notes_folder_outside_the_repo_is_rejected_not_written_to_tmp(self):
+        self._turn_on()
+        outside = os.path.join(self.parent, "elsewhere", "relay")
+        os.makedirs(outside)
+        with self.assertRaises(rh.HarvestError):
+            with rh.state_snapshot(self.repo, outside):
                 pass
-        self.assertIn("never fall back", str(cm.exception))
+
+    def test_commands_work_from_a_subdirectory_of_the_repo(self):
+        self._turn_on()
+        sub = os.path.join(self.repo, "packages", "x")
+        os.makedirs(sub)
+        code, out, _ = self._cli("resume", self.SLUG, "--no-fetch", repo=sub)
+        self.assertEqual(code, 0); self.assertIn("LIVE next slice", out)
+        code, out, _ = self._cli("ls", f"{self.ROOT}/handover", "--no-fetch", repo=sub)
+        self.assertEqual((code, out), (0, f"{self.ROOT}/handover/next-a.md\n"))
+
+    # ---- routing: what is a note, and where each file comes from ----
+    def test_only_the_volatile_allow_list_is_a_note(self):
+        R = self.ROOT
+        self.assertTrue(rh._is_state_path(f"{R}/board.md", R))
+        self.assertTrue(rh._is_state_path(f"{R}/handover/next-a.md", R))
+        self.assertTrue(rh._is_state_path(f"./{R}/board.md", R))
+        self.assertTrue(rh._is_state_path(f"{R}//board.md", R))
+        self.assertFalse(rh._is_state_path(f"{R}/knowledge/guardrails.md", R))
+        self.assertFalse(rh._is_state_path(f"{R}/decisions.md", R))
+        self.assertFalse(rh._is_state_path("docs/board.md" if R != "docs" else "relay/board.md", R))
 
     def test_read_note_routes_notes_to_the_branch_and_the_rest_to_main(self):
         self._turn_on()
-        self.assertIn("LIVE brief", rh.read_note(self.repo, "relay/briefs/masterdata__import.md", fetch=False))
-        self.assertIn("durable guardrails", rh.read_note(self.repo, "relay/knowledge/guardrails.md", fetch=False))
-        self.assertIsNone(rh.read_note(self.repo, "relay/briefs/nope.md", fetch=False))
+        R = self.ROOT
+        self.assertIn("LIVE brief", rh.read_note(self.repo, f"{R}/briefs/masterdata__import.md", fetch=False))
+        self.assertIn("durable guardrails", rh.read_note(self.repo, f"{R}/knowledge/guardrails.md", fetch=False))
+        self.assertIn("durable decisions", rh.read_note(self.repo, f"{R}/decisions.md", fetch=False))
+        self.assertIsNone(rh.read_note(self.repo, f"{R}/briefs/nope.md", fetch=False))
 
-    def test_list_notes_comes_from_the_branch(self):
+    def test_oddly_spelled_note_paths_are_normalised_and_traversal_is_refused(self):
         self._turn_on()
-        names = rh.list_notes(self.repo, "relay/handover", fetch=False)
-        self.assertEqual(names, ["relay/handover/next-a.md"])
+        R = self.ROOT
+        self.assertIn("LIVE brief", rh.read_note(self.repo, f"{R}//briefs/masterdata__import.md", fetch=False))
+        self.assertIn("LIVE brief", rh.read_note(self.repo, f"{R}/knowledge/../briefs/masterdata__import.md", fetch=False))
+        for bad in ("../x", "/etc/passwd", ".."):
+            with self.assertRaises(rh.HarvestError):
+                rh.read_note(self.repo, bad, fetch=False)
 
-    def test_unset_read_note_reads_the_durable_branch(self):
-        self.assertIn("frozen brief on main",
-                      rh.read_note(self.repo, "relay/briefs/masterdata__import.md", fetch=False))
-
-    def test_only_the_volatile_allow_list_is_a_note(self):
-        self.assertTrue(rh._is_state_path("relay/board.md", "relay"))
-        self.assertTrue(rh._is_state_path("relay/handover/next-a.md", "relay"))
-        self.assertFalse(rh._is_state_path("relay/knowledge/guardrails.md", "relay"))
-        self.assertFalse(rh._is_state_path("relay/decisions.md", "relay"))
-        self.assertFalse(rh._is_state_path("docs/board.md", "relay"))
-
-    def test_cli_state_branch_show_and_ls(self):
+    def test_list_notes_merges_notes_from_the_branch_with_the_rest_from_main(self):
         self._turn_on()
-        def run(*a):
-            buf, err = io.StringIO(), io.StringIO()
-            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(err):
-                code = rh.main(["--repo", self.repo, *a])
-            return code, buf.getvalue()
-        self.assertEqual(run("state-branch"), (0, "relay-notes\n"))
-        code, out = run("show", "relay/briefs/masterdata__import.md", "--no-fetch")
+        R = self.ROOT
+        self.assertEqual(rh.list_notes(self.repo, f"{R}/handover", fetch=False), [f"{R}/handover/next-a.md"])
+        self.assertEqual(rh.list_notes(self.repo, f"{R}/knowledge", fetch=False), [f"{R}/knowledge/guardrails.md"])
+        listing = rh.list_notes(self.repo, R, fetch=False)          # the notes root itself
+        self.assertIn(f"{R}/handover/next-a.md", listing)           # a note that exists only on the branch
+        self.assertIn(f"{R}/knowledge/guardrails.md", listing)      # a durable file from main
+        self.assertIn(f"{R}/decisions.md", listing)
+        self.assertEqual(listing.count(f"{R}/board.md"), 1)         # one board, never main's frozen copy as well
+        self.assertEqual(rh.list_notes(self.repo, f"{R}/", fetch=False), listing)
+
+    def test_cli_state_branch_show_ls_and_resume(self):
+        self._turn_on()
+        R = self.ROOT
+        self.assertEqual(self._cli("state-branch")[:2], (0, "relay-notes\n"))
+        code, out, _ = self._cli("show", f"{R}/briefs/masterdata__import.md", "--no-fetch")
         self.assertEqual(code, 0); self.assertIn("LIVE brief", out)
-        self.assertEqual(run("show", "relay/briefs/nope.md", "--no-fetch")[0], 1)
-        self.assertEqual(run("ls", "relay/handover", "--no-fetch"), (0, "relay/handover/next-a.md\n"))
-        code, out = run("resume", self.SLUG)
+        self.assertEqual(self._cli("show", f"{R}/briefs/nope.md", "--no-fetch")[0], 1)
+        self.assertEqual(self._cli("ls", f"{R}/handover", "--no-fetch")[:2], (0, f"{R}/handover/next-a.md\n"))
+        self.assertIn(f"{R}/knowledge/guardrails.md", self._cli("ls", f"{R}/knowledge", "--no-fetch")[1])
+        code, out, _ = self._cli("resume", self.SLUG)
+        self.assertEqual(code, 0); self.assertIn("LIVE next slice", out)
+
+    def test_cli_discover_and_bootstrap_read_the_branch(self):
+        self._turn_on()
+        code, out, _ = self._cli("discover", "--no-fetch")
         self.assertEqual(code, 0)
-        self.assertIn("LIVE next slice", out)
+        item = next(i for i in json.loads(out) if i["work_item"] == self.SLUG)
+        self.assertTrue(item["replicated"]); self.assertEqual(item["checkpoint_status"], "valid")
+        code, out, _ = self._cli("bootstrap", self.SLUG, "--no-fetch")
+        self.assertEqual(code, 0)
+        bs = json.loads(out)
+        self.assertEqual(bs["brief_source"], "origin/relay-notes")
+        self.assertIn("LIVE next slice", bs["objective"])
+
+    def test_durable_branch_falls_back_to_master_when_there_is_no_main_and_no_origin_head(self):
+        repo = os.path.join(self.parent, "m")
+        os.makedirs(repo)
+        git(["init", "-q", "-b", "master"], repo)
+        git(["config", "user.email", "t@t"], repo); git(["config", "user.name", "t"], repo)
+        self._write(repo, "a", "x")
+        git(["add", "-A"], repo); git(["commit", "-q", "-m", "i"], repo)
+        git(["update-ref", "refs/remotes/origin/master", "HEAD"], repo)
+        self.assertEqual(rh._durable_branch(repo), "master")
+
+
+class StateBranchNonDefaultRootTest(StateBranchReaderTest):
+    """The same behaviour with the notes folder moved (`root: docs`): nothing may hardcode `relay/`."""
+    ROOT = "docs"
+
+    def test_the_default_root_is_not_treated_as_notes(self):
+        self.assertFalse(rh._is_state_path("relay/board.md", "docs"))
 
 
 if __name__ == "__main__":

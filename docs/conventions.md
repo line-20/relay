@@ -375,7 +375,15 @@ and can force a re-run:
   the checked-out copy, so a slice branch forked before the switch follows it too.
 - **A set-but-missing branch fails loud.** It never falls back to the durable branch, which would
   silently split the notes in two.
+- **A set-but-unusable setting fails loud too.** A bad branch name, `state` that is not an object, or a
+  config that is broken JSON never counts as "unset"; that would read `main` while the writers believe the
+  notes live elsewhere.
 - **Unset (the default) changes nothing.**
+
+> **Not usable yet.** This is the reader side only (Relay 1.25.x ships none of it). The writers (`/handover`,
+> `/tidy`, `/explore`, the checkpoint push) still commit to the durable branch, so turning the setting on
+> now would split the notes. Do not set `state.branch` until the release that adds the writers and
+> `state init` / `state export`.
 
 ## Housekeeping & link-integrity — keeping the volatile layer lean, safely
 
