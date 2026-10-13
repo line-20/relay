@@ -391,6 +391,7 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
              "deploy": "deploy-preview",
              "affects": "affected-check",
              "claims": "claims-check",
+             "land": "gh pr edit {pr} --add-label ready-to-land",
              "release": "release" } }
 ```
 - A command that has a hook for its phase **runs the hooked command/skill** at that point.
@@ -405,6 +406,7 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
 | `deploy` | `/deploy` | Trigger the project's **PR preview** |
 | `affects` | `/ship` (Phase 5, merge gate) | Judge whether a base that moved since your green **overlaps** this PR — so a disjoint sibling merge doesn't force a wasted CI re-run |
 | `claims` | `/ship` (Phase 0.6, and again at the Phase 5 merge gate) | Judge whether a migration number or API version this branch uses is **already claimed** by a sibling's open PR — so a double-claim stops before review, not in CI after it |
+| `land` | `/ship` (Phase 5) | Hand a finished PR to the project's **merge queue** instead of merging it — so the session ends in minutes and does not wait on CI or re-sync against a moving `main` |
 | `release` | `/ship` (Phase 5.6, post-merge) | Cut a release for what just landed — one release per lap |
 
 `affects` is the one **predicate** hook — it answers a question rather than running an action, and so
@@ -444,6 +446,15 @@ are part of the contract:
 - **A hook that cannot answer** (crash, timeout, empty or unrecognised output, `gh` unavailable) is
   reported as `claims: not checked (<reason>)` and the lap **carries on** — never as `clear`. The
   project's own CI guard stays the backstop. **No hook ⇒ no check**, strictly opt-in.
+
+`land` is exec'd like `affects` and `claims` — a **shell command line**, no model judgment, verdict from the
+**exit status** — with the PR number substituted for `{pr}` (appended as the last argument if the value has none).
+Exit `0` means "handed off": `/ship` then marks the PR ready, skips its own merge-wait loop and the post-merge steps
+(setup, release), runs persist, and writes a handover that records the PR as **queued**. A failing hook **stops the
+lap** — it never falls back to a direct merge, which would bypass the queue the project chose. It lives in the project
+because Relay owns the *phase* ("this change is done and should land"), not the *mechanics*: a GitHub label picked up
+by Mergify, GitLab's merge-train command, a Forgejo queue bot, or your own script all fit behind the same hook, and
+moving between them changes one line of config. **No hook ⇒ `/ship` merges as before.**
 
 **Relay never owns an environment.** This is the same boundary `/deploy` states for deployment,
 generalised: Relay names the *verify* phase and sequences it, the project owns the *mechanics*. That

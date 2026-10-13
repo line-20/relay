@@ -17,7 +17,7 @@ argument-hint: "['no-verify' — skip the Phase 2.5 verify gate and go straight 
 | `no-sync` | Skip the Phase 0.5 base-sync and ship the branch against its fork point (Phase 0.6 still runs) |
 | *(empty)* | The full lap — sync → test → gate → review → fix → merge → handover |
 
-**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `persist.cadence`, `tidy.level`, `hooks.test`, `hooks.release`, `hooks.env.down`, `hooks.affects`, `hooks.claims`.
+**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `persist.cadence`, `tidy.level`, `hooks.test`, `hooks.release`, `hooks.env.down`, `hooks.affects`, `hooks.claims`, `hooks.land`.
 
 > **`?` prints this and stops.** If `$ARGUMENTS` is exactly `?`, `help`, `--help` or `-h`, print the
 > signature line, the argument table and the words/config line above — verbatim, nothing else, not
@@ -209,6 +209,11 @@ Work the report the way `/fix` does:
 - **If any needs-judgment items or reverted fixes remain, STOP** and surface them; those are the user's call before the loop can close.
 
 ## Phase 5 — Merge (clean green path only)
+```bash
+LAND="$(jq -r '.hooks.land // empty' relay.config.json 2>/dev/null)"
+```
+**`hooks.land` configured ⇒ hand off, don't merge — go to *Handing off to the project's merge queue* below and skip the rest of this phase, Phase 5.5 and Phase 5.6.** The project runs a merge queue that owns the sync, the combined test run and the merge, so this session must not wait on CI or merge by itself: a direct merge would skip the queue the project chose. **No `hooks.land` ⇒ everything below, exactly as before.**
+
 Merge only if ALL of these hold. If any fails, **STOP** and report which one:
 - Review verdict is approve, OR every 🔴 blocker is resolved (no unchecked 🔴 left in the report).
 - No needs-judgment items or reverted fixes outstanding from Phase 4.
@@ -272,6 +277,33 @@ Note: if `main` has branch protection requiring an approving review, the merge w
 rejected — that's fine, it just means a human approval is the enforced gate. Report the
 rejection and STOP if so.
 
+### Handing off to the project's merge queue (only with `hooks.land`)
+The session's job ends at "ready, and handed over". The merge happens later, in the queue, usually a few
+minutes after you leave.
+1. **Same gate as a merge, minus what the queue owns.** Review verdict approve or every 🔴 resolved; no
+   needs-judgment items or reverted fixes outstanding; the PR is mergeable (no conflicts); **no check has
+   failed** (checks still running are fine — the queue waits for them); and, with `hooks.claims`, the claims
+   check is `clear`. Any of these failing is a **STOP**, as in a merge. The base-moved question and
+   `hooks.affects` do **not** apply: re-testing against a moving base is exactly what the queue does.
+2. Push the fix commits: `git push`. Record `PUSHED=$(git rev-parse HEAD)`.
+3. Mark the PR ready if it is still a draft: `gh pr ready <n>`. The project's queue typically refuses
+   drafts, and `/test` opens PRs as drafts.
+4. **Run `hooks.land`.** Like `affects` and `claims` it is a **shell command line, exec'd deterministically**
+   — not an LLM skill. Replace `{pr}` in the value with the PR number (append the number as the last argument
+   if there is no `{pr}`), run it in the repo, and read the **exit status**: `0` = handed off. Example value for
+   a label-driven queue: `gh pr edit {pr} --add-label ready-to-land`.
+   - **Non-zero, timeout (3 minutes) or any error ⇒ STOP and say so.** Never fall back to a direct merge: that
+     would bypass the queue the project chose. The PR stays open and green; the person decides.
+5. Say it in one line: `queued PR #<n> — the project's merge queue lands it; this session did not merge.`
+6. **Skip Phase 5.5 and 5.6**: nothing has merged yet. Say once what they would have covered — if the PR
+   touches migrations or dependencies, the next session should run the project's local setup after it lands;
+   the release comes from the project's own release flow, not from this lap. Phase 5.7 (persist) runs as
+   configured, **before** the handover.
+7. Go to Phase 6 as `/handover parked` (the same caller-declared flag a Phase 5 give-up uses: an open PR is
+   expected, so skip the warning and the wait). In the handover, record the PR number and that it is **queued
+   for landing**, not parked on a problem — the next session checks `gh pr view <n>` (merged, still queued, or
+   dequeued with a comment) instead of resuming `/rls`.
+
 ## Phase 5.5 — Run any post-merge project setup (only if the merge shipped schema/dep changes)
 A test fixture may self-migrate, but a **persistent local dev environment** usually does
 not — so a merged schema/dependency change can leave the next session hitting errors.
@@ -325,7 +357,7 @@ to durable docs **outside `<root>/`**. Non-fatal — never block the handover on
 (At 1.0 this becomes a first-class phase of `ship`; today it's this policy-driven step.)
 
 ## Phase 6 — Handover (and end-of-session tidy)
-The PR is now merged (or, after a Phase 5 give-up, still open by design — see *Racing `main` is expected*), so proceed directly into the handover. Run `/handover` end to end:
+The PR is now merged (or, after a Phase 5 give-up, still open by design — see *Racing `main` is expected* — or, with `hooks.land`, handed to the project's merge queue), so proceed directly into the handover. Run `/handover` end to end:
 its Step 0 guard passes (PR is MERGED) or is bypassed (`parked`), it generates the cold-start handover, commits it to
 main, prints the compact summary, **and does the end-of-session housekeeping** — its Step 4.5
 archives superseded handovers + old PR reviews **and trims done rows off the board** (both gated by
