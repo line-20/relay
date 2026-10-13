@@ -254,6 +254,33 @@ def _git_blob(top, ref, rel):
     return r.stdout if r.returncode == 0 else None
 
 
+def _read_blobs(top, shas):
+    """{sha: bytes} for blob ids through ONE `git cat-file --batch` process (a snapshot of a repo with a thousand
+    handovers must not spawn a thousand `git show` processes)."""
+    uniq = sorted(set(shas))
+    out = {}
+    if not uniq:
+        return out
+    try:
+        r = subprocess.run(["git", "cat-file", "--batch"], cwd=top, input=("\n".join(uniq) + "\n").encode(),
+                           capture_output=True)
+    except OSError:
+        return out
+    buf, i = r.stdout, 0
+    for _ in uniq:
+        nl = buf.find(b"\n", i)
+        if nl < 0:
+            break
+        header = buf[i:nl].decode("utf-8", "replace").split()
+        if len(header) == 3 and header[1] == "blob":
+            size = int(header[2])
+            out[header[0]] = buf[nl + 1:nl + 1 + size]
+            i = nl + 1 + size + 1
+        else:
+            i = nl + 1
+    return out
+
+
 def _ls_tree(top, ref, prefix):
     """Repo-relative file names under `prefix` at `ref`. NUL-separated, so a name with non-ASCII
     characters is never C-quoted (and then silently dropped by a path filter)."""
@@ -285,8 +312,10 @@ def state_snapshot(repo_root, relay_root, remote="origin", fetch=False):
     tmp = tempfile.mkdtemp(prefix="relay-state-")
     tmp_real = os.path.realpath(tmp)
     try:
-        for name in _state_files(top, ref, rel_root):
-            data = _git_blob(top, ref, name)
+        entries = [e for e in _tree_entries(top, ref, rel_root) if _is_state_path(e[2], rel_root)]
+        blobs = _read_blobs(top, [e[1] for e in entries])
+        for _mode, sha, name in entries:
+            data = blobs.get(sha)
             if data is None:
                 continue
             dest = os.path.realpath(os.path.join(tmp, name))
@@ -482,10 +511,10 @@ def state_snapshot_dir(repo_root, out_dir, remote="origin"):
             raise HarvestError(f"cannot create {out}: {e.strerror}")
     out_real = os.path.realpath(out)
     n = 0
-    for mode, sha, path in _tree_entries(top, info["tip"], root):
-        if not _is_state_path(path, root):
-            continue
-        data = _git_blob(top, info["tip"], path)
+    entries = [e for e in _tree_entries(top, info["tip"], root) if _is_state_path(e[2], root)]
+    blobs = _read_blobs(top, [e[1] for e in entries])
+    for mode, sha, path in entries:
+        data = blobs.get(sha)
         dest = os.path.realpath(os.path.join(out, path))
         if data is None or not dest.startswith(out_real + os.sep):
             continue

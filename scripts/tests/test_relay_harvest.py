@@ -1584,6 +1584,28 @@ class StateWritersTest(StateFixture):
             rh.state_commit(self.repo, "m", add=[f"{self.ROOT}/briefs/ghost.md"])
 
     # ---- sync from a snapshot ----
+    def test_a_snapshot_of_many_notes_uses_one_blob_reader_not_one_process_per_file(self):
+        self._turn_on()
+        for i in range(30):
+            self._write(self.notes, f"{self.ROOT}/handover/next-bulk-{i}.md", f"handover {i}\n")
+        git(["add", "-A"], self.notes); git(["commit", "-q", "-m", "bulk"], self.notes)
+        git(["push", "-q", "origin", "relay-notes"], self.notes)
+        calls = []
+        real_run = subprocess.run
+        def counting(cmd, *a, **k):
+            if isinstance(cmd, list) and cmd[:2] == ["git", "show"] and "relay.config.json" not in cmd[2]:
+                calls.append(cmd)                                          # reading the setting is fine; notes are not
+            return real_run(cmd, *a, **k)
+        subprocess.run = counting
+        try:
+            out = os.path.join(self.parent, "bulk")
+            snap = rh.state_snapshot_dir(self.repo, out)
+        finally:
+            subprocess.run = real_run
+        self.assertGreaterEqual(snap["files"], 30)
+        self.assertEqual(calls, [])                                       # no per-file `git show`
+        self.assertEqual(open(os.path.join(out, self.ROOT, "handover", "next-bulk-7.md")).read(), "handover 7\n")
+
     def test_snapshot_edit_sync_is_a_delta_against_the_tip_it_was_taken_from(self):
         self._turn_on()
         out = os.path.join(self.parent, "snap")
