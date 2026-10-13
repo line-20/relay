@@ -56,6 +56,9 @@ config file at all:
     "ops": { "prune": true, "trim": true, "merge": "report" },
     "retention": { "reviews": 20, "handovers": "board-linked" }
   },
+  "state": { "branch": "relay-notes" },              // optional — keep Relay's notes (board, briefs, handovers,
+                                                      //   reviews, checkpoints) on their own branch, not on main,
+                                                      //   so a merge queue is never disturbed. Absent ⇒ main.
   "maturity": "mvp",                                  // /config maturity — product lifecycle stage;
                                                       //   mvp | growth | scale. Tunes /next ranking:
                                                       //   deferred-payoff work (hardening/security/
@@ -349,6 +352,30 @@ there's version control:
 - **The STOP gate is the first line of defence** — every destructive op shows its plan and waits for
   approval before touching a file (see the explicit-reporting rules above). Backups are the *second*
   line, for when something was approved but later regretted.
+
+## Where Relay's notes live — `state.branch`
+
+By default Relay's coordination notes sit on the durable branch (`main`), next to the code: that is why
+a fresh clone, another machine or a phone can resume a thread. A project that runs a **merge queue** can
+move them to their own branch, because every `/handover` push to `main` moves it under a queued batch
+and can force a re-run:
+```json
+{ "state": { "branch": "relay-notes" } }
+```
+- **What moves:** only the volatile notes, an explicit allow-list under `<root>/`: `board.md`, `briefs/`,
+  `handover/`, `reviews/`, `harvest/`. Durable files that also live under `<root>/` (`decisions.md`,
+  `knowledge/`, `reference/`) stay on the durable branch.
+- **The branch is an orphan** (no shared history with the code), so GitHub cannot open a PR from it by
+  accident. Writers never create it; an explicit init does, once.
+- **Readers go through one place.** `relay_harvest.py show <path>`, `ls <prefix>`, `state-branch`,
+  and the `discover` / `resume` / `bootstrap` readers resolve where a note lives and read it with
+  `git show` from that ref. **They never read a notes file from a working tree when the setting is on**:
+  a worktree forked from `main` still holds a frozen copy that would resume the wrong lap.
+- **The setting is read from the remote.** `relay.config.json` on `origin/<durable branch>` decides, not
+  the checked-out copy, so a slice branch forked before the switch follows it too.
+- **A set-but-missing branch fails loud.** It never falls back to the durable branch, which would
+  silently split the notes in two.
+- **Unset (the default) changes nothing.**
 
 ## Housekeeping & link-integrity — keeping the volatile layer lean, safely
 

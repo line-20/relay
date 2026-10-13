@@ -26,7 +26,7 @@ only place a provider/session id may appear is an OPTIONAL local hints file,
 which is never required to recover work.
 """
 from __future__ import annotations
-import argparse, json, os, re, subprocess, sys, tempfile, time
+import argparse, contextlib, json, os, re, shutil, subprocess, sys, tempfile, time
 
 HARVEST_VERSION = 1
 REQUIRED_RESULT_KEYS = ("harvest_version", "lap_id", "work_item", "disposition", "resume_delta")
@@ -111,6 +111,159 @@ def _checkpoint_path(relay_root, slug):
 
 def _applied_path(relay_root, slug):
     return os.path.join(_item_dir(relay_root, slug), "applied.json")
+
+
+# ---------- state reader: where Relay's notes live (state.branch) ----------
+# By default Relay's coordination notes (board, briefs, handovers, reviews, checkpoints) live on the
+# repo's durable branch, next to the code. A project that runs a merge queue can move them to their own
+# branch with `{ "state": { "branch": "relay-notes" } }` in relay.config.json, so the notes never move
+# `main` under a queued batch. This block is the ONE place that knows where the notes are: readers go
+# through it and never read a notes file from a working tree when the setting is on, because a worktree
+# forked from main holds a frozen copy that would silently resume the wrong lap.
+#
+# Unset (the default) changes nothing: `state_branch()` is None and every reader behaves as before.
+
+# The volatile notes, as an explicit allow-list under <root>/ (a repo may also keep durable knowledge,
+# decisions or reference docs there; those stay on the durable branch and are never read from here).
+STATE_PATHS = ("board.md", "briefs", "handover", "reviews", "harvest")
+
+
+def _remote_config(repo_root, remote="origin"):
+    """relay.config.json as published on the remote's durable branch, so the setting does not depend on
+    which branch a worktree forked from (an older slice branch would otherwise keep writing to main).
+    Falls back to the checked-out file only when the remote copy cannot be read."""
+    text = None
+    if repo_root:
+        r = _run_git(["show", f"{remote}/{_durable_branch(repo_root)}:relay.config.json"], repo_root)
+        if r.returncode == 0:
+            text = r.stdout
+        else:
+            try:
+                with open(os.path.join(repo_root, "relay.config.json")) as fh:
+                    text = fh.read()
+            except OSError:
+                return {}
+    try:
+        cfg = json.loads(text) if text else {}
+    except ValueError:
+        return {}
+    return cfg if isinstance(cfg, dict) else {}
+
+
+def state_branch(repo_root, remote="origin"):
+    """The configured notes branch, or None when notes live on the durable branch (the default)."""
+    st = _remote_config(repo_root, remote).get("state")
+    b = st.get("branch") if isinstance(st, dict) else None
+    return b if isinstance(b, str) and _valid_branch(b) else None
+
+
+def _rel_root(repo_root, relay_root):
+    return os.path.relpath(relay_root, repo_root).replace(os.sep, "/")
+
+
+def _is_state_path(rel, rel_root):
+    """Is this repo-relative path one of the volatile notes (board, briefs, handover, reviews, harvest)?"""
+    rel = rel.replace(os.sep, "/")
+    if rel.startswith("./"):
+        rel = rel[2:]
+    prefix = rel_root.rstrip("/") + "/"
+    if not rel.startswith(prefix):
+        return False
+    return rel[len(prefix):].split("/", 1)[0] in STATE_PATHS
+
+
+def _state_ref(repo_root, remote="origin", fetch=False):
+    """(branch, ref) for the notes branch, or (None, None) when unset. Fails LOUD when the setting is
+    on but the branch is missing: falling back to the durable branch would silently split the state."""
+    branch = state_branch(repo_root, remote)
+    if not branch:
+        return (None, None)
+    if fetch:
+        _run_git(["fetch", remote, branch], repo_root)      # best effort; offline reads the local ref
+    ref = f"{remote}/{branch}"
+    if _run_git(["rev-parse", "--verify", "--quiet", ref], repo_root).returncode != 0:
+        raise HarvestError(
+            f"state.branch is set to {branch!r} but {ref} does not exist here. "
+            f"Run `git fetch {remote} {branch}`, or create it once with the state init command — "
+            f"never fall back to the durable branch, that would split the notes in two.")
+    return (branch, ref)
+
+
+def _git_blob(repo_root, ref, rel):
+    try:
+        r = subprocess.run(["git", "show", f"{ref}:{rel}"], cwd=repo_root, capture_output=True)
+    except OSError:
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def _state_files(repo_root, ref, rel_root):
+    r = _run_git(["ls-tree", "-r", "--name-only", ref, "--", rel_root], repo_root)
+    if r.returncode != 0:
+        return []
+    return [n for n in r.stdout.splitlines() if _is_state_path(n, rel_root)]
+
+
+@contextlib.contextmanager
+def state_snapshot(repo_root, relay_root, remote="origin", fetch=False):
+    """Yield (relay_root_to_read, state_ref). Unset: (relay_root, None) — the working tree, as before.
+    Set: a throwaway copy of the notes branch's volatile files laid out like the repo, so every existing
+    reader works unchanged on it and the worktree's frozen copies are never consulted."""
+    _, ref = _state_ref(repo_root, remote, fetch=fetch)
+    if not ref:
+        yield (relay_root, None)
+        return
+    rel_root = _rel_root(repo_root, relay_root)
+    tmp = tempfile.mkdtemp(prefix="relay-state-")
+    try:
+        for name in _state_files(repo_root, ref, rel_root):
+            data = _git_blob(repo_root, ref, name)
+            if data is None:
+                continue
+            dest = os.path.join(tmp, name)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, "wb") as fh:
+                fh.write(data)
+        yield (os.path.join(tmp, rel_root), ref)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def read_note(repo_root, rel, remote="origin", fetch=True):
+    """Read one repo-relative file the way a reader should: a volatile note comes from the notes branch
+    when state.branch is set, everything else from the durable branch. Replaces the markdown commands'
+    `git fetch origin main; git show FETCH_HEAD:<path>`. Returns text, or None when absent."""
+    root = _relay_root_of(repo_root)
+    branch, ref = _state_ref(repo_root, remote, fetch=fetch)
+    if ref and _is_state_path(rel, root):
+        data = _git_blob(repo_root, ref, rel)
+    else:
+        durable = _durable_branch(repo_root)
+        if fetch:
+            _run_git(["fetch", remote, durable], repo_root)
+        data = _git_blob(repo_root, f"{remote}/{durable}", rel)
+    return None if data is None else data.decode("utf-8", "replace")
+
+
+def list_notes(repo_root, prefix, remote="origin", fetch=True):
+    """List repo-relative files under a prefix, from the same place read_note would read them."""
+    root = _relay_root_of(repo_root)
+    branch, ref = _state_ref(repo_root, remote, fetch=fetch)
+    if ref and _is_state_path(prefix.rstrip("/") + "/x", root):
+        src = ref
+    else:
+        durable = _durable_branch(repo_root)
+        if fetch:
+            _run_git(["fetch", remote, durable], repo_root)
+        src = f"{remote}/{durable}"
+    r = _run_git(["ls-tree", "-r", "--name-only", src, "--", prefix], repo_root)
+    return sorted(r.stdout.splitlines()) if r.returncode == 0 else []
+
+
+def _relay_root_of(repo_root):
+    """The <root> directory name (default `relay`), from the remote's config (`root`), as a repo-relative path."""
+    root = _remote_config(repo_root).get("root")
+    return root.strip("/") if isinstance(root, str) and root.strip("/") else "relay"
 
 
 # ---------- 1. emit (worker side): write the harvest result to the WAL ----------
@@ -492,7 +645,7 @@ def _checkpoint_resume_delta(cp: dict, slug: str) -> dict:
     return rd
 
 
-def discover_active(repo_root, relay_root, board_path=None, hints_path=None):
+def discover_active(repo_root, relay_root, board_path=None, hints_path=None, state_ref=None):
     board_path = board_path or os.path.join(relay_root, "board.md")
     hints = _read_json(hints_path) if hints_path else None
     hints = hints or {}
@@ -524,7 +677,9 @@ def discover_active(repo_root, relay_root, board_path=None, hints_path=None):
             # replicated: is this checkpoint on the durable remote branch, i.e. resumable from
             # another device/clone (git-durability, slice 3)? True/False, or None when undeterminable
             # (no checkpoint, or the remote branch isn't fetched here). Reads the local remote ref only.
-            "replicated": (_checkpoint_on_remote(repo_root, relay_root, slug) if cp_present else None),
+            # read FROM the notes branch (state_ref): it is on the remote by construction
+            "replicated": ((True if state_ref else _checkpoint_on_remote(repo_root, relay_root, slug))
+                           if cp_present else None),
             "stage": rd.get("stage"),                  # None on invalid — never a present-null crash
             "disposition": (cp or {}).get("disposition"),
             "session_hint": hints.get(slug),           # optional; never required
@@ -567,14 +722,21 @@ def resume_context(repo_root, relay_root, slug, board_path=None):
 _INSTRUCTION_CANDIDATES = ("CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules")
 
 
-def _resolve_ref(repo_root, worktree_path, rel):
+def _resolve_ref(repo_root, worktree_path, rel, state=None):
     """Where a repo-relative reference is DURABLY readable, or None. Checks the
     worker's worktree first (what it will actually read), then the repo root,
-    then origin/main (durable even if this branch predates the file)."""
+    then origin/main (durable even if this branch predates the file).
+    `state=(ref, rel_root)` (notes branch set): a volatile note resolves ONLY against that ref — the
+    worktree's copy is a frozen leftover and must never be preferred."""
     if not rel:
         return (None, None)
     if os.path.isabs(rel):
         return (rel, "abs") if os.path.exists(rel) else (None, None)
+    if state and _is_state_path(rel, state[1]):
+        ref = state[0]
+        if repo_root and _run_git(["cat-file", "-e", f"{ref}:{rel}"], repo_root).returncode == 0:
+            return (f"{ref}:{rel}", ref)
+        return (None, None)
     for base, src in ((worktree_path, "worktree"), (repo_root, "repo")):
         if base and os.path.exists(os.path.join(base, rel)):
             return (os.path.join(base, rel), src)
@@ -583,25 +745,25 @@ def _resolve_ref(repo_root, worktree_path, rel):
     return (None, None)
 
 
-def _project_instructions(repo_root, worktree_path, relay_root):
+def _project_instructions(repo_root, worktree_path, relay_root, state=None):
     """Resolved project-local instruction/guardrail files a fresh worker must read
     before continuing. Returns only files that actually resolve — never a name that
     doesn't exist, never a provider-specific file we invented."""
     found = []
     for name in _INSTRUCTION_CANDIDATES:
-        path, _ = _resolve_ref(repo_root, worktree_path, name)
+        path, _ = _resolve_ref(repo_root, worktree_path, name, state)
         if path:
             found.append(name)
-    rel_root = os.path.relpath(relay_root, repo_root) if repo_root else "relay"
+    rel_root = state[1] if state else (os.path.relpath(relay_root, repo_root) if repo_root else "relay")
     guardrails = f"{rel_root}/knowledge/guardrails.md"
-    if _resolve_ref(repo_root, worktree_path, guardrails)[0]:
+    if _resolve_ref(repo_root, worktree_path, guardrails, state)[0]:
         found.append(guardrails)
     return found
 
 
 # ---------- worker bootstrap: provider-neutral view over resume_context ----------
 
-def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
+def worker_bootstrap(repo_root, relay_root, slug, board_path=None, state=None):
     """A provider-NEUTRAL bootstrap any coding agent (Claude, Codex, Mistral, …)
     could consume to continue recovered work. Constructed from existing
     authoritative state (resume_context + resolved references) — NOT a new durable
@@ -613,17 +775,18 @@ def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
     rd = ctx.get("resume_delta") or {}
     wt = ctx["worktree_path"]
 
-    brief_abs, brief_src = _resolve_ref(repo_root, wt, ctx.get("brief"))
+    brief_abs, brief_src = _resolve_ref(repo_root, wt, ctx.get("brief"), state)
     brief_ok = brief_abs is not None
     wt_ok = bool(wt) and os.path.isdir(wt)
-    instr = _project_instructions(repo_root, wt, relay_root)
+    instr = _project_instructions(repo_root, wt, relay_root, state)
 
     # Resolved durable reference to the project board (the coordination home).
     # Never duplicates the board Detail — it points a worker at where the item's
     # authoritative row lives, keyed by the work_item slug. Derived in the view.
-    rel_root = os.path.relpath(relay_root, repo_root) if repo_root else "relay"
+    # with a notes branch, relay_root is a throwaway snapshot dir: the real <root> name travels in `state`
+    rel_root = state[1] if state else (os.path.relpath(relay_root, repo_root) if repo_root else "relay")
     board_rel = f"{rel_root}/board.md"
-    board_abs, board_src = _resolve_ref(repo_root, wt, board_rel)
+    board_abs, board_src = _resolve_ref(repo_root, wt, board_rel, state)
     board_ref = board_rel if board_abs else None
     slug = ctx["work_item"]
 
@@ -647,7 +810,7 @@ def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
         steps.append(f"Read the project instructions first: {', '.join(instr)}.")
     if brief_ok:
         steps.append(f"Read the brief ({brief_src}): {ctx.get('brief')}"
-                     + (f" — via `git show {brief_abs}`" if brief_src == "origin/main" else ""))
+                     + (f" — via `git show {brief_abs}`" if brief_src not in ("worktree", "repo", "abs") else ""))
     elif board_ref:
         steps.append(f"No brief file for this item — its plan is the resume_delta below plus its "
                      f"board Detail: open {board_ref} and read the row whose Item cell is `{slug}`.")
@@ -668,7 +831,7 @@ def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
         "checkpoint_ref": ctx["checkpoint_ref"],
         "brief_path": ctx.get("brief") if brief_ok else None,   # never a dangling path
         "brief_status": "resolved" if brief_ok else "absent",
-        "brief_source": brief_src,                              # worktree | repo | origin/main | None
+        "brief_source": brief_src,                              # worktree | repo | origin/<branch> | None
         "brief_fallback": brief_fallback,
         "board_ref": board_ref,                                 # resolved <root>/board.md, or None
         "board_source": board_src,
@@ -683,7 +846,7 @@ def worker_bootstrap(repo_root, relay_root, slug, board_path=None):
     }
 
 
-def validate_bootstrap(repo_root, bs):
+def validate_bootstrap(repo_root, bs, state=None):
     """Enforce the bootstrap invariant: every presented reference either resolves
     to durable readable state, or is explicitly marked absent with a fallback.
     Returns a list of violations (empty == valid)."""
@@ -694,7 +857,7 @@ def validate_bootstrap(repo_root, bs):
     if bs.get("worktree_status") == "absent" and not bs.get("worktree_fallback"):
         v.append("worktree absent without a fallback")
     if bs.get("brief_status") == "resolved":
-        if not _resolve_ref(repo_root, wt, bs.get("brief_path"))[0]:
+        if not _resolve_ref(repo_root, wt, bs.get("brief_path"), state)[0]:
             v.append("brief_path presented but does not resolve")
     elif bs.get("brief_status") == "absent":
         if bs.get("brief_path") is not None:
@@ -702,17 +865,17 @@ def validate_bootstrap(repo_root, bs):
         if not bs.get("brief_fallback"):
             v.append("brief absent without a fallback")
     for name in bs.get("project_instructions", []):
-        if not _resolve_ref(repo_root, wt, name)[0]:
+        if not _resolve_ref(repo_root, wt, name, state)[0]:
             v.append(f"project instruction {name!r} does not resolve")
-    if bs.get("board_ref") and not _resolve_ref(repo_root, wt, bs["board_ref"])[0]:
+    if bs.get("board_ref") and not _resolve_ref(repo_root, wt, bs["board_ref"], state)[0]:
         v.append("board_ref presented but does not resolve")
     if not bs.get("branch"):
         v.append("no branch reference")
     return v
 
 
-def assert_no_dangling(repo_root, bs):
-    issues = validate_bootstrap(repo_root, bs)
+def assert_no_dangling(repo_root, bs, state=None):
+    issues = validate_bootstrap(repo_root, bs, state)
     if issues:
         raise HarvestError("bootstrap invariant violated: " + "; ".join(issues))
     return bs
@@ -875,6 +1038,13 @@ def main(argv=None):
     rs.add_argument("slug")
     bs = sub.add_parser("bootstrap", help="print a provider-neutral worker bootstrap for a work item")
     bs.add_argument("slug")
+    sub.add_parser("state-branch", help="print the configured notes branch (empty when notes live on the durable branch)")
+    sh = sub.add_parser("show", help="print one repo-relative file from where its notes live (notes branch or durable branch)")
+    sh.add_argument("path")
+    sh.add_argument("--no-fetch", action="store_true", help="read the local remote-tracking ref without fetching")
+    ls = sub.add_parser("ls", help="list repo-relative files under a prefix, from where its notes live")
+    ls.add_argument("prefix")
+    ls.add_argument("--no-fetch", action="store_true")
     cp = sub.add_parser("checkpoint", help="local autosave commit in a worktree")
     cp.add_argument("worktree"); cp.add_argument("lap_id")
     args = p.parse_args(argv)
@@ -893,18 +1063,40 @@ def main(argv=None):
                                        repo_root=args.repo, replicate=not args.no_replicate,
                                        write_projection=not args.no_projection),
                          indent=2)); return 0
-    if args.cmd == "discover":
-        print(json.dumps(discover_active(args.repo, relay_root, board_path=board), indent=2)); return 0
-    if args.cmd == "resume":
+    if args.cmd == "state-branch":
+        print(state_branch(args.repo) or ""); return 0
+    if args.cmd == "show":
         try:
-            print(json.dumps(resume_context(args.repo, relay_root, args.slug), indent=2))
+            text = read_note(args.repo, args.path, fetch=not args.no_fetch)
         except HarvestError as e:
             print(str(e), file=sys.stderr); return 2
-        return 0
-    if args.cmd == "bootstrap":
+        if text is None:
+            print(f"{args.path}: not found", file=sys.stderr); return 1
+        sys.stdout.write(text); return 0
+    if args.cmd == "ls":
         try:
-            bs = assert_no_dangling(args.repo, worker_bootstrap(args.repo, relay_root, args.slug))
-            print(json.dumps(bs, indent=2))
+            names = list_notes(args.repo, args.prefix, fetch=not args.no_fetch)
+        except HarvestError as e:
+            print(str(e), file=sys.stderr); return 2
+        print("\n".join(names)); return 0
+    if args.cmd in ("discover", "resume", "bootstrap"):
+        # Read through the notes branch when state.branch is set; otherwise the working tree, as before.
+        try:
+            with state_snapshot(args.repo, relay_root) as (read_root, sref):
+                rel_root = _rel_root(args.repo, relay_root)
+                state = (sref, rel_root) if sref else None
+                read_board = os.path.join(read_root, "board.md")
+                if args.cmd == "discover":
+                    print(json.dumps(discover_active(args.repo, read_root, board_path=read_board,
+                                                     state_ref=sref), indent=2))
+                elif args.cmd == "resume":
+                    print(json.dumps(resume_context(args.repo, read_root, args.slug,
+                                                    board_path=read_board if sref else None), indent=2))
+                else:
+                    bs = assert_no_dangling(args.repo, worker_bootstrap(
+                        args.repo, read_root, args.slug, board_path=read_board if sref else None,
+                        state=state), state)
+                    print(json.dumps(bs, indent=2))
         except HarvestError as e:
             print(str(e), file=sys.stderr); return 2
         return 0
