@@ -7,6 +7,22 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.25.0 — a finished session can hand its PR to a merge queue and leave
+
+With many sessions running, each one waited 10+ minutes on CI after `/ship` and restarted every time
+`main` moved. If your project runs a merge queue, `/ship` can now hand the PR over and end, and the queue
+tests ready PRs together and merges them.
+
+**Added**
+- **`hooks.land` — hand a finished PR to the project's merge queue.** Optional, like `hooks.affects`.
+  Set it to the command that queues a PR, for example `gh pr comment {pr} --body "@mergifyio queue"`
+  (`{pr}` becomes the PR number). With it, `/ship` marks the PR ready, runs the command and ends in
+  minutes instead of waiting for CI and merging itself. The post-merge steps (local setup, release) are
+  skipped because nothing has merged yet, persist still runs, and the handover records the PR as
+  **queued**; the next session checks the PR instead of resuming `/rls`. A failing command stops the lap
+  and never falls back to a direct merge, which would bypass the queue. **No hook, no change.**
+  `/relay:config` offers it only where a repo already runs a merge queue.
+
 ## 1.24.0 — racing main is expected; double-claimed numbers stop before review
 
 Two things that cost you laps when several sessions run at once. A branch could pick the same migration
