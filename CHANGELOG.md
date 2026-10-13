@@ -7,6 +7,12 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.26.1 — reading the notes branch no longer spawns a git process per file
+
+A patch to 1.26.0's `state.branch`. A repo with a thousand handovers and reviews would have spawned a thousand
+`git show` processes every time `/continue` (or any reader) took a snapshot of the notes. The blobs now stream
+through one `git cat-file --batch`. No behaviour change; projects that don't set `state.branch` are unaffected.
+
 ## 1.26.0 — Relay's notes can live on their own branch, so a merge queue is never disturbed
 
 Every `/handover` pushed the board, the handover note and the resume checkpoint straight to `main`. With a merge
