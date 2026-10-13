@@ -211,9 +211,13 @@ add/replace these (idempotent on a re-refine: update, don't duplicate):
   been groomed.
 
 The board is **shared** — edit from the notes' current copy and commit the brief (+ any board-row status
-touch) back surgically with `python3 "$RH" state-commit --message-file "$MSG" --add <root>/briefs/<slug>.md
-[--add <root>/board.md]`, which works from any checkout without switching branches and commits to the notes'
-home (`main`, or `state.branch`). If it does not push, say so — the brief is correct locally and the user can re-run.
+touch) back surgically. Resolve `$RH` (as in `/continue` Step 1; each Bash call is a fresh shell). A brief alone:
+`python3 "$RH" state-commit --message-file "$MSG" --add <root>/briefs/<slug>.md`. If you also touch the board, read it
+at a recorded tip (`python3 "$RH" state tip`, then `show --at <BASE> <root>/board.md` into a scratch file), edit the
+scratch copy, and add `--base <BASE> --put <root>/board.md <scratch>`. It works from any checkout without switching
+branches and commits to the notes' home (`main`, or `state.branch`). Exit `1` = rejected (re-read and re-apply), `2` =
+refused (show the message; never create the branch, never fall back to `main`). If it does not push, say so — the brief
+is correct locally and the user can re-run.
 
 **Boundary:** if the grounding reveals a guardrail *gap* (a rule the project should adopt but hasn't),
 **note it — don't write it here.** Writing guardrails is `/guardrails`' job; harvesting lessons back

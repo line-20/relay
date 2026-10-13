@@ -241,17 +241,29 @@ hand-authored content:
   brief ([[conventions]] → *Persistence*); without it, tidy keeps the brief and defers to `/persist`.
 
 Commit the durable docs — guardrails overlay, design system, **release notes** (`$RELEASE_NOTES`),
-and any **ADRs/procedures/how-tos** written above — plus any `extends` config pointer, back onto `main`;
-main-owned, so edit from main's copy and push surgically (the temp-index pattern `/handover` uses if you're on a
-feature branch). AI memory is written through the harness, not necessarily via this commit.
+and any **ADRs/procedures/how-tos** written above — plus any `extends` config pointer, back onto the
+durable branch (`main`); main-owned, so edit from main's copy and push surgically. From a feature branch use
+a temporary index so you don't switch branches (a `state-commit` call refuses these paths: they are not notes):
+```bash
+DURABLE="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"; DURABLE="${DURABLE:-main}"
+git fetch origin "$DURABLE"
+TMPIDX="$(mktemp -u)"; export GIT_INDEX_FILE="$TMPIDX"
+git read-tree FETCH_HEAD && git add -- <the durable doc paths>
+TREE="$(git write-tree)"; unset GIT_INDEX_FILE; rm -f "$TMPIDX"
+COMMIT="$(git commit-tree "$TREE" -p FETCH_HEAD -m "docs(persist): <what was harvested>")"
+git push origin "$COMMIT:refs/heads/$DURABLE"
+```
+(On `main` itself a normal `git add && git commit && git push` is fine.) AI memory is written through the
+harness, not necessarily via this commit.
 
 **Two homes, in this order (when the project sets `state.branch`).** The durable docs live on `main`; the brief's
 `**Distilled:**` marker is a note and lives on the notes branch. They can no longer land in one commit, so the
 **durable docs land first and the marker only after they are on `main`** (and, if the durable docs go through a
-merge queue, only after that PR has merged). Write the marker with `python3 "$RH" state-commit --message-file
-"$MSG" --add <root>/briefs/<slug>.md`. If the durable write did not land, do **not** write the marker: `/tidy`
-prunes a brief that carries one, and a marker ahead of its docs would lose the knowledge. Without
-`state.branch` both go to `main` as before.
+merge queue, only after that PR has merged). Write the marker with the runtime: read the brief at a recorded tip
+(`python3 "$RH" state tip`, then `show --at <BASE> <root>/briefs/<slug>.md` into a scratch file), add the marker,
+and `python3 "$RH" state-commit --base <BASE> --message-file "$MSG" --put <root>/briefs/<slug>.md <scratch>`. If the
+durable write did not land, do **not** write the marker: `/tidy` prunes a brief that carries one, and a marker ahead
+of its docs would lose the knowledge. Without `state.branch` the marker goes the same way (the notes live on `main`).
 
 ## Step 6.5 — Sweep the memory index for slow drift (size-driven, global)
 Steps 4–6 only sweep memories **this lap** superseded. `MEMORY.md` (the auto-memory index, one line
@@ -266,7 +278,7 @@ measures the post-harvest index and never fights this lap's own removals. It shi
 plugin cache → this repo's own source), and run it through `node` so a lost exec bit can't break it:
 ```bash
 MC="$(command -v relay-memory-check.mjs 2>/dev/null)"
-[ -z "$MC" ] && MC="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay-memory-check.mjs' 2>/dev/null | sort | tail -1)"
+[ -z "$MC" ] && MC="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay-memory-check.mjs' 2>/dev/null | sort -V | tail -1)"
 [ -z "$MC" ] && MC="plugins/relay/bin/relay-memory-check.mjs"   # running from Relay's own checkout
 node "$MC"                                                       # add --dry-run to preview
 ```

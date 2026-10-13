@@ -53,8 +53,10 @@ looks like:
 Record the block on the board so it's not just in this session's head:
 - Refresh the board (`python3 "$RH" show <root>/board.md`; `$RH` as in `/continue` Step 1) and set this item's row to
   **⏸ parked**, `Owner = —`, with a `blocked-on: <#PR | track/slug | branch>` note (in the row or the item's
-  brief). Commit it with `python3 "$RH" state-commit --message-file "$MSG" --add <root>/board.md` — it goes to
-  the notes' home (`main`, or `state.branch`), no branch switch.
+  brief). Read it at a recorded tip (`python3 "$RH" state tip`, then `show --at <BASE> <root>/board.md` into a scratch file),
+  edit the scratch copy, and commit with `python3 "$RH" state-commit --base <BASE> --message-file "$MSG" --put
+  <root>/board.md <scratch>` — it goes to the notes' home (`main`, or `state.branch`), no branch switch; exit `1` =
+  the branch moved: re-read and re-apply.
 - **Keep the worktree and its work exactly as-is** — you're pausing, not handing off. Don't
   release it; you'll resume in place.
 - Write a one-line local marker of where to pick up (the next action you were about to take), so
@@ -79,7 +81,7 @@ When the dependency lands:
    so the just-landed work is present. If that conflicts, **STOP and surface the conflict** — a
    merge conflict is a judgment call, not something to auto-resolve.
 3. Flip this item's board row back to **⚙ in-progress**, `Owner = <this branch>` (reclaiming it),
-   committed with `python3 "$RH" state-commit` (to the notes' home: `main`, or `state.branch`).
+   committed the same way (`state tip` → edit a scratch copy → `state-commit --base … --put`).
 4. **Continue the held work** from the marker in Step 2 — pick up exactly where you paused, now
    that the dependency is satisfied.
 

@@ -71,12 +71,12 @@ notes branch when `relay.config.json` sets `state.branch`. Always read them thro
 which; resolve it once (installed on PATH → plugin cache → this checkout):
 ```bash
 RH="$(command -v relay_harvest.py 2>/dev/null)"
-[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort | tail -1)"
+[ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
 [ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
 ```
 
 1. Refresh the shared board + handovers: `git fetch origin main`, and resolve where the notes live
-   with `python3 "$RH" state-branch` (empty = `main`; a name = the notes branch; `$RH` as below).
+   with `python3 "$RH" state-branch` (empty = `main`; a name = the notes branch; `$RH` as above).
 2. Read the board: `python3 "$RH" show <root>/board.md` — the **Open threads** table is
    the authoritative index of what's in flight.
 3. **Pick the thread:**
@@ -103,7 +103,7 @@ RH="$(command -v relay_harvest.py 2>/dev/null)"
    > (installed on PATH → plugin cache → this checkout), then run `resume`:
    > ```bash
    > RH="$(command -v relay_harvest.py 2>/dev/null)"
-   > [ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort | tail -1)"
+   > [ -z "$RH" ] && RH="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay_harvest.py' 2>/dev/null | sort -V | tail -1)"
    > [ -z "$RH" ] && RH="plugins/relay/bin/relay_harvest.py"   # running from Relay's own checkout
    > python3 "$RH" --repo "$PWD" resume <track/slug>
    > ```
@@ -111,7 +111,7 @@ RH="$(command -v relay_harvest.py 2>/dev/null)"
    > **no previous-worker transcript and no provider session id are needed.** Fall back to the
    > Markdown handover only when no checkpoint file exists yet.
 5. Fallback (no board, or empty): newest handover on main —
-   `python3 "$RH" ls <root>/handover | grep -E 'next-.*\.md$' | sort | tail -1`
+   `python3 "$RH" ls <root>/handover | grep -E 'next-.*\.md$' | sort -V | tail -1`
    — or newest local `ls -t <root>/handover/next-*.md 2>/dev/null | head -1`. If neither
    exists, STOP — nothing to continue.
 6. Remember the item slug, source, and filename you used; report them in Step 4.
