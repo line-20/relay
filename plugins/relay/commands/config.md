@@ -81,7 +81,11 @@ Only if the user opted in above. **Offer only what this repo shows evidence for*
   (`preview`/`local`/`ask`) picks which `/test` defaults to; absent ⇒ auto. **Include `hooks.claims`** if the repo has
   numbered migrations or a hand-bumped API version file *and* people run several sessions at once — it is how `/ship`
   learns that a sibling's open PR already took your next number; the project writes the check, Relay only decides when
-  to ask. Absent ⇒ no check. **Include `hooks.release`**
+  to ask. Absent ⇒ no check. **Include `hooks.land`** only if the repo already runs a merge queue (a `.mergify.yml`, a GitHub
+  merge-queue rule, a queue bot) *and* people run several sessions at once — it is how `/ship` hands a finished PR to that
+  queue instead of waiting on CI and merging itself. The project names the command (for a label-driven queue, e.g.
+  `gh pr edit {pr} --add-label ready-to-land`); never offer it for a repo with no queue. Absent ⇒ `/ship` merges as before.
+  **Include `hooks.release`**
   if the repo shows evidence of one — a release-bot PR/workflow (release-please, changesets,
   semantic-release), a `release` script, or version tags — so `/ship` cuts a release per lap instead of
   leaving the version describing a past that no longer exists. Absent ⇒ `/ship` skips it silently and
