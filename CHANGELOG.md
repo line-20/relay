@@ -7,6 +7,16 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## Unreleased — a reviewer that asks "could this be smaller?"
+
+**Added**
+- **`simplicity-reviewer`, the eleventh review specialist.** `/review` now also asks whether a change
+  duplicates something the repo already has, adds a dependency or abstraction for one caller, or hand-rolls
+  what the platform already does — and names the smaller version. It runs only when the diff adds real source
+  code (not docs- or test-only changes), counts as optional under a small session's review budget, and never
+  rates anything above "should fix", so it cannot block a merge. It never suggests cutting validation, error
+  handling, security or accessibility. Inspired by the open-source Ponytail project; no code is shared.
+
 ## 1.26.1 — reading the notes branch no longer spawns a git process per file
 
 A patch to 1.26.0's `state.branch`. A repo with a thousand handovers and reviews would have spawned a thousand

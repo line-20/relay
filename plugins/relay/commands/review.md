@@ -29,8 +29,8 @@ argument-hint: "[pr-number]   # omit to review the current branch"
 Review PR $ARGUMENTS. If no number was given, review the current branch instead (use that
 everywhere `$PR` appears below).
 
-> **Relay ships ten review specialists** as subagents (backend, frontend, ui-ux, api,
-> dbms, test, security, privacy, i18n, solution-architect). This command decides which to
+> **Relay ships eleven review specialists** as subagents (backend, frontend, ui-ux, api,
+> dbms, test, security, privacy, i18n, solution-architect, simplicity). This command decides which to
 > launch from the diff, runs them in parallel, and merges their findings into one report.
 > A project can **declare its own review agents** in `relay.config.json` (`review.agents`);
 > they flow through the same gate → cap → merge machinery as the built-ins (see Step 1/1.5/2
@@ -99,10 +99,13 @@ content judgments, not size judgments — the question is never "is this diff sm
 - **copy-relevant** — true if the diff touches a locale/i18n file, or adds/changes any
   user-facing string (label, button, heading, placeholder, toast, empty-state, validation
   message). False only if it changes no user-facing text anywhere.
+- **code-adding** — true if the diff adds hand-written source code (not tests, docs, generated
+  files, lockfiles, or fixtures) beyond a trivial one-line tweak. False for docs/config/test-only
+  or deletion-only diffs — there is nothing to make smaller.
 
 **Custom review agents** (`$AGENTS`, if any): evaluate each declared agent's `gate` the same way.
 A `gate` is either the **name of a built-in signal** (`frontend`, `backend`, `privacy-relevant`,
-`architecture-relevant`, `copy-relevant`) — fires when that signal is true — **or** a
+`architecture-relevant`, `copy-relevant`, `code-adding`) — fires when that signal is true — **or** a
 `{ "paths": [glob, …] }` object, which fires when any changed file matches a glob. A gate that
 fires puts its agent in the content-selected set; one that doesn't goes to *Skipped specialists*
 with the reason `content gate did not fire`. No `gate` ⇒ treat as always-fires (unconditional).
@@ -115,7 +118,7 @@ session size decides how many of them actually launch. Never trade away safety f
   (unconditional), `test-engineer` (it's the one that runs the typecheck + suite — losing it loses
   verification), and `dbms-specialist` (migration/data-loss safety). These are outside the cap.
 - **Cappable set — everything else selected:** `frontend-developer`, `backend-developer`,
-  `ui-ux-designer`, `api-architect`, `privacy-specialist`, `i18n-reviewer`, `solution-architect`.
+  `ui-ux-designer`, `api-architect`, `privacy-specialist`, `i18n-reviewer`, `solution-architect`, `simplicity-reviewer`.
   Fill the budget from this set up to the cap, **prioritised by risk to the primary changed area**
   (the domain developer for the side with the most changed files first, then `privacy-specialist`
   if gated on, then the rest by relevance).
@@ -174,8 +177,13 @@ In a single message, launch whichever of these apply **after the Step 1.5 cap** 
    and any vendor-portability commitments the project's `CLAUDE.md`/architecture docs declare
    (e.g. a vendor SDK required to stay behind an adapter). It has no built-in opinion about what
    the boundaries should be — it discovers them from the project. Content gate, not a size gate.
+11. **simplicity-reviewer**, target $PR, full diff — no path scope. Launch if `code-adding` is
+   true. Asks "could this change be smaller?": code that duplicates something the repo already has,
+   a dependency or abstraction added for one caller, speculative options, hand-rolled versions of
+   what the platform already does. Capped at 🟡 — it never blocks a merge — and it never argues for
+   cutting validation, error handling, security, or accessibility. Content gate, not a size gate.
 
-11. **Custom review agents** (`$AGENTS`) whose gate fired and the cap admitted — launch each via
+12. **Custom review agents** (`$AGENTS`) whose gate fired and the cap admitted — launch each via
    its declared subagent type (`agentType: "<name>"`), target $PR, path-scoped per its `scope`
    (`frontend`/`backend`/`full`, default `full`), in the same **contributor mode** (findings only,
    no file write, no verdict). They must return findings in the standard shape (severity-graded,
@@ -186,7 +194,7 @@ In a single message, launch whichever of these apply **after the Step 1.5 cap** 
 pre-filter to safely narrow (a one-line render change can still be an XSS vector).
 
 **Transparency on skips**: whenever a specialist doesn't run — either a content gate didn't fire
-(privacy, i18n, solution-architect) **or** the session-size budget deferred it (Step 1.5) — record why in
+(privacy, i18n, solution-architect, simplicity) **or** the session-size budget deferred it (Step 1.5) — record why in
 the final report's *Skipped specialists* section, e.g. "privacy-specialist skipped: diff touches no
 schema/form/log/third-party-call code" or "ui-ux-designer deferred — session=small budget cap". A skip
 is always auditable, never silent.
