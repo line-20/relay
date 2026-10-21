@@ -105,7 +105,7 @@ config file at all:
 **Defaults when a key is absent:** `root` → `relay`; no `paths` overrides; no `guardrails` (reviewers
 use their built-in defaults); no `hooks` (commands use their built-in discovery); `test.target` → unset
 (auto — preview if the project has one, else local); no `review.agents`
-(just the built-in ten specialists); `review.verify` → `auto` (every 🔴 is
+(just the built-in eleven specialists); `review.verify` → `auto` (every 🔴 is
 refuted before it reaches the report, and only when the review raised one — a clean review launches
 no refuters and costs nothing; `audit` widens it to 🟡, `no-audit` switches it off. A boolean `true`/
 `false` is still read as `always`/`never`, back-compat); `persist` → `cadence:

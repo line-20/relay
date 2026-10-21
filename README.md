@@ -103,7 +103,7 @@ needs them:
 | `/version` | Print the Relay banner + version (confirms which plugin version is loaded). |
 
 **Review agents** (dispatched by `/review`): backend, frontend, ui-ux, api-architect,
-dbms, test-engineer, security, privacy, i18n, solution-architect. All stack-agnostic — they
+dbms, test-engineer, security, privacy, i18n, solution-architect, simplicity. All stack-agnostic — they
 read your project's `CLAUDE.md` and code rather than assuming a framework.
 
 **A build-time agent**, `challenger` — the one that isn't a reviewer. Every agent above reads code
