@@ -7,7 +7,7 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
-## Unreleased — `/review lean <path>`: look for needless code anywhere, not just in a PR
+## 1.28.0 — `/review lean <path>`: look for needless code anywhere, not just in a PR
 
 **Added**
 - **`/relay:review lean src/orders`** audits a folder or file for code that could be smaller — helpers that
