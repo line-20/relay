@@ -7,6 +7,15 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## Unreleased — `/review lean <path>`: look for needless code anywhere, not just in a PR
+
+**Added**
+- **`/relay:review lean src/orders`** audits a folder or file for code that could be smaller — helpers that
+  duplicate ones the repo already has, abstractions with one user, hand-rolled versions of what the platform
+  gives you — and writes the ten biggest wins to `relay/reviews/lean-orders-<date>.md`, biggest first. It runs
+  only the simplicity reviewer, needs no pull request, and never edits your code. (`audit` was already taken
+  in `/review` as the stricter-refutation flag, so this one is `lean`.)
+
 ## 1.27.0 — a reviewer that asks "could this be smaller?"
 
 **Added**
