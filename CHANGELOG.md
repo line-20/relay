@@ -7,7 +7,7 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
-## Unreleased — `/review lean` takes a module name, not just a folder
+## 1.29.0 — `/review lean` takes a module name, not just a folder
 
 **Added**
 - **`/relay:review lean invoicing`** — name the area you care about and Relay finds the code for it across
