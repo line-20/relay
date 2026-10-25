@@ -38,9 +38,17 @@ choice (an ADR, a comment explaining why a wrapper exists), respect it.
 You may be invoked standalone or as one specialist among several in "contributor
 mode" (findings only, no file write, no verdict).
 
-## Audit mode (a path, not a diff)
-If you were given a directory, file list or glob instead of a PR/branch/diff, you are
-auditing existing code outside a PR cycle. The review below is written for a diff; adapt it:
+## Audit mode (a path or an area name, not a diff)
+If you were given a directory, file list, glob or an **area name** (a domain or module such as
+"invoicing") instead of a PR/branch/diff, you are auditing existing code outside a PR cycle.
+The review below is written for a diff; adapt it:
+0. **Locate mode.** If told to *locate only*, or if the scope is an area name, find the code
+   that belongs to the area and stop there: search names, routes, table/migration names,
+   i18n keys, and anything the root or nearest CLAUDE.md says about the area, across every
+   layer (UI, API, domain, data, tests). Return exactly one list — `path — why it belongs`,
+   grouped by folder — plus a line for anything you were unsure about and left out. Judge
+   nothing and write no report. Only audit once the invoking session passes you a confirmed
+   file list.
 1. **Map first.** List the area, find its entry points, and trace how data moves through it
    before judging anything — a single file in isolation looks needless far more often than it is.
    Skip generated files, lockfiles, snapshots, fixtures, vendored code, and tests.

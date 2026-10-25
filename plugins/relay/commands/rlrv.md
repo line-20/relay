@@ -3,7 +3,7 @@
 # Source: commands/review.md · edit that file, then re-run the script.
 name: rlrv
 description: Short name for /relay:review — domain specialists review a PR or the current branch, merged into one report.
-argument-hint: "[pr-number] | lean <path>   # omit to review the current branch"
+argument-hint: "[pr-number] | lean <path or area>   # omit to review the current branch"
 ---
 
 ## Usage
@@ -13,7 +13,7 @@ argument-hint: "[pr-number] | lean <path>   # omit to review the current branch"
 |---|---|
 | `<pr-number>` | Review that PR |
 | `small` · `medium` · `large` | Caps how many specialists run |
-| `lean <path>` | **No PR.** Audit that folder or file for needless code (duplicates, one-caller abstractions, hand-rolled platform features) with `simplicity-reviewer` alone, biggest wins first, max 10; writes `<root>/reviews/lean-<area>-<date>.md`, never edits code |
+| `lean <path or area>` | **No PR.** Audit that folder, file, or a named area ("invoicing" — it finds the code for you and shows the file list first) for needless code (duplicates, one-caller abstractions, hand-rolled platform features) with `simplicity-reviewer` alone, biggest wins first, max 10; writes `<root>/reviews/lean-<area>-<date>.md`, never edits code |
 | `audit` | Widen Step 2.5's refutation from 🔴-only to every 🔴 **and** 🟡 — roughly doubles the review's cost |
 | `no-audit` | Skip Step 2.5 entirely — report findings exactly as the specialists raised them |
 | *(empty)* | Review the current branch |
@@ -30,11 +30,16 @@ argument-hint: "[pr-number] | lean <path>   # omit to review the current branch"
 > **Run by the loop.** `/ship` calls this for you (Phase 3). Invoke it standalone only when
 > you want a review *without* the rest of the ship loop — e.g. a review pass mid-thread.
 
-> **`lean <path>` runs outside the PR cycle.** If `$ARGUMENTS` contains the word `lean` followed by a
-> path, skip every step below: launch `simplicity-reviewer` (`agentType: "simplicity-reviewer"`) once,
-> in its **audit mode**, with that path as the scope — no diffstat, no other specialist, no
-> refutation pass. Relay the report path and the top three findings in plain words, then **STOP**.
-> Missing or non-existent path ⇒ say so and STOP. (`lean` is not `audit`: `audit` is the refutation
+> **`lean <path or area>` runs outside the PR cycle.** If `$ARGUMENTS` contains the word `lean`
+> followed by a word or path, skip every step below. No diffstat, no other specialist, no refutation pass.
+> - **It is an existing path** (folder or file): launch `simplicity-reviewer`
+>   (`agentType: "simplicity-reviewer"`) once in its **audit mode** with that path as the scope.
+> - **It is not a path** — treat it as an **area name** (the user knows the domain, not the folders).
+>   First launch the reviewer in **locate only** mode and show the user the file list it returns as a
+>   table (folder · files · why). **STOP** and ask whether to audit exactly that set, add, or drop
+>   something (skip the question under `solo`). Then launch the audit with the confirmed list.
+>   Nothing found ⇒ say so plainly and STOP; never audit a guess.
+> Relay the report path and the top three findings in plain words, then **STOP**. (`lean` is not `audit`: `audit` is the refutation
 > flag below and still means what it did.)
 
 Review PR $ARGUMENTS. If no number was given, review the current branch instead (use that
