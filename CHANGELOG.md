@@ -7,6 +7,13 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## Unreleased — `/review lean` takes a module name, not just a folder
+
+**Added**
+- **`/relay:review lean invoicing`** — name the area you care about and Relay finds the code for it across
+  screens, API, database and tests, shows you the file list ("14 files in `apps/web/billing`, `api/invoices` …")
+  and waits for your OK or corrections before auditing it. Folders and files still work as before.
+
 ## 1.28.0 — `/review lean <path>`: look for needless code anywhere, not just in a PR
 
 **Added**
