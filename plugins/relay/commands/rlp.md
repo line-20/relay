@@ -227,6 +227,11 @@ hand-authored content:
   release cuts. Newest release on top; within a release, group by **New / Improved / Fixed** if the
   project does. **Idempotent** — re-running `/persist` on the same lap must **update, not double**: if
   this change already has a note, refine it in place rather than adding a second.
+  **Directory mode:** if `$RELEASE_NOTES` names a **directory** (it exists as one, or the configured path ends in
+  `/`), write this lap's note to `$RELEASE_NOTES/pr-<n>.md` instead — one file per PR, so two laps can never
+  conflict on it. A rerun updates that file in place. Keep the same shape inside (the three-line note, optional
+  **New / Improved / Fixed** heading). Relay ships no collector: the project's own release flow reads the
+  fragments, if it wants a single published file. A path that is a file keeps today's single-file behaviour.
 - **ADR (`full` only):** write one file per decision to `$ADR_DIR/<YYYY-MM-DD>-<slug>.md` using the
   **date-slug, no-counter** convention ([[conventions]] → *Persistence*) — no sequential number
   (concurrent worktrees would race over it), referred to by slug. Include a `Status: Accepted` line;
@@ -255,6 +260,21 @@ git push origin "$COMMIT:refs/heads/$DURABLE"
 ```
 (On `main` itself a normal `git add && git commit && git push` is fine.) AI memory is written through the
 harness, not necessarily via this commit.
+
+**In-branch mode (when `/ship` calls you from the `hooks.land` hand-off, step 1b).** The project lands PRs
+through a merge queue, and every commit that reaches `main` outside it makes the queue rebuild its batches. So
+**do not push to `main`**: skip the temp-index block above and commit the same durable doc paths **on the current
+PR branch** with `git add -- <paths> && git commit -m "docs(persist): <what was harvested>" -- <paths>` (the
+trailing `-- <paths>` keeps anything else already staged out of the commit); `/ship` pushes them together with the
+fixes, so code and docs go through one CI run and land in one squash. The release-note file (or directory file)
+rides the PR like the other docs. The **Distilled marker is not stamped** in this mode — the docs have not
+reached `main` yet, and a marker ahead of its docs would let `/tidy` prune lessons that never landed. Write
+`distilled: pending pr-<n>` into the handover instead.
+
+**Who stamps a pending marker.** Once `gh pr view <n> --json state -q .state` is `MERGED`, whichever of
+`/continue` or `/tidy` (which `/handover` runs each lap) sees it first stamps it, with the *Two homes* write
+below. Take `<n>` only if it is digits (`^[0-9]+$`), else skip that line. **Idempotent:** skip a brief that
+already has a `**Distilled:**` line. Never stamp a PR that is open, closed unmerged, or unreadable.
 
 **Two homes, in this order (when the project sets `state.branch`).** The durable docs live on `main`; the brief's
 `**Distilled:**` marker is a note and lives on the notes branch. They can no longer land in one commit, so the

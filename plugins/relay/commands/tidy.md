@@ -40,7 +40,7 @@ nothing's stale it does nothing and says so.
 
 ## The hard invariants (get these right)
 - **Distil before prune.** Never archive/merge a brief whose durable content isn't harvested yet. A
-  brief is *spent* only if it carries a **Distilled marker** (`**Distilled:** …`, stamped by `/persist`)
+  brief is *spent* only if it carries a **Distilled marker** (`**Distilled:** …`, stamped by `/persist`, or by `/continue` / `/tidy` for a lap that went through a merge queue)
   **or** distillation is disabled for this repo (`persist.cadence: never` or `persist.level: none`).
   Otherwise **defer it to `/persist` and report** — don't touch it ([[conventions]] → *Persistence*).
 - **Never touch live work.** A brief/topic is off-limits if its topic is **live** — the board `Owner`
@@ -98,6 +98,9 @@ inventory. From here on every path is **inside the snapshot**: `<dir>/<root>/boa
 
 ## Step 2 — Classify every candidate against the guards
 For each candidate decide **PRUNE / TRIM / MERGE / KEEP**, applying the invariants:
+- **Stamp markers a queued lap left pending**, as `persist.md` Step 6 *In-branch mode* describes, *before*
+  classifying the brief and before Step 4 archives that handover. Add the stamp to Step 5's batch (a `--put`
+  beside the moves) so a retry replays it. Not merged or unknown ⇒ leave it; the brief stays KEEP below.
 - A brief is **KEEP (deferred)** if it lacks a Distilled marker **and** distillation is enabled — note
   "→ run `/persist` first".
 - A brief/row is **KEEP (live)** if its topic is owned by a live worktree, is ⚙/🔍, locked, or still

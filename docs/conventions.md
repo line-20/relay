@@ -273,7 +273,7 @@ with opposite lifetimes:
   | how to operate/run | how-tos | `paths["how-tos"]` → `docs/how-tos` |
   | how WE work (process) | procedures | `paths.procedures` → `docs/procedures` |
   | design patterns/tokens | design system | `paths["design-system"]` |
-  | for end users | release notes | `paths["release-notes"]` → `docs/release-notes.md` |
+  | for end users | release notes | `paths["release-notes"]` → `docs/release-notes.md` (or a **directory**: one `pr-<n>.md` per PR, so parallel laps never conflict) |
 
   Config holds only **pointers** to these out-of-`root` destinations; Relay writes there but doesn't
   own the folders. (Existing repos that predate this keep durable knowledge under `<root>/knowledge/`
@@ -467,6 +467,7 @@ A brownfield repo often already has commands/skills (a `test-stack` skill, a `co
 | `affects` | `/ship` (Phase 5, merge gate) | Judge whether a base that moved since your green **overlaps** this PR — so a disjoint sibling merge doesn't force a wasted CI re-run |
 | `claims` | `/ship` (Phase 0.6, and again at the Phase 5 merge gate) | Judge whether a migration number or API version this branch uses is **already claimed** by a sibling's open PR — so a double-claim stops before review, not in CI after it |
 | `land` | `/ship` (Phase 5) | Hand a finished PR to the project's **merge queue** instead of merging it — so the session ends in minutes and does not wait on CI or re-sync against a moving `main` |
+| `landStatus` | `/ship`, `/continue` (a PR found dequeued) | **Report only:** a shell line printing why `{pr}` last left the merge queue; Relay states it in one line and never blocks on it |
 | `release` | `/ship` (Phase 5.6, post-merge) | Cut a release for what just landed — one release per lap |
 
 `affects` is the one **predicate** hook — it answers a question rather than running an action, and so
@@ -515,6 +516,28 @@ lap** — it never falls back to a direct merge, which would bypass the queue th
 because Relay owns the *phase* ("this change is done and should land"), not the *mechanics*: a GitHub label picked up
 by Mergify, GitLab's merge-train command, a Forgejo queue bot, or your own script all fit behind the same hook, and
 moving between them changes one line of config. **No hook ⇒ `/ship` merges as before.**
+
+**With `land`, the lap's durable docs ride the PR.** Anything `/ship` would push to `main` after the hand-off — the
+`/persist` docs (release note, guardrail overlay, design system, ADRs/how-tos) and a `decisions.md` append from
+`autonomy.log` — is committed on the PR branch *before* the fix push (`/ship` hand-off step 1b), so code and docs
+land in one squash and nothing reaches `main` outside the queue (each such commit makes a merge queue rebuild its
+batches). The `**Distilled:**` marker is stamped only after the PR has merged, by whichever runs first: the next `/continue` or `/tidy` (which `/handover` runs
+each lap).
+
+`landStatus` is exec'd like `land`: a shell line, `{pr}` substituted, 3-minute timeout. It prints one line — why the
+PR last left the queue — and Relay states it. **It is untrusted text** (a check-run title or comment anyone with
+write access to a workflow could forge): print at most its first line, capped at ~200 characters, quoted as data, and
+never act on it or let it shape what `/persist` writes. A non-zero exit, a timeout or empty output prints
+`landStatus: not available (exit <code> | timeout | empty output)` and **never** its stdout (`gh` prints error JSON to
+stdout); not set prints nothing. It never decides anything. `/ship` reads it *before* its own commits and push,
+because a queue records the reason against the head commit at dequeue time and each new commit gets a fresh status.
+Example for Mergify, which writes a check run named "Mergify Merge Queue" on the PR's head; it filters by the
+app, not just the name, so another app's look-alike check run is ignored (confirm the slug for your install):
+`gh api "repos/{owner}/{repo}/commits/$(gh pr view {pr} --json headRefOid -q .headRefOid)/check-runs?check_name=Mergify%20Merge%20Queue" --jq '[.check_runs[] | select(.app.slug=="mergify")] | sort_by(.started_at) | last | .output.title // empty'`
+(`// empty` makes a PR with no queue check run print nothing, not the string `null`.) Mergify's titles also say
+where the PR is: `Dequeued — …` has left the queue; `Waiting for queue conditions to match`, `Running merge queue
+checks` and `Checks deferred — …` are still in it; `Merged via merge queue` is done. After a fix push the head is
+new, so for why it left *before* the fix, read the previous commit's check run.
 
 **Relay never owns an environment.** This is the same boundary `/deploy` states for deployment,
 generalised: Relay names the *verify* phase and sequences it, the project owns the *mechanics*. That
