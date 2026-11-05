@@ -14,7 +14,7 @@ argument-hint: "['no-verify' — skip the Phase 2.5 verify gate and go straight 
 | `no-sync` | Skip the Phase 0.5 base-sync and ship the branch against its fork point (Phase 0.6 still runs) |
 | *(empty)* | The full lap — sync → test → gate → review → fix → merge → handover |
 
-**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `persist.cadence`, `tidy.level`, `hooks.test`, `hooks.release`, `hooks.env.down`, `hooks.affects`, `hooks.claims`, `hooks.land`.
+**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `persist.cadence`, `tidy.level`, `hooks.test`, `hooks.release`, `hooks.env.down`, `hooks.affects`, `hooks.claims`, `hooks.land`, `hooks.landStatus`.
 
 > **`?` prints this and stops.** If `$ARGUMENTS` is exactly `?`, `help`, `--help` or `-h`, print the
 > signature line, the argument table and the words/config line above — verbatim, nothing else, not
@@ -282,9 +282,22 @@ minutes after you leave.
    failed** (checks still running are fine — the queue waits for them); and, with `hooks.claims`, the claims
    check is `clear`. Any of these failing is a **STOP**, as in a merge. The base-moved question and
    `hooks.affects` do **not** apply: re-testing against a moving base is exactly what the queue does.
-2. Push the fix commits: `git push`. Record `PUSHED=$(git rev-parse HEAD)`.
+1b. **Persist onto the branch, before the push.** Run Phase 5.7's gate and `persist.cadence` *now*, in
+   **in-branch mode** (`/persist` Step 6): the durable docs it writes (release note, guardrail overlay, design
+   system, house rules, ADRs/how-tos) are committed **on this PR branch**, not pushed to `main`. Any
+   `autonomy.log` append to `<root>/decisions.md` that targets the durable branch is committed here too
+   (`/continue` and `/next` stage it the same way). Why: every commit that reaches `main` outside the queue makes
+   the queue rebuild its batches, and a docs-only push *after* the code push is a new head that re-runs the PR's
+   full CI. One push, one CI run, one squash. A persist write that breaks the PR's own CI blocks the PR —
+   intended, it is the same commit. The `**Distilled:**` marker is **not** stamped now: it waits for the merge
+   (`/persist` Step 6); the handover records `distilled: pending pr-<n>`.
+2. Push the fix commits and the step 1b docs commit: `git push`. Record `PUSHED=$(git rev-parse HEAD)`.
 3. Mark the PR ready if it is still a draft: `gh pr ready <n>`. The project's queue typically refuses
    drafts, and `/test` opens PRs as drafts.
+3b. **Re-queue? Say why it left first.** If this PR has been in the queue before and `hooks.landStatus` is set,
+   run it (shell line, `{pr}` substituted, 3-minute timeout) and state the reason in one line before step 4 —
+   e.g. `last left the queue: Dequeued — conflict with base branch`. **Report only**: it never stops or changes
+   step 4. Not set, empty or an error: say nothing, or `landStatus: not available (<reason>)`.
 4. **Run `hooks.land`.** Like `affects` and `claims` it is a **shell command line, exec'd deterministically**
    — not an LLM skill. Replace `{pr}` in the value with the PR number (append the number as the last argument
    if there is no `{pr}`), run it in the repo, and read the **exit status**: `0` = handed off. Example value for
@@ -294,11 +307,11 @@ minutes after you leave.
 5. Say it in one line: `queued PR #<n> — the project's merge queue lands it; this session did not merge.`
 6. **Skip Phase 5.5 and 5.6**: nothing has merged yet. Say once what they would have covered — if the PR
    touches migrations or dependencies, the next session should run the project's local setup after it lands;
-   the release comes from the project's own release flow, not from this lap. Phase 5.7 (persist) runs as
-   configured, **before** the handover.
+   the release comes from the project's own release flow, not from this lap. Phase 5.7 (persist) already
+   ran in step 1b; do not run it again after `hooks.land`.
 7. Go to Phase 6 as `/handover parked` (the same caller-declared flag a Phase 5 give-up uses: an open PR is
    expected, so skip the warning and the wait). In the handover, record the PR number and that it is **queued
-   for landing**, not parked on a problem — the next session checks `gh pr view <n>` (merged, still queued, or
+   for landing**, not parked on a problem, plus a `distilled: pending pr-<n>` line for each brief step 1b harvested — the next session checks `gh pr view <n>` (merged, still queued, or
    dequeued with a comment) instead of resuming `/rls`.
 
 ## Phase 5.5 — Run any post-merge project setup (only if the merge shipped schema/dep changes)
@@ -333,6 +346,8 @@ RELEASE="$(jq -r '.hooks.release // empty' relay.config.json 2>/dev/null)"
 Docs-only laps and laps that shipped nothing user-visible don't need a release — say so and skip.
 
 ## Phase 5.7 — Persist what the lap taught (policy-driven, non-fatal)
+*With `hooks.land` this phase runs earlier, as step 1b of the queue hand-off, in in-branch mode: skip it here.*
+
 The merge is in; before handing over, this is the moment to compound. **First decide whether the lap
 taught something durable** — a review finding that should become a guardrail rule, a design pattern
 worth stewarding, a non-obvious decision, **or a user-visible change worth a release note**. If it
