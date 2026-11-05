@@ -7,6 +7,25 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.30.0 — With a merge queue, `/ship` stops pushing docs behind the queue's back
+
+If your project lands PRs through a merge queue (`hooks.land`), `/ship` used to push release notes, house rules
+and decision-log lines straight to `main` after handing the PR over. Each of those pushes made the queue throw away
+a batch that had already passed. Now they ride the PR.
+
+**Changed**
+- **The lap's docs travel with the PR.** With `hooks.land` set, `/ship` saves what `/persist` wrote (release note,
+  house rules, design notes, ADRs) and any `decisions.md` line as a commit on the PR branch, before the final push.
+  One push, one CI run, nothing lands on `main` outside the queue. Without `hooks.land`, nothing changes.
+- **"Lap distilled" is stamped after the merge, not before.** Until the PR has actually merged, the handover says
+  `distilled: pending pr-<n>`; `/continue` or `/tidy` stamps it once it has. A PR that never lands keeps its brief.
+
+**Added**
+- **One release-note file per PR.** Point `paths["release-notes"]` at a folder and `/persist` writes
+  `pr-<n>.md` there, so two sessions can never collide on the same file. A single file still works.
+- **`hooks.landStatus`** — optional. A shell line that prints why a PR last left the queue. `/ship` and
+  `/continue` show it as one line; they never stop on it. The docs include a Mergify example.
+
 ## 1.29.0 — `/review lean` takes a module name, not just a folder
 
 **Added**
