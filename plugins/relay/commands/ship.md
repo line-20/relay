@@ -282,6 +282,12 @@ minutes after you leave.
    failed** (checks still running are fine — the queue waits for them); and, with `hooks.claims`, the claims
    check is `clear`. Any of these failing is a **STOP**, as in a merge. The base-moved question and
    `hooks.affects` do **not** apply: re-testing against a moving base is exactly what the queue does.
+1a. **Re-queue? Say why it left first — before any new commit.** If this PR has been in the queue before and
+   `hooks.landStatus` is set, run it (shell line, `{pr}` substituted, 3-minute timeout) and state the reason in one
+   line, e.g. `last left the queue: Dequeued — conflict with base branch`. It must run **before step 1b and the
+   push**: a queue records the reason against the head commit at dequeue time, and every new commit gets a fresh
+   status. **Report only**: it never stops or changes the steps below. A non-zero exit, empty output or not set:
+   say nothing, or `landStatus: not available (<reason>)`, and never print its stdout in that case.
 1b. **Persist onto the branch, before the push.** Run Phase 5.7's gate and `persist.cadence` *now*, in
    **in-branch mode** (`/persist` Step 6): the durable docs it writes (release note, guardrail overlay, design
    system, house rules, ADRs/how-tos) are committed **on this PR branch**, not pushed to `main`. Any
@@ -294,10 +300,6 @@ minutes after you leave.
 2. Push the fix commits and the step 1b docs commit: `git push`. Record `PUSHED=$(git rev-parse HEAD)`.
 3. Mark the PR ready if it is still a draft: `gh pr ready <n>`. The project's queue typically refuses
    drafts, and `/test` opens PRs as drafts.
-3b. **Re-queue? Say why it left first.** If this PR has been in the queue before and `hooks.landStatus` is set,
-   run it (shell line, `{pr}` substituted, 3-minute timeout) and state the reason in one line before step 4 —
-   e.g. `last left the queue: Dequeued — conflict with base branch`. **Report only**: it never stops or changes
-   step 4. Not set, empty or an error: say nothing, or `landStatus: not available (<reason>)`.
 4. **Run `hooks.land`.** Like `affects` and `claims` it is a **shell command line, exec'd deterministically**
    — not an LLM skill. Replace `{pr}` in the value with the PR number (append the number as the last argument
    if there is no `{pr}`), run it in the repo, and read the **exit status**: `0` = handed off. Example value for

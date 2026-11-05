@@ -521,13 +521,20 @@ moving between them changes one line of config. **No hook ⇒ `/ship` merges as 
 `/persist` docs (release note, guardrail overlay, design system, ADRs/how-tos) and a `decisions.md` append from
 `autonomy.log` — is committed on the PR branch *before* the fix push (`/ship` hand-off step 1b), so code and docs
 land in one squash and nothing reaches `main` outside the queue (each such commit makes a merge queue rebuild its
-batches). The `**Distilled:**` marker is stamped only after the PR has merged, by the next `/continue`.
+batches). The `**Distilled:**` marker is stamped only after the PR has merged, by whichever runs first: the next `/continue` or `/tidy` (which `/handover` runs
+each lap).
 
 `landStatus` is exec'd like `land`: a shell line, `{pr}` substituted, 3-minute timeout. It prints one line — why the
-PR last left the queue — and Relay states it. Empty output or an error is `landStatus: not available (<reason>)`;
-it never decides anything. Example for Mergify (reads its check run on the PR's head commit; after a fix push the
-head is new, so read the previous commit's check run for the reason it left before the fix):
-`gh api "repos/{owner}/{repo}/commits/$(gh pr view {pr} --json headRefOid -q .headRefOid)/check-runs?check_name=Mergify%20Merge%20Queue" --jq '.check_runs[0].output.title'`
+PR last left the queue — and Relay states it. **Non-zero exit, or empty output, is
+`landStatus: not available (<reason>)`, and its stdout is never echoed in that case** (`gh` prints error JSON to
+stdout). It never decides anything. `/ship` reads it *before* its own commits and push, because a queue records
+the reason against the head commit at dequeue time and each new commit gets a fresh status. Example for Mergify,
+which writes a check run named "Mergify Merge Queue" on the PR's head:
+`gh api "repos/{owner}/{repo}/commits/$(gh pr view {pr} --json headRefOid -q .headRefOid)/check-runs?check_name=Mergify%20Merge%20Queue" --jq '.check_runs[0].output.title // empty'`
+(`// empty` makes a PR with no queue check run print nothing, not the string `null`.) Mergify's titles also say
+where the PR is: `Dequeued — …` has left the queue; `Waiting for queue conditions to match`, `Running merge queue
+checks` and `Checks deferred — …` are still in it; `Merged via merge queue` is done. After a fix push the head is
+new, so for why it left *before* the fix, read the previous commit's check run.
 
 **Relay never owns an environment.** This is the same boundary `/deploy` states for deployment,
 generalised: Relay names the *verify* phase and sequences it, the project owns the *mechanics*. That

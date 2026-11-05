@@ -98,6 +98,10 @@ inventory. From here on every path is **inside the snapshot**: `<dir>/<root>/boa
 
 ## Step 2 — Classify every candidate against the guards
 For each candidate decide **PRUNE / TRIM / MERGE / KEEP**, applying the invariants:
+- **Stamp markers a queued lap left pending.** A handover line `distilled: pending pr-<n>` names a brief whose
+  docs rode PR `<n>` through a merge queue. If `gh pr view <n> --json state -q .state` is `MERGED`, stamp
+  `**Distilled:** <date> · pr-<n>` on that brief (as `/persist` does) *before* classifying it, and do this **before**
+  Step 4 archives that handover. Not merged or unknown ⇒ leave it; the brief stays KEEP below.
 - A brief is **KEEP (deferred)** if it lacks a Distilled marker **and** distillation is enabled — note
   "→ run `/persist` first".
 - A brief/row is **KEEP (live)** if its topic is owned by a live worktree, is ⚙/🔍, locked, or still

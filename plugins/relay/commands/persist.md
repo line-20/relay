@@ -241,7 +241,8 @@ hand-authored content:
   `**Distilled:** <date> · pr-<n>` under the brief's status — or `**Distilled:** <date> · nothing-durable`
   when the lap taught nothing durable. This is the contract `/tidy` reads before it may prune a spent
   brief ([[conventions]] → *Persistence*); without it, tidy keeps the brief and defers to `/persist`.
-  (Not in in-branch mode — see below: the marker waits for the merge.)
+  (In in-branch mode, below, the note file is committed on the PR branch like the other docs; only the marker
+  waits for the merge.)
 
 Commit the durable docs — guardrails overlay, design system, **release notes** (`$RELEASE_NOTES`),
 and any **ADRs/procedures/how-tos** written above — plus any `extends` config pointer, back onto the
@@ -266,7 +267,8 @@ PR branch** with a plain `git add -- <paths> && git commit -m "docs(persist): <w
 pushes them together with the fixes, so code and docs go through one CI run and land in one squash. The
 **Distilled marker is not stamped** in this mode — the docs have not reached `main` yet, and a marker ahead of
 its docs would let `/tidy` prune lessons that never landed. Write `distilled: pending pr-<n>` into the handover
-instead; the session that finds the PR merged (`/continue`) stamps it then, the way *Two homes* describes.
+instead; whichever runs first once the PR is merged — `/continue` or `/tidy` (which `/handover` runs each lap) —
+stamps it then, the way *Two homes* describes.
 
 **Two homes, in this order (when the project sets `state.branch`).** The durable docs live on `main`; the brief's
 `**Distilled:**` marker is a note and lives on the notes branch. They can no longer land in one commit, so the
