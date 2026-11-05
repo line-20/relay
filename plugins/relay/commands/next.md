@@ -332,7 +332,7 @@ The item has no handover yet — work from its **brief / roadmap detail**.
    your own recommendation, then acts on its ruling; `solo` decides alone. Under `challenge`/`solo`,
    append one line per call to `autonomy.log` (default `<root>/decisions.md`) and respect
    `autonomy.budget`. **If the log lives on the durable branch and the project sets `hooks.land`, write the
-   line into the working tree and commit it on this lap's branch so it rides the PR — never push it to `main` on
+   line into the working tree and commit it (only `<root>/decisions.md`) on this lap's branch so it rides the PR — never push it to `main` on
    its own** (a lone commit on `main` makes the merge queue rebuild its batches). Notes branch or no `hooks.land`:
    as before. `autonomy.budget` still applies — needing more challenges than that means the slice is too big, so say so and
    re-slice. Whatever the level, `autonomy.escalate` categories still come back to the user, and no

@@ -241,8 +241,6 @@ hand-authored content:
   `**Distilled:** <date> · pr-<n>` under the brief's status — or `**Distilled:** <date> · nothing-durable`
   when the lap taught nothing durable. This is the contract `/tidy` reads before it may prune a spent
   brief ([[conventions]] → *Persistence*); without it, tidy keeps the brief and defers to `/persist`.
-  (In in-branch mode, below, the note file is committed on the PR branch like the other docs; only the marker
-  waits for the merge.)
 
 Commit the durable docs — guardrails overlay, design system, **release notes** (`$RELEASE_NOTES`),
 and any **ADRs/procedures/how-tos** written above — plus any `extends` config pointer, back onto the
@@ -263,12 +261,17 @@ harness, not necessarily via this commit.
 **In-branch mode (when `/ship` calls you from the `hooks.land` hand-off, step 1b).** The project lands PRs
 through a merge queue, and every commit that reaches `main` outside it makes the queue rebuild its batches. So
 **do not push to `main`**: skip the temp-index block above and commit the same durable doc paths **on the current
-PR branch** with a plain `git add -- <paths> && git commit -m "docs(persist): <what was harvested>"`; `/ship`
-pushes them together with the fixes, so code and docs go through one CI run and land in one squash. The
-**Distilled marker is not stamped** in this mode — the docs have not reached `main` yet, and a marker ahead of
-its docs would let `/tidy` prune lessons that never landed. Write `distilled: pending pr-<n>` into the handover
-instead; whichever runs first once the PR is merged — `/continue` or `/tidy` (which `/handover` runs each lap) —
-stamps it then, the way *Two homes* describes.
+PR branch** with `git add -- <paths> && git commit -m "docs(persist): <what was harvested>" -- <paths>` (the
+trailing `-- <paths>` keeps anything else already staged out of the commit); `/ship` pushes them together with the
+fixes, so code and docs go through one CI run and land in one squash. The release-note file (or directory file)
+rides the PR like the other docs. The **Distilled marker is not stamped** in this mode — the docs have not
+reached `main` yet, and a marker ahead of its docs would let `/tidy` prune lessons that never landed. Write
+`distilled: pending pr-<n>` into the handover instead.
+
+**Who stamps a pending marker.** Once `gh pr view <n> --json state -q .state` is `MERGED`, whichever of
+`/continue` or `/tidy` (which `/handover` runs each lap) sees it first stamps it, with the *Two homes* write
+below. Take `<n>` only if it is digits (`^[0-9]+$`), else skip that line. **Idempotent:** skip a brief that
+already has a `**Distilled:**` line. Never stamp a PR that is open, closed unmerged, or unreadable.
 
 **Two homes, in this order (when the project sets `state.branch`).** The durable docs live on `main`; the brief's
 `**Distilled:**` marker is a note and lives on the notes branch. They can no longer land in one commit, so the
