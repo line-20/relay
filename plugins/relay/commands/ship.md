@@ -205,6 +205,43 @@ Work the report the way `/fix` does:
 - Commit the fixes (they'll be pushed in Phase 5 — the merge needs them on the remote).
 - **If any needs-judgment items or reverted fixes remain, STOP** and surface them; those are the user's call before the loop can close.
 
+## The checks gate (used by Phase 5 and the queue hand-off)
+What the PR's CI says about its **current head commit**, read by a bundled script — never by eye, never
+from `gh pr checks` alone. Why: on castles-erp PR #2397 a required check had been red on the head for 12
+minutes and `/ship` queued it anyway; the queue dequeued it two minutes later. A rule the model is asked to
+remember gets skipped, so like `hooks.affects` this is a **deterministic predicate**: read the verdict from
+stdout + exit status.
+```bash
+CG="$(command -v relay-checks-gate.mjs 2>/dev/null)"
+[ -z "$CG" ] && CG="$(find "$HOME/.claude/plugins/cache" -path '*/relay/*/bin/relay-checks-gate.mjs' 2>/dev/null | sort -V | tail -1)"
+[ -z "$CG" ] && CG="plugins/relay/bin/relay-checks-gate.mjs"   # running from Relay's own checkout
+node "$CG" <n> [--wait-appear <seconds>]
+```
+It reads the head SHA from the PR and only counts check-runs, statuses and workflow runs **on that commit**
+— a green run on an older commit never counts (plain `gh pr checks` lists the previous commit's results for a
+while after a push). A workflow run still in progress reads `pending` even when its first, fast job has
+passed (the trap where `gh pr checks --watch` exits while only a scope job exists). The merge queue's own
+check (Mergify) and skipped/neutral checks are ignored.
+
+| Verdict (exit) | Means | `/ship` does |
+|---|---|---|
+| `green` (0) | everything on the head commit finished and passed | carry on |
+| `pending` (10) | something on the head commit hasn't finished (or registered) yet | merge path: wait; queue path: carry on — the queue waits |
+| `red` (20) | a check on the head commit failed — one `red: <check> — <first failure line>` per check | **refuse**, see below |
+| `none` (30) | no checks at all for the head commit | **blocked, never green** — the line says why (draft, or a conflict with the base, which starts no CI run) |
+| anything else | `gh` failed, bad output | **blocked** (fail closed); say so |
+
+**On `red`: do not merge or queue.** Print the script's `red:` lines as they are — check name and its first
+failure line, e.g. `red: Repo guards — AssertionError [ERR_ASSERTION]: A mod-97-valid IBAN off the BE539
+documentation prefix …` — then treat each as a confirmed 🔴 finding and go to the fix step: fix it in place the
+way Phase 4 does when it is mechanical (a lint/format slip, a test fixture, an off-list example value), commit,
+re-run Phase 1, push, and take the gate again on the new head. When it is not mechanical, or the cause isn't
+in this PR's diff, **STOP** with the `red:` lines and suggest `/relay:fix`.
+
+**This is a safety gate:** no autonomy level (`ask`, `challenge`, `solo`) skips or softens it, and no
+judgment that "it's flaky" or "it's unrelated" turns `red` into a pass — re-running a flaky check is the
+person's call, and the gate is re-read afterwards like any other.
+
 ## Phase 5 — Merge (clean green path only)
 ```bash
 LAND="$(jq -r '.hooks.land // empty' relay.config.json 2>/dev/null)"
@@ -215,7 +252,7 @@ Merge only if ALL of these hold. If any fails, **STOP** and report which one:
 - Review verdict is approve, OR every 🔴 blocker is resolved (no unchecked 🔴 left in the report).
 - No needs-judgment items or reverted fixes outstanding from Phase 4.
 - The PR is mergeable: `gh pr view --json mergeable,mergeStateStatus` → mergeable, no conflicts.
-- Required checks are already green: `gh pr checks <n>` → all pass. **If checks are still running or failing, STOP** (don't merge into the unknown) — except checks running after *your own* re-sync push, which are a wait (see *Racing `main` is expected*, below).
+- Required checks are already green: *The checks gate* above says `green`. `red` or `none` ⇒ act on it as that section says. `pending` ⇒ **STOP** (don't merge into the unknown) — except checks running after *your own* re-sync push, which are a wait (see *Racing `main` is expected*, below).
 - **The green still holds against the CURRENT base.** Phase 0.5 already absorbed the drift that
   existed *before* this lap, so what this catches is the residual — whatever siblings merged *during*
   the loop. `OLD=$(git rev-parse origin/<base>); git fetch origin; git rev-list --count HEAD..origin/<base>` — if it's `0` the base hasn't moved and the green stands. If it's not `0`, a sibling session merged first, so the green *might* no longer describe the merged result. **Whether it still does is a question of overlap** — did what landed touch anything this PR's build and tests depend on? — and only the project knows its own dependency graph, so Relay asks the project rather than guessing:
@@ -240,7 +277,7 @@ is always "keep going". Instead:
 - **Re-sync, push, and wait for the checks to finish**, then re-test the gate above. Repeat. After every push — and after any `git pull --ff-only` that follows a server-side `gh pr update-branch` — record it: `PUSHED=$(git rev-parse HEAD)`, so a base-merge commit you triggered counts as yours. Running checks are a wait **only while the PR head is
   still yours**: `gh pr view <n> --json headRefOid -q .headRefOid` equals `$PUSHED`. If it differs,
   someone else pushed commits the review never saw — that is *review state no longer holds*, so ask.
-  - **Wait properly:** `gh pr checks <n> --watch` (or poll every 60 s), at most **20 minutes per cycle**;
+  - **Wait properly:** re-run *The checks gate* every 60 s until it is no longer `pending` (not `gh pr checks --watch`, which exits early while only a fast scope job exists), at most **20 minutes per cycle**;
     a check stuck longer than that is not a race — report it and apply the budget rule below.
   - **Green counts only for the pushed commit.** Right after a push, `gh pr checks` can still show the
     previous commit's results, or none. No results yet, or results not yet for `$PUSHED`, is *still
@@ -278,9 +315,10 @@ rejection and STOP if so.
 The session's job ends at "ready, and handed over". The merge happens later, in the queue, usually a few
 minutes after you leave.
 1. **Same gate as a merge, minus what the queue owns.** Review verdict approve or every 🔴 resolved; no
-   needs-judgment items or reverted fixes outstanding; the PR is mergeable (no conflicts); **no check has
-   failed** (checks still running are fine — the queue waits for them); and, with `hooks.claims`, the claims
-   check is `clear`. Any of these failing is a **STOP**, as in a merge. The base-moved question and
+   needs-judgment items or reverted fixes outstanding; the PR is mergeable (no conflicts); *The checks gate*
+   on the reviewed head is **not `red`** (`pending` is fine — the queue waits for checks; `none` is fine *here*
+   only while the PR is still a draft, because CI may not start until step 3; it is re-read in step 3a); and,
+   with `hooks.claims`, the claims check is `clear`. Any of these failing is a **STOP**, as in a merge. The base-moved question and
    `hooks.affects` do **not** apply: re-testing against a moving base is exactly what the queue does.
 1a. **Re-queue? Say why it left first — before any new commit.** If `hooks.landStatus` is set, run it as
    [[conventions]] → Hooks describes and state the reason in one line, e.g.
@@ -298,6 +336,11 @@ minutes after you leave.
 2. Push the fix commits and the step 1b docs commit: `git push`. Record `PUSHED=$(git rev-parse HEAD)`.
 3. Mark the PR ready if it is still a draft: `gh pr ready <n>`. The project's queue typically refuses
    drafts, and `/test` opens PRs as drafts.
+3a. **Take *The checks gate* again, on the commit being queued:** `node "$CG" <n> --wait-appear 300` (checks
+   take a moment to register after the push and `gh pr ready`). `pending` or `green` ⇒ step 4. `red` ⇒ refuse
+   and fix as that section says. `none` after the wait ⇒ **STOP, do not queue**, and print the script's line
+   (a PR that conflicts with its base starts no CI: merge the base in, push, and run `/ship` again). There is
+   no path from here to `hooks.land` that skips this step.
 4. **Run `hooks.land`.** Like `affects` and `claims` it is a **shell command line, exec'd deterministically**
    — not an LLM skill. Replace `{pr}` in the value with the PR number (append the number as the last argument
    if there is no `{pr}`), run it in the repo, and read the **exit status**: `0` = handed off. Example value for

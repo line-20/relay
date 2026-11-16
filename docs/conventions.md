@@ -520,6 +520,11 @@ because Relay owns the *phase* ("this change is done and should land"), not the 
 by Mergify, GitLab's merge-train command, a Forgejo queue bot, or your own script all fit behind the same hook, and
 moving between them changes one line of config. **No hook ⇒ `/ship` merges as before.**
 
+**`land` never runs on a red check.** Before the hook, `/ship` reads the PR's checks for its *current head commit*
+with the bundled `relay-checks-gate.mjs` (a deterministic verdict, like `affects`): a failed check refuses the hand-off
+and names the check and its first failure line; no checks at all (a draft, or a PR that conflicts with its base) is
+blocked, not green; checks still running are fine — the queue waits for them. No autonomy level skips this.
+
 **With `land`, the lap's durable docs ride the PR.** Anything `/ship` would push to `main` after the hand-off — the
 `/persist` docs (release note, guardrail overlay, design system, ADRs/how-tos) and a `decisions.md` append from
 `autonomy.log` — is committed on the PR branch *before* the fix push (`/ship` hand-off step 1b), so code and docs
