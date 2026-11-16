@@ -1,0 +1,24 @@
+{
+  "harvest_version": 1,
+  "work_item": "ship/refuses-red-checks",
+  "applied_from_lap": "2026-11-16-1259",
+  "applied_at": "2026-11-16T11:59:30Z",
+  "disposition": "merged",
+  "references": {
+    "head_sha": "b177a8efa7aa61a99ac126a2446f96ab7a36a017"
+  },
+  "resume_delta": {
+    "next_slice": "Field-test Relay 1.32.0's /ship red-check gate on a real castles-erp lap; fix only if it misbehaves",
+    "in_flight": "clean",
+    "scope_edges": [
+      "Do not change castles-erp",
+      "Change the gate's verdict rules only if the field test shows a real problem"
+    ],
+    "open_questions": [
+      "Restrict the relative plugins/relay/bin fallback (checks gate and memory check) to Relay's own checkout?",
+      "Add a project opt-out (e.g. hooks.checks) if non-required checks start blocking laps?"
+    ],
+    "stage": "1.32.0 shipped \u2014 field test pending"
+  },
+  "checkpoint_ref": "b177a8efa7aa61a99ac126a2446f96ab7a36a017"
+}
