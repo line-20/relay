@@ -76,5 +76,6 @@ between them so the review fan-out is spent on something that's actually been ex
 | `plain` · `informed` · `expert` | How much depth surfaces in the terminal (never thins a written artifact) |
 | `ask` · `challenge` · `solo` | Who decides at a decision that outlives the lap |
 | `preview` · `local` | (`/test`) which environment to verify against — else `test.target`, else auto |
+| `drive` · `no-drive` | (`/test`) drive the plan in the browser, or don't — else `test.drive`, else ask |
 
 **More** → **github.com/line-20/relay** · [quickstart](https://github.com/line-20/relay/blob/main/docs/quickstart.md) · [the board model](https://github.com/line-20/relay/blob/main/docs/the-board-model.md) · [a day in the loop](https://github.com/line-20/relay/blob/main/docs/a-day-in-the-loop.md) · [conventions](https://github.com/line-20/relay/blob/main/docs/conventions.md) · [CHANGELOG](https://github.com/line-20/relay/blob/main/CHANGELOG.md)

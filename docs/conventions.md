@@ -21,7 +21,7 @@ different files because they have different owners and lifetimes.
 | | `relay.config.json` (committed) | `relay.config.local.json` (gitignored) |
 |---|---|---|
 | Owns | project truth — shared by everyone | the driver's here-and-now preferences |
-| Holds | `root`, `paths`, `guardrails`, `hooks`, `test`, `review`, `persist`, `tidy`, `maturity`, `autonomy.escalate`/`.log` | `session`, `verbosity`, `audience`, `autonomy.decide`/`.budget` |
+| Holds | `root`, `paths`, `guardrails`, `hooks`, `test`, `review`, `persist`, `tidy`, `maturity`, `autonomy.escalate`/`.log` | `session`, `verbosity`, `audience`, `autonomy.decide`/`.budget`, and optionally `test.drive` (overrides the project's) |
 | Lifetime | stable; changes rarely | switch-often; personal, per-machine |
 | Committed? | yes | **no** (`/init` adds it to `.gitignore`) |
 
@@ -64,8 +64,11 @@ config file at all:
                                                       //   deferred-payoff work (hardening/security/
                                                       //   privacy/scale) sinks below feature work at
                                                       //   mvp, rises at scale. Absent ⇒ no lens.
-  "test": { "target": "preview" },                    // /test, /config — preview | local | ask
+  "test": { "target": "preview",                      // /test, /config — preview | local | ask
                                                       //   absent ⇒ auto (preview if the project has one)
+            "drive": "ask" },                         //   /test Step 6 — ask | always | never; absent ⇒ ask.
+                                                      //   relay.config.local.json may override it.
+                                                      //   Per-call `drive`/`no-drive`/`plan-only` win.
   "hooks": {                                          // /adopt, /test, /deploy — dispatch project automation
     "test": "test-stack",                             //   run the suite (+ its fixture stack)
     "commit": "commit",                               //   how this project commits
@@ -104,7 +107,7 @@ config file at all:
 ```
 **Defaults when a key is absent:** `root` → `relay`; no `paths` overrides; no `guardrails` (reviewers
 use their built-in defaults); no `hooks` (commands use their built-in discovery); `test.target` → unset
-(auto — preview if the project has one, else local); no `review.agents`
+(auto — preview if the project has one, else local); `test.drive` → `ask` (one question after the plan); no `review.agents`
 (just the built-in eleven specialists); `review.verify` → `auto` (every 🔴 is
 refuted before it reaches the report, and only when the review raised one — a clean review launches
 no refuters and costs nothing; `audit` widens it to 🟡, `no-audit` switches it off. A boolean `true`/

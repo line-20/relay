@@ -7,6 +7,16 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## Unreleased — `/test` can drive without asking, if you tell it to once
+
+**Added**
+- **`test.drive` (`ask` | `always` | `never`)** — whether `/test` drives the plan in the browser after
+  writing it. With `"test": { "target": "preview", "drive": "always" }`, a bare `/rlt` writes the plan
+  and drives it against the preview with no question. Absent ⇒ `ask`, today's one question. Set it in
+  `relay.config.json` for the project; `relay.config.local.json` overrides it for you alone.
+- **`/test no-drive`** — open the PR and write the plan, skip the drive, don't ask. A per-call `drive`
+  still wins over everything; `plan-only` still never drives.
+
 ## 1.30.0 — With a merge queue, `/ship` stops pushing docs behind the queue's back
 
 If your project lands PRs through a merge queue (`hooks.land`), `/ship` used to push release notes, house rules

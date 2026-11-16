@@ -3,11 +3,11 @@
 # Source: commands/test.md · edit that file, then re-run the script.
 name: rlt
 description: Short name for /relay:test — the verify step between build and ship: a PR and a structured test plan.
-argument-hint: "[focus/area · a PR number · 'plan-only' (checklist alone) · 'drive'/'run' (also run it in the browser) · 'preview'/'local' (which environment)]"
+argument-hint: "[focus/area · a PR number · 'plan-only' (checklist alone) · 'drive'/'run' (also run it in the browser) · 'no-drive' (PR + plan, never drive) · 'preview'/'local' (which environment)]"
 ---
 
 ## Usage
-`/relay:test [focus | pr-number] [plan-only | drive] [preview | local]` — also `/rlt` (bare, no prefix) and `/relay:rlt`
+`/relay:test [focus | pr-number] [plan-only | drive | no-drive] [preview | local]` — also `/rlt` (bare, no prefix) and `/relay:rlt`
 
 | Argument | Effect |
 |---|---|
@@ -15,10 +15,11 @@ argument-hint: "[focus/area · a PR number · 'plan-only' (checklist alone) · '
 | `<pr-number>` | Use that PR instead of the current branch's |
 | `plan-only` | Print the checklist only — opens, touches, requires no PR |
 | `drive` / `run` | Also drive the happy path in the browser, without asking first |
+| `no-drive` | PR mode, but skip the drive without asking |
 | `preview` / `local` | Which environment to verify against |
-| *(empty)* | PR mode — ensure a PR, write the plan, then ask once about driving it |
+| *(empty)* | PR mode — ensure a PR, write the plan, then drive per `test.drive` (unset ⇒ ask once) |
 
-**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `test.target`, `hooks.deploy`, `hooks.env.up`.
+**Any command also takes** `small`·`medium`·`large` (session size) · `terse`·`verbose` (how much Relay narrates) · `plain`·`informed`·`expert` (terminal depth) · `ask`·`challenge`·`solo` (who decides) — per-call, winning over `relay.config.local.json` ([[conventions]]). **Reads config:** `test.target`, `test.drive`, `hooks.deploy`, `hooks.env.up`.
 
 > **`?` prints this and stops.** If `$ARGUMENTS` is exactly `?`, `help`, `--help` or `-h`, print the
 > signature line, the argument table and the words/config line above — verbatim, nothing else, not
@@ -39,12 +40,13 @@ open — that's the whole point. (Not ready to commit yet? Use **`plan-only`**, 
 
 **Modes** (from `$ARGUMENTS`):
 - **Default (PR mode)** — ensure a PR: **commit the slice** if the tree is dirty, reuse or open the
-  PR, write the plan into it. Then, unless the caller already said otherwise, **ask once** whether to
-  drive it (Step 6). Committing and opening the PR are *not* asks — only driving is.
+  PR, write the plan into it. Then decide on driving (Step 6): `test.drive` in config says
+  `always`/`never`, else **ask once**. Committing and opening the PR are *not* asks — only driving is.
 - **`plan-only`** — just produce the plan and print it; **do not commit, open, touch, or require a
   PR**. Use when the work isn't PR-ready, or you only asked for "what to test". No commit, no drive,
   no ask.
 - **`drive`/`run`** — do PR mode, then **drive the plan in the browser** (Step 6) without asking.
+- **`no-drive`** — do PR mode, then **skip the drive** without asking, whatever `test.drive` says.
 
 This is NOT `/ship`. `/ship` ships (merges). `/test` **stops at a tested-but-unmerged
 PR** (or a printed checklist) — a human (or Claude, in drive mode) exercises it against the
@@ -201,11 +203,20 @@ touch. Every step is a concrete action + its expected result, as a `- [ ]` check
   a reused PR as you found it. Never `gh pr ready`, never merge — it gets exercised first.
 
 ## Step 6 — Drive it in the browser (explicit, or ask once)
-**Decide whether to drive:**
-- `drive`/`run` in `$ARGUMENTS` → drive, no question.
-- `plan-only`, or the caller already said not to → **skip** this step.
-- **Otherwise ask once and STOP for the answer:** *"Want me to drive the happy path against the
-  preview in Chrome and report back? (y/N)"* Skip on no; a plan alone is a complete result.
+**Decide whether to drive** — first match wins:
+1. `drive`/`run` in `$ARGUMENTS` → drive, no question.
+2. `plan-only` or `no-drive` in `$ARGUMENTS`, or the caller already said not to → **skip** this step.
+3. Config `test.drive` (`ask` | `always` | `never`) — `relay.config.local.json` wins over
+   `relay.config.json`, so a driver can override the project default:
+   ```bash
+   DRIVE="$(jq -r '.test.drive // empty' relay.config.local.json 2>/dev/null)"
+   : "${DRIVE:=$(jq -r '.test.drive // empty' relay.config.json 2>/dev/null)}"; : "${DRIVE:=ask}"
+   ```
+   - `always` → drive, no question.
+   - `never` → **skip** this step.
+   - `ask` (or unset, or any other value) → **ask once and STOP for the answer:** *"Want me to drive
+     the happy path against the preview in Chrome and report back? (y/N)"* Skip on no; a plan alone
+     is a complete result.
 
 **If driving:**
 1. **Need a reachable target** — the one Step 3 settled on. Preview: the URL, once its deploy check
@@ -236,7 +247,8 @@ touch. Every step is a concrete action + its expected result, as a `- [ ]` check
 
 ## Step 7 — Report
 One compact block: **where the plan is** (the PR url, or "printed above"), the **target** (preview
-vs local, and how it was chosen — argument, config, or auto), and a count — *N happy-path steps, M
+vs local, and how it was chosen — argument, config, or auto; if you drove or skipped because of
+`test.drive`, say so), and a count — *N happy-path steps, M
 non-happy-path cases across <categories>*. If you drove it, add a one-line **pass/fail tally** and
 the **GIF path**. If a preview URL is live, print it so the user can click straight through; if the
 deploy is still running, say where it'll appear. **If this session brought a local environment up
