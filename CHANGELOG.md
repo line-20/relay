@@ -7,7 +7,7 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
-## Unreleased — `/test` can drive without asking, if you tell it to once
+## 1.31.0 — `/test` can drive without asking, if you tell it to once
 
 **Added**
 - **`test.drive` (`ask` | `always` | `never`)** — whether `/test` drives the plan in the browser after
