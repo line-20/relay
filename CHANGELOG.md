@@ -7,6 +7,24 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.32.0 — `/ship` won't merge or queue a PR whose checks are red
+
+**Changed**
+- **A red check stops the lap.** Before `/ship` merges a PR or hands it to your merge queue (`hooks.land`), it
+  reads the checks on the exact commit it pushed. If any failed, it doesn't merge or queue. It names the check
+  and its first failure line, e.g. `red: Repo guards — AssertionError [ERR_ASSERTION]: …`, then fixes it (at
+  most two rounds) or stops and points you to `/relay:fix`. No autonomy level skips this.
+- **No checks at all is blocked, not green.** A draft, or a PR that conflicts with `main`, often starts no CI.
+  `/ship` now says so instead of carrying on.
+- **Checks still running:** with a merge queue, `/ship` queues anyway, because the queue waits for them.
+  Without one, it waits and merges only on green.
+- **Only the commit you pushed counts.** A green run from an earlier commit no longer counts. If someone else
+  pushes in between, `/ship` stops and asks.
+
+**Added**
+- `relay-checks-gate.mjs`, bundled with the plugin: the check `/ship` runs. You can run it by hand too:
+  `relay-checks-gate.mjs <pr>`.
+
 ## 1.31.0 — `/test` can drive without asking, if you tell it to once
 
 **Added**
