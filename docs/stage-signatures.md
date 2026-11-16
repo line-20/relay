@@ -98,7 +98,7 @@ Decisions/discoveries `[impl]`: threat mitigations → per-slice requirements; g
 
 | | |
 |---|---|
-| **Consumes** | `[impl]` focus/area **or** PR number + mode (`plan-only`/`drive`) + env (`preview`/`local`); config `test.target`, `hooks`. Precondition: a built slice; not on default branch. |
+| **Consumes** | `[impl]` focus/area **or** PR number + mode (`plan-only`/`drive`/`no-drive`) + env (`preview`/`local`); config `test.target`, `test.drive`, `hooks`. Precondition: a built slice; not on default branch. |
 | **Reads** | `[impl]` **the diff** (`git diff origin/main...HEAD` or `gh pr diff`), project `CLAUDE.md` for invariants, config. |
 | **Produces** | `[impl]` commits the slice, opens/reuses a **draft PR**, writes the `## 🧪 Test drive` plan into the PR body; optional GIF + PR comment. Class **B** (the PR+plan), **A** (commit). |
 | **Writes** | `[obs]` browser-driven (`mcp__claude-in-chrome__computer` 3584 uses corpus-wide — distinctive; 52% of Test spans drive a browser), code fixes, PR body; **no relay-root writes**. |
