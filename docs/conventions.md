@@ -172,6 +172,25 @@ Set it deliberately via `/relay:config autonomy` — it is kept out of the guide
   `<root>/decisions.md`, one line per call made without the driver) are **project truth**, committed:
   what counts as a product decision, and where calls are recorded, are facts every driver shares.
 
+**`log` as a file or a directory.** A path to a **file** (the default) is one shared, append-only log —
+today's behaviour, unchanged. A path that **ends in `/` or exists as a directory** (e.g.
+`"log": "relay/decisions/"`) gives every lap its own file, so parallel PRs never edit the same path and a
+merge queue never drops one for "conflict with base branch" — the same reason `paths.release-notes` has a
+directory mode.
+- **Writing (directory mode):** append to `<log>/<branch-slug>.md`, where `<branch-slug>` is the current
+  branch with every `/` replaced by `-` (`fix/invoice-rounding` → `fix-invoice-rounding.md`). Keyed on the
+  branch, not the PR number, because decisions are logged mid-build, before a PR exists. **Always append —
+  create the directory and file only if missing (`mkdir -p`; git doesn't carry an empty directory), never
+  truncate or rewrite the file.** A reused branch name, or two
+  branches that slug alike (`a/b`, `a-b`), lands in a file that already holds earlier lines from a merged
+  PR; that is expected.
+- **Reading (both modes):** "the decisions log" means the **legacy file** `<root>/decisions.md` if it exists,
+  **plus** every `*.md` in the directory, with lines merged in date order. Switching to a directory moves
+  nothing: the old file stays as history and is still read.
+- **/tidy never folds or prunes it** — the log is durable output. Consolidating old per-lap files, if ever
+  wanted, is one deliberate lap of its own, never a per-lap side effect (that would bring the shared-file
+  conflict back).
+
 `challenge` dispatches the `challenger` agent with the options and acts on its ruling; `solo` decides
 alone. Both **record the call** in `log` — turning `decide` up without a log is the one combination to
 talk a project out of.

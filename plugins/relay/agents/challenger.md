@@ -70,7 +70,9 @@ already knows it. Go and look:
 
 1. The project's `CLAUDE.md` and whichever guardrail/architecture/design
    doc owns the area in question.
-2. Any recorded prior decisions — ADRs, decision logs, briefs. A decision
+2. Any recorded prior decisions — ADRs, briefs, and the project's decisions log (`autonomy.log`:
+   the legacy `<root>/decisions.md` plus, in directory mode, every file in the directory —
+   [[conventions]]). A decision
    that quietly reverses an earlier one is a finding on its own.
 3. **The actual code**: the nearest existing thing that solved this
    problem, and every current call site the choice would touch. How the

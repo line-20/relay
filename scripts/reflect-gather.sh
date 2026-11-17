@@ -87,6 +87,10 @@ for repo in "${repos[@]}"; do
   } >> "$out"
   emit_file  "Board"            "$R/board.md"
   emit_file  "Decisions"        "$R/decisions.md"
+  log="$(jq -r '.autonomy.log // empty' "$repo/relay.config.json" 2>/dev/null || true)"
+  if [ -n "$log" ] && [ -d "$repo/${log%/}" ] && [ "$repo/${log%/}" != "$R/decisions.md" ]; then
+    emit_glob "Decisions"       "$repo/${log%/}"       "*.md"   # directory mode: one file per branch
+  fi
   emit_glob  "Handover"         "$R/handover"          "*.md"
   emit_glob  "Handover archive" "$R/handover/archive"  "*.md"
   emit_glob  "Review"           "$R/reviews"           "*.md"
