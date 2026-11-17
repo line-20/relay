@@ -247,9 +247,9 @@ outlive the lap — the shape of stored data, a new seam or boundary, a name tha
 two project rules pointing opposite ways — `ask` stops and puts it to the user (today's behaviour);
 `challenge` dispatches the **`challenger`** agent with named options, what you already checked, what
 breaks either way, and your own recommendation, then acts on its ruling; `solo` decides alone. Under
-`challenge`/`solo`, append one line per call to `autonomy.log` (default `<root>/decisions.md`) and
+`challenge`/`solo`, append one line per call to `autonomy.log` (default `<root>/decisions.md`; a directory ⇒ one file per branch) and
 respect `autonomy.budget`. **If the log lives on the durable branch and the project sets `hooks.land`, write the
-line into the working tree and commit it (only `<root>/decisions.md`) on this lap's branch so it rides the PR — never push it to `main` on its
+line into the working tree and commit it (only the log target — the file, or in directory mode this branch's `<log>/<branch-slug>.md`, appended never rewritten; [[conventions]]) on this lap's branch so it rides the PR — never push it to `main` on its
 own** (a lone commit on `main` makes the merge queue rebuild its batches). Notes branch or no `hooks.land`: as before. `autonomy.budget` still applies — needing more challenges than that means the slice is too big, so say so
 and re-slice. Whatever the level, `autonomy.escalate` categories still come back to the user, and no
 level relaxes a **safety** gate (dirty tree, red suite, unresolved 🔴, stale merge base, destructive
@@ -259,7 +259,7 @@ operation). See `/relay:config autonomy`.
 `ask` and `DECIDE_SET` is `unset`, put the decision to the user **first**, and only once they have
 answered it, add the offer — the same one-time gate `/next` runs (Step 5.4), verbatim in behaviour:
 a short block explaining that `decide` is `ask`, that calls like this one could go to the challenger
-agent or be decided alone, that every call is logged to `<root>/decisions.md`, and that
+agent or be decided alone, that every call is logged to the decisions log (`autonomy.log`), and that
 user-visible/commercial/copy/consequential calls come back regardless. Record the answer — **all
 three, `ask` included** — by surgically merging `autonomy.decide` into `relay.config.local.json`
 (gitignored, per-driver; preserve every other key). Whichever command fires it first, the other is

@@ -97,7 +97,8 @@ Find out what the codebase already says about this work, so the plan builds *wit
 of against it. Read, don't assume:
 - The **code area** this touches — the modules, endpoints, components, or schema it will extend or
   sit next to. What already exists to **reuse**? What must it **not break**?
-- The project's **durable knowledge** — `CLAUDE.md`, `<root>/knowledge/` docs, architecture notes,
+- The project's **durable knowledge** — `CLAUDE.md`, `<root>/knowledge/` docs, architecture notes, the
+  decisions log (`autonomy.log` — file, or directory read as one log; [[conventions]]),
   and any **AI memory** the harness exposes — for prior decisions that bear on this (a chosen
   pattern, a past mistake, a documented constraint). Don't re-decide what's already decided.
 - The **pre-build fit check** — if the project's `CLAUDE.md` defines a checklist for a new

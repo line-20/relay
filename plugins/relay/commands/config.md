@@ -179,7 +179,10 @@ override it.
 - **`log`** (path, default `<root>/decisions.md`) — one line per call made without the user: date, the
   question, the ruling, why. This is what makes `challenge`/`solo` reviewable after the fact, and what
   stops the next lap quietly reversing this one. **Turning `decide` up without a log is the one
-  combination to talk the user out of.**
+  combination to talk the user out of.** A path ending in `/` (e.g. `relay/decisions/`) switches to
+  **one file per branch** — offer it when several sessions run in parallel and their PRs go through a
+  merge queue (`hooks.land`): a single shared file makes parallel PRs conflict on its last line. Nothing
+  moves; the old file stays readable as history ([[conventions]] → `log` as a file or a directory).
 
 **This governs judgment gates only — never safety gates.** A STOP for a dirty tree, a red suite, an
 unresolved 🔴 blocker, a stale merge base or a destructive/irreversible operation stays a STOP at every
