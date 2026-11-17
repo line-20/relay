@@ -7,6 +7,19 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.33.0 — Parallel PRs stop conflicting on the decisions log
+
+**Added**
+- **One decisions file per branch.** Set `"autonomy": { "log": "relay/decisions/" }` (a path ending in `/`)
+  and each lap appends its `challenge`/`solo` calls to its own file, e.g. `relay/decisions/fix-invoice-rounding.md`,
+  instead of every PR adding lines to the end of one shared `decisions.md`. Two PRs no longer edit the same
+  file, so a merge queue stops dropping one for "conflict with base branch". Nothing moves: the old
+  `decisions.md` stays as history, and everything that reads past decisions reads both. A log path that
+  points at a file works exactly as before.
+- **`/ship` shows why a queued PR is waiting.** When it hands a PR to your merge queue (`hooks.land`), it now
+  prints what the land command printed, e.g. `land: lands after #2444, which is already queued…`, and copies
+  those lines into the handover so the next session sees them.
+
 ## 1.32.0 — `/ship` won't merge or queue a PR whose checks are red
 
 **Changed**
