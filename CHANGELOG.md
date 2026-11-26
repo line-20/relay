@@ -7,6 +7,19 @@ To pick up a new version, colleagues refresh via the `/plugin` manager — `/plu
 update line-20` then update the `relay` plugin. Their repos' `relay/` folders are their own
 data and are never touched by an update.
 
+## 1.34.0 — Release notes follow your notes folder's own rules
+
+**Improved**
+- **`/persist` reads the notes folder's README first.** When release notes are one file per PR
+  (`release_notes` points at a folder), `/persist` now reads that folder's `README.md`, and any style guide it
+  links to, before writing. Whatever the README sets wins over Relay's three-line default: file name, headings,
+  word limits, a public versus internal part, and translated twins, e.g. `pr-2730.nl.md` beside `pr-2730.md`.
+  If the README names a check (a test or script), `/persist` runs it on the notes it wrote before committing.
+  No README means the same note as before.
+- **Each PR writes only its own note.** When a lap changes something an older note describes, it says so in
+  its own `pr-<n>.md` and leaves the older PR's note untouched. Editing an old note could collide with
+  another open PR and get it dropped from a merge queue.
+
 ## 1.33.0 — Parallel PRs stop conflicting on the decisions log
 
 **Added**
