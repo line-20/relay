@@ -123,6 +123,12 @@ When it applies, draft **1–3 lines in the user's language**, not the committer
 - **Not the CHANGELOG.** A dev-facing CHANGELOG (semver, technical, per-commit) is a different
   artefact; if the project keeps one, the release note is the *human* companion to it, not a copy of
   it. Categorise lightly if the project already does (**New** / **Improved** / **Fixed**).
+- **The project's note convention wins over this default.** In directory mode (Step 6), read the notes
+  directory's own `README.md` — and any style guide it links to — **before drafting**. Whatever it sets
+  overrides the shape above: the file name, the allowed headings, per-bullet word limits, a public part
+  versus an internal part, and translated twins (e.g. a `pr-<n>.nl.md` beside `pr-<n>.md`, in that
+  language's UI vocabulary). Such a project often keeps a note for an internal-only lap too, under its
+  internal heading — follow it rather than writing nothing. No README ⇒ the default above.
 
 ## Step 3 — Route each output to a surface (defer what isn't a first-slice target)
 | Output | Target now | Mechanism |
@@ -229,9 +235,15 @@ hand-authored content:
   this change already has a note, refine it in place rather than adding a second.
   **Directory mode:** if `$RELEASE_NOTES` names a **directory** (it exists as one, or the configured path ends in
   `/`), write this lap's note to `$RELEASE_NOTES/pr-<n>.md` instead — one file per PR, so two laps can never
-  conflict on it. A rerun updates that file in place. Keep the same shape inside (the three-line note, optional
-  **New / Improved / Fixed** heading). Relay ships no collector: the project's own release flow reads the
-  fragments, if it wants a single published file. A path that is a file keeps today's single-file behaviour.
+  conflict on it. A rerun updates that file in place. Inside, use the **folder's convention** when it has a
+  `README.md` (Step 2.5: its name pattern, headings, word limits, internal section and translated twins — write
+  every twin it asks for in this same lap); otherwise the three-line note with optional **New / Improved /
+  Fixed** heading. **Write only this lap's file**: when this lap changes something an earlier note describes,
+  say so in this lap's own `pr-<n>.md`, never by editing the earlier PR's note (that file belongs to the
+  release that shipped it, and editing it collides with any open PR touching it). If the README names a check
+  for the notes (a test or script), **run it** on the files you wrote before committing, and fix what it
+  reports. Relay ships no collector: the project's own release flow reads the fragments, if it wants a single
+  published file. A path that is a file keeps today's single-file behaviour.
 - **ADR (`full` only):** write one file per decision to `$ADR_DIR/<YYYY-MM-DD>-<slug>.md` using the
   **date-slug, no-counter** convention ([[conventions]] → *Persistence*) — no sequential number
   (concurrent worktrees would race over it), referred to by slug. Include a `Status: Accepted` line;
